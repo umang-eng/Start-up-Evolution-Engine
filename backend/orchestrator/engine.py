@@ -123,26 +123,35 @@ class WorkflowOrchestrator:
             context = context_manager.assemble_context(project)
             context = context_manager.compress_context_payload(context)
 
-            # Run with Retry Loop (up to 3 times)
-            retry_count = 3
-            success = False
-            result_data = None
+            # Set context variables for analytics tracking
+            from backend.core.logging import active_project_id_ctx, active_module_name_ctx
+            project_id_token = active_project_id_ctx.set(str(project.id))
+            module_name_token = active_module_name_ctx.set(stage_name)
 
-            for attempt in range(retry_count):
-                try:
-                    # Execute async module logic
-                    result_data = await module_runner.run(db, project, context)
-                    success = True
-                    break
-                except Exception as e:
-                    workflow_logger.warning(
-                        f"Module {stage_name} failed execution: attempt {attempt + 1}",
-                        exc_info=e
-                    )
-                    if attempt == retry_count - 1:
-                        await self._handle_stage_failure(db, session, channel_name, stage_name, is_critical, str(e))
-                        if is_critical:
-                            return session
+            try:
+                # Run with Retry Loop (up to 3 times)
+                retry_count = 3
+                success = False
+                result_data = None
+
+                for attempt in range(retry_count):
+                    try:
+                        # Execute async module logic
+                        result_data = await module_runner.run(db, project, context)
+                        success = True
+                        break
+                    except Exception as e:
+                        workflow_logger.warning(
+                            f"Module {stage_name} failed execution: attempt {attempt + 1}",
+                            exc_info=e
+                        )
+                        if attempt == retry_count - 1:
+                            await self._handle_stage_failure(db, session, channel_name, stage_name, is_critical, str(e))
+                            if is_critical:
+                                return session
+            finally:
+                active_project_id_ctx.reset(project_id_token)
+                active_module_name_ctx.reset(module_name_token)
 
             if success and result_data:
                 # Log event mapping

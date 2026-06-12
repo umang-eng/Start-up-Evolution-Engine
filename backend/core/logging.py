@@ -6,6 +6,8 @@ from typing import Any
 
 # ContextVar to store correlation IDs for log tracing
 correlation_id_ctx: ContextVar[str | None] = ContextVar("correlation_id", default=None)
+active_project_id_ctx: ContextVar[str | None] = ContextVar("active_project_id", default=None)
+active_module_name_ctx: ContextVar[str | None] = ContextVar("active_module_name", default=None)
 
 
 class CorrelationIdFilter(logging.Filter):

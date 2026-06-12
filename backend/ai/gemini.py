@@ -70,6 +70,22 @@ class GeminiAdapter(LLMProvider):
                     }
                 )
 
+                # Log database telemetry automatically using active ContextVars
+                from backend.core.logging import active_project_id_ctx, active_module_name_ctx, correlation_id_ctx
+                proj_id = active_project_id_ctx.get()
+                mod_name = active_module_name_ctx.get() or "unknown"
+                corr_id = correlation_id_ctx.get() or "unknown"
+
+                if proj_id:
+                    await self._log_analytics(
+                        project_id=proj_id,
+                        correlation_id=corr_id,
+                        module_name=mod_name,
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=candidates_tokens,
+                        latency_ms=latency_ms
+                    )
+
                 # Parse JSON string back to Pydantic Model
                 return schema.model_validate_json(response.text)
 
@@ -102,6 +118,41 @@ class GeminiAdapter(LLMProvider):
                     code="AI_PROVIDER_ERROR",
                     status_code=502
                 )
+
+    async def _log_analytics(
+        self,
+        project_id: str,
+        correlation_id: str,
+        module_name: str,
+        prompt_tokens: int,
+        completion_tokens: int,
+        latency_ms: int
+    ) -> None:
+        """Persists LLM execution cost, token, and latency metrics to database."""
+        try:
+            import uuid
+            from backend.database.session import AsyncSessionLocal
+            from backend.models.analytics import AnalyticsLog
+
+            # Costs for gemini-1.5-pro:
+            # Input: $1.25 / million tokens -> $0.00000125 per token
+            # Output: $5.00 / million tokens -> $0.000005 per token
+            cost = (prompt_tokens * 0.00000125) + (completion_tokens * 0.000005)
+
+            async with AsyncSessionLocal() as db:
+                log_entry = AnalyticsLog(
+                    project_id=uuid.UUID(project_id),
+                    correlation_id=correlation_id,
+                    module_name=module_name,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    latency_ms=latency_ms,
+                    estimated_cost_usd=cost
+                )
+                db.add(log_entry)
+                await db.commit()
+        except Exception as e:
+            logger.error("Failed to persist analytics log in database", exc_info=e)
 
     async def generate_stream(
         self, 
