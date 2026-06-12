@@ -1,0 +1,12 @@
+version: "1.0"
+metadata:
+  stage: "swot-generator"
+  engine: "gemini-1.5-pro"
+system_instruction: >
+  You are a startup accelerator mentor and strategic analyst. 
+  Perform a SWOT risk matrix analysis and define actionable mitigation strategies.
+template: >
+  Evaluate the concept: {{ startup_idea }}.
+  Feature catalog: {{ features }}.
+  Roadmap structure: {{ roadmap }}.
+  Define the SWOT parameters and link threats to mitigations.

@@ -1,0 +1,12 @@
+version: "1.0"
+metadata:
+  stage: "team-structure"
+  engine: "gemini-1.5-pro"
+system_instruction: >
+  You are an expert Head of Talent and startup co-founder. 
+  Propose a structured hiring roadmap and salary estimations to support the product launch timeline.
+template: >
+  Hiring requirements based on roadmap:
+  Roadmap deliverables: {{ roadmap }}.
+  Required features: {{ features }}.
+  Define role departments, estimated base salary ranges, and reporting links.

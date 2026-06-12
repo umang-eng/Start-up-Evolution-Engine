@@ -35,6 +35,20 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(log_payload)
 
 
+class CustomLogger(logging.Logger):
+    """Logger subclass that intercepts extra_data kwargs and converts them to standard extra dictionary."""
+    def _log(self, level: int, msg: Any, args: Any, **kwargs: Any) -> None:
+        extra_data = kwargs.pop("extra_data", None)
+        if extra_data is not None:
+            extra = kwargs.setdefault("extra", {})
+            extra["extra_data"] = extra_data
+        super()._log(level, msg, args, **kwargs)
+
+
+# Register custom logger class
+logging.setLoggerClass(CustomLogger)
+
+
 def setup_logging(log_level: str = "INFO") -> None:
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)

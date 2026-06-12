@@ -1,5 +1,5 @@
 from typing import Any
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.config import settings
@@ -8,12 +8,25 @@ from backend.database.session import get_db
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/auth/login",
-    auto_error=True
+    auto_error=False
 )
 
 
-async def get_token_payload(token: str = Depends(reusable_oauth2)) -> dict[str, Any]:
-    """Extracts and verifies JWT token payload claims."""
+async def get_token_payload(
+    request: Request,
+    token: str | None = Depends(reusable_oauth2)
+) -> dict[str, Any]:
+    """Extracts and verifies JWT token payload claims, supporting both header and query param."""
+    if not token:
+        token = request.query_params.get("token")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication token is missing.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     try:
         payload = decode_token(token, expected_type="access")
         return payload

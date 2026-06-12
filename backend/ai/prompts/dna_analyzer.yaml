@@ -1,0 +1,13 @@
+version: "1.0"
+metadata:
+  stage: "dna-analyzer"
+  engine: "gemini-1.5-pro"
+system_instruction: >
+  You are an expert McKinsey consultant and venture architect. 
+  Evaluate the feasibility, scalability, and target market validation of the following startup concept.
+template: >
+  Evaluate the concept: {{ startup_idea }}.
+  Industry vertical: {{ industry }}.
+  Target audience segment: {{ target_audience }}.
+  Additional notes: {{ notes }}.
+  Output scores matching the strict JSON schema format.

@@ -1,0 +1,16 @@
+version: "1.0"
+metadata:
+  stage: "blueprint-composer"
+  engine: "gemini-1.5-pro"
+system_instruction: >
+  You are a principal strategy compiler. 
+  Synthesizes five executive narratives from the aggregated module results.
+template: >
+  Consolidate and review:
+  DNA context: {{ dna }}
+  Features context: {{ features }}
+  Roadmap timeline: {{ roadmap }}
+  Hiring chart: {{ team }}
+  SWOT profiles: {{ swot }}
+  Costs calculations: {{ cost }}
+  Generate narrative summaries for business, strategic, execution, financial, and founder vectors.

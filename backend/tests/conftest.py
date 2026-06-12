@@ -1,12 +1,21 @@
+from typing import Any
 import asyncio
 from collections.abc import AsyncGenerator, Generator
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.dialects.postgresql import JSONB
 from backend.app.main import app
 from backend.cache.redis import redis_manager
 from backend.database.session import get_db
-from backend.models.base import Base
+from backend.database.base import Base
+
+# Compile PostgreSQL JSONB type to SQLite JSON type during unit tests
+@compiles(JSONB, "sqlite")
+def compile_jsonb_sqlite(element, compiler, **kw):
+    return "JSON"
 
 # Async SQLite engine for database-related unit testing in-memory
 TEST_SQLITE_URL = "sqlite+aiosqlite:///:memory:"
@@ -17,6 +26,22 @@ TestSessionLocal = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False
 )
+
+
+class MockPubSub:
+    """Mock Redis PubSub instance."""
+    async def subscribe(self, *args, **kwargs) -> None:
+        pass
+
+    async def get_message(self, *args, **kwargs) -> dict | None:
+        await asyncio.sleep(0.05)
+        return None
+
+    async def unsubscribe(self, *args, **kwargs) -> None:
+        pass
+
+    async def close(self) -> None:
+        pass
 
 
 class MockRedis:
@@ -31,6 +56,9 @@ class MockRedis:
         pass
 
     async def is_healthy(self) -> bool:
+        return True
+
+    async def ping(self) -> bool:
         return True
 
     async def get(self, key: str) -> str | None:
@@ -48,7 +76,9 @@ class MockRedis:
 
     async def publish(self, channel: str, message: str) -> int:
         return 1
-from typing import Any
+
+    def pubsub(self) -> MockPubSub:
+        return MockPubSub()
 
 
 @pytest.fixture(scope="session")
@@ -59,7 +89,7 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
     loop.close()
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(scope="session", autouse=True)
 async def setup_test_db() -> AsyncGenerator[None, None]:
     """Initializes tables in in-memory test database."""
     async with test_engine.begin() as conn:
@@ -69,7 +99,7 @@ async def setup_test_db() -> AsyncGenerator[None, None]:
         await conn.run_sync(Base.metadata.drop_all)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """Yields clean transaction-scoped database session."""
     async with TestSessionLocal() as session:
@@ -89,7 +119,7 @@ def override_redis() -> Generator[None, None, None]:
     redis_manager.client = original_redis
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """Injects client sessions with database overrides."""
     async def _override_get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -103,3 +133,4 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield client
         
     app.dependency_overrides.clear()
+

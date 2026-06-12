@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import DateTime, MetaData
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import DateTime, MetaData, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, registry
 
 # Standard naming conventions for database constraints

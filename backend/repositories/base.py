@@ -14,6 +14,12 @@ class BaseRepository(Generic[ModelType]):
 
     async def get(self, db: AsyncSession, id: Any) -> ModelType | None:
         """Fetch a single record by primary key identifier."""
+        import uuid
+        if isinstance(id, str):
+            try:
+                id = uuid.UUID(id)
+            except ValueError:
+                pass
         return await db.get(self.model, id)
 
     async def get_multi(
@@ -46,6 +52,12 @@ class BaseRepository(Generic[ModelType]):
 
     async def remove(self, db: AsyncSession, *, id: Any) -> ModelType | None:
         """Remove a record by its identifier."""
+        import uuid
+        if isinstance(id, str):
+            try:
+                id = uuid.UUID(id)
+            except ValueError:
+                pass
         db_obj = await db.get(self.model, id)
         if db_obj:
             await db.delete(db_obj)

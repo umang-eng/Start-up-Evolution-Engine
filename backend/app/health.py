@@ -1,3 +1,4 @@
+from typing import Any
 from fastapi import APIRouter, status, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -5,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.cache.redis import redis_manager
 from backend.database.session import get_db
 from backend.schemas.base import BaseResponse, APIResponseMetadata
+
 
 router = APIRouter(prefix="/health", tags=["System Health"])
 
@@ -55,4 +57,4 @@ async def check_readiness(db: AsyncSession = Depends(get_db)) -> JSONResponse:
             }
         }
     )
-from typing import Any
+
