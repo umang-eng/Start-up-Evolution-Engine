@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useTransition } from 'react';
 import { useBlueprintStore } from '@/store/use-blueprint-store';
+import { useAuth } from '@/components/shared/auth-provider';
+import { api, getAccessToken, mapDnaResponse, mapFeaturesResponse, mapRoadmapResponse, mapTeamResponse, mapSwotResponse, mapCostResponse } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { Sidebar } from '@/components/shared/sidebar';
 import { Navbar } from '@/components/shared/navbar';
@@ -14,7 +16,6 @@ import {
   Sparkles, 
   ArrowRight, 
   Play, 
-  Pause, 
   RefreshCw, 
   CheckCircle, 
   AlertTriangle,
@@ -27,14 +28,6 @@ import {
   ScrollText,
   Plus
 } from 'lucide-react';
-import { 
-  generateMockDNA, 
-  generateMockFeatures, 
-  generateMockRoadmap, 
-  generateMockTeam, 
-  generateMockSWOT, 
-  generateMockCost 
-} from '@/lib/mock-generator';
 import { StageName } from '@/types/blueprint';
 
 export default function WorkspacePage() {
@@ -43,8 +36,10 @@ export default function WorkspacePage() {
     activeProjectId, 
     activeStage,
     setActiveStage,
+    loadProjects,
     createNewProject,
     updateProjectStatus,
+    loadBlueprint,
     saveDNA,
     saveFeatures,
     saveRoadmap,
@@ -53,6 +48,7 @@ export default function WorkspacePage() {
     saveCost
   } = useBlueprintStore();
 
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [inputVal, setInputVal] = useState('');
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [streamLog, setStreamLog] = useState<string[]>([]);
@@ -61,6 +57,20 @@ export default function WorkspacePage() {
   const [isPending, startTransition] = useTransition();
 
   const activeProject = projects.find(p => p.id === activeProjectId);
+
+  // Load projects from database on startup
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadProjects();
+    }
+  }, [isAuthenticated]);
+
+  // Load compiled details if active project state is already completed but empty in store
+  useEffect(() => {
+    if (activeProject && activeProject.status === 'completed' && !activeProject.dna && activeProjectId) {
+      loadBlueprint(activeProjectId);
+    }
+  }, [activeProjectId]);
 
   // Auto-enhance idea trigger
   const handleEnhance = () => {
@@ -72,74 +82,135 @@ export default function WorkspacePage() {
     }, 1200);
   };
 
-  // Run mock generation sequence
-  const handleStartGeneration = (projId: string, promptText: string) => {
+  // Run real generation sequence using Server-Sent Events (SSE)
+  const handleStartGeneration = async (projId: string) => {
     updateProjectStatus(projId, 'generating');
-    setStreamLog(["Initializing business intelligence diagnostic engines..."]);
+    setStreamLog(["Contacting business intelligence diagnostics orchestrator..."]);
 
-    const runStep = (index: number) => {
-      const steps: { label: string; action: () => void; log: string }[] = [
-        {
-          label: "Startup DNA Analyzer",
-          log: "Calculating market opportunity index and viability metrics...",
-          action: () => saveDNA(projId, generateMockDNA(promptText))
-        },
-        {
-          label: "Feature Extraction Engine",
-          log: "Synthesizing product specs and dependency graphs...",
-          action: () => saveFeatures(projId, generateMockFeatures(promptText))
-        },
-        {
-          label: "Roadmap Generator",
-          log: "Plotting Gantt milestone timelines and KPIs...",
-          action: () => saveRoadmap(projId, generateMockRoadmap(promptText))
-        },
-        {
-          label: "Team Structure Generator",
-          log: "Designing hierarchical org nodes and cost impacts...",
-          action: () => saveTeam(projId, generateMockTeam(promptText))
-        },
-        {
-          label: "SWOT Generator",
-          log: "Assembling risk probability matrices and mitigation matrices...",
-          action: () => saveSWOT(projId, generateMockSWOT(promptText))
-        },
-        {
-          label: "Cost Estimator",
-          log: "Compiling Year 1 budgets and runway scenarios...",
-          action: () => {
-            saveCost(projId, generateMockCost(promptText));
-            updateProjectStatus(projId, 'completed');
-          }
+    const token = getAccessToken();
+    if (!token) {
+      setStreamLog(prev => ["Error: Authentication credentials missing", ...prev]);
+      updateProjectStatus(projId, 'error');
+      return;
+    }
+
+    try {
+      // 1. Trigger Async execution run
+      await api.generator.run(projId);
+      setStreamLog(prev => ["Workflow generation triggered successfully. Launching streaming connection...", ...prev]);
+
+      // 2. Open EventSource connection with token query param
+      const eventSourceUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/streams/progress/${projId}?token=${encodeURIComponent(token)}`;
+      const es = new EventSource(eventSourceUrl);
+
+      es.addEventListener('workflow:started', () => {
+        setStreamLog(prev => ["Pipeline running - Evolving startup DNA architecture...", ...prev]);
+      });
+
+      es.addEventListener('module:started', (e: any) => {
+        try {
+          const data = JSON.parse(e.data);
+          const stageName = data.module_info?.module_name || '';
+          setStreamLog(prev => [`Starting Stage [${stageName.toUpperCase()}]: Compiling dataset...`, ...prev]);
+        } catch (err) {
+          console.error(err);
         }
-      ];
+      });
 
-      if (index >= steps.length) return;
+      es.addEventListener('module:completed', (e: any) => {
+        try {
+          const data = JSON.parse(e.data);
+          const stageName = data.module_info?.module_name;
+          const result = data.result_info;
 
-      setTimeout(() => {
-        setStreamLog(prev => [steps[index].log, ...prev]);
-        steps[index].action();
-        runStep(index + 1);
-      }, 2000);
-    };
+          setStreamLog(prev => [`Stage Completed: [${stageName.toUpperCase()}] compiled successfully.`, ...prev]);
 
-    runStep(0);
+          // Save partial result structures into Zustand store in real-time
+          if (stageName === 'dna') {
+            saveDNA(projId, mapDnaResponse(result));
+          } else if (stageName === 'features') {
+            saveFeatures(projId, mapFeaturesResponse(result));
+          } else if (stageName === 'roadmap') {
+            saveRoadmap(projId, mapRoadmapResponse(result));
+          } else if (stageName === 'team') {
+            saveTeam(projId, mapTeamResponse(result));
+          } else if (stageName === 'swot') {
+            saveSWOT(projId, mapSwotResponse(result));
+          } else if (stageName === 'cost') {
+            saveCost(projId, mapCostResponse(result));
+          }
+        } catch (err) {
+          console.error('Failed to process streaming result payload:', err);
+        }
+      });
+
+      es.addEventListener('workflow:completed', () => {
+        setStreamLog(prev => ["🎉 Operating Blueprint Compiled successfully. Synchronizing state...", ...prev]);
+        es.close();
+        loadBlueprint(projId);
+      });
+
+      es.addEventListener('module:failed', (e: any) => {
+        try {
+          const data = JSON.parse(e.data);
+          setStreamLog(prev => [`[Warning] Module execution failed: ${data.error_info?.error_message}`, ...prev]);
+        } catch (err) {
+          console.error(err);
+        }
+      });
+
+      es.addEventListener('workflow:failed', (e: any) => {
+        try {
+          const data = JSON.parse(e.data);
+          setStreamLog(prev => [`Fatal compilation error: ${data.error_info?.error_message}`, ...prev]);
+          updateProjectStatus(projId, 'error');
+          es.close();
+        } catch (err) {
+          console.error(err);
+        }
+      });
+
+      es.onerror = () => {
+        // EventSource will automatically retry connection if dropped
+        console.warn('EventSource encountered connection interruption.');
+      };
+
+    } catch (err: any) {
+      setStreamLog(prev => [`Orchestrator Trigger failed: ${err.message}`, ...prev]);
+      updateProjectStatus(projId, 'error');
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputVal.trim()) return;
 
-    startTransition(() => {
-      const p = createNewProject("Solar Marketplace Idea", inputVal);
-      handleStartGeneration(p.id, inputVal);
+    startTransition(async () => {
+      try {
+        const p = await createNewProject("Evolved Startup Idea", inputVal);
+        setInputVal('');
+        handleStartGeneration(p.id);
+      } catch (err) {
+        console.error('Failed to evolve startup idea:', err);
+      }
     });
   };
 
-  // Predefined prompts helper
   const insertPrompt = (text: string) => {
     setInputVal(text);
   };
+
+  // Safe loading check
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-canvas">
+        <div className="flex flex-col items-center gap-2">
+          <RefreshCw className="h-6 w-6 text-accent-blue animate-spin" />
+          <span className="text-xs text-muted-foreground">Authenticating session...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-screen flex overflow-hidden bg-background font-sans select-none">
@@ -250,7 +321,7 @@ export default function WorkspacePage() {
                     <CardHeader>
                       <CardTitle className="text-lg font-semibold text-primary flex items-center gap-2">
                         <span className="h-2 w-2 rounded-full bg-accent-blue animate-pulse" />
-                        Architecting Business DNA...
+                        Architecting Venture Blueprint Modules...
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -290,24 +361,23 @@ export default function WorkspacePage() {
                         </div>
                       </div>
 
-                      {/* Radar score metrics mock display */}
+                      {/* Score metrics */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                         <div className="space-y-3">
                           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
                             Strategic Score Vectors
                           </span>
-                          {Object.entries(activeProject.dna.scores).map(([key, val]) => (
+                          {Object.entries(activeProject.dna.scores).map(([key, val]: any) => (
                             <div key={key} className="flex justify-between items-center text-sm border-b border-border/50 pb-1.5">
-                              <span className="capitalize text-muted-foreground">{key}</span>
+                              <span className="capitalize text-muted-foreground">{key.replace('_', ' ')}</span>
                               <span className="font-semibold text-primary">{val}/100</span>
                             </div>
                           ))}
                         </div>
                         <div className="h-48 border border-border/60 rounded-lg bg-surface-secondary flex items-center justify-center relative overflow-hidden">
-                          {/* Radial chart placeholder */}
                           <div className="h-32 w-32 rounded-full border-2 border-accent-blue/20 flex items-center justify-center">
                             <div className="h-20 w-20 rounded-full border border-accent-blue flex items-center justify-center text-xs font-semibold text-accent-blue bg-white shadow-lvl-1">
-                              81 Avg
+                              {Math.round(Object.values(activeProject.dna.scores).reduce((a: any, b: any) => a + b, 0) / 6)} Avg
                             </div>
                           </div>
                         </div>
@@ -352,7 +422,7 @@ export default function WorkspacePage() {
                   <Card className="shadow-lvl-1 border-border bg-white">
                     <CardHeader>
                       <CardTitle className="text-xl font-bold tracking-tight text-primary">
-                        Feature Architecture spec
+                        Feature Architecture Spec
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
@@ -375,8 +445,8 @@ export default function WorkspacePage() {
                         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
                           Extracted Architecture
                         </span>
-                        <div className="space-y-2">
-                          {activeProject.features.features.map((feature) => (
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                          {activeProject.features.features.map((feature: any) => (
                             <div key={feature.id} className="p-3 rounded-lg border border-border/60 bg-white flex items-center justify-between hover:border-standard transition-all">
                               <div>
                                 <span className="text-sm font-semibold text-primary block">{feature.name}</span>
@@ -409,19 +479,19 @@ export default function WorkspacePage() {
                   <Card className="shadow-lvl-1 border-border bg-white">
                     <CardHeader>
                       <CardTitle className="text-xl font-bold tracking-tight text-primary">
-                        Timeline execution roadmap
+                        Timeline Execution Roadmap
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      <div className="space-y-4">
-                        {activeProject.roadmap.phases.map((phase) => (
+                      <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+                        {activeProject.roadmap.phases.map((phase: any) => (
                           <div key={phase.id} className="p-4 rounded-lg border border-border/60 bg-surface-secondary/50 space-y-3">
                             <div className="flex justify-between items-center">
                               <span className="text-sm font-semibold text-primary">{phase.name}</span>
                               <span className="text-xs text-accent-blue font-medium">Weeks {phase.startWeek} - {phase.endWeek}</span>
                             </div>
                             <div className="space-y-1.5 pl-3 border-l-2 border-accent-blue/30 text-xs">
-                              {phase.tasks.map((task) => (
+                              {phase.tasks.map((task: any) => (
                                 <div key={task.id} className="text-muted-foreground">
                                   • {task.name} ({task.durationWeeks} weeks)
                                 </div>
@@ -454,15 +524,15 @@ export default function WorkspacePage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      <div className="space-y-3">
-                        {activeProject.team.roles.map((role) => (
+                      <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                        {activeProject.team.roles.map((role: any) => (
                           <div key={role.id} className="p-4 rounded-lg border border-border/60 bg-white flex items-center justify-between hover:border-standard transition-all">
                             <div>
                               <span className="text-sm font-semibold text-primary block">{role.name}</span>
-                              <span className="text-xs text-muted-foreground font-medium capitalize">{role.department} • Stage: {role.hiringStage}</span>
+                              <span className="text-xs text-muted-foreground font-medium capitalize">{role.department.replace('_', ' ')} • Stage: {role.hiringStage}</span>
                             </div>
                             <span className="text-xs font-semibold text-accent-blue">
-                              ${role.monthlyCost}/mo
+                              ${role.monthlyCost.toLocaleString()}/mo
                             </span>
                           </div>
                         ))}
@@ -495,8 +565,8 @@ export default function WorkspacePage() {
                         {/* Strengths */}
                         <div className="p-4 rounded-lg border border-border bg-surface-secondary/40 space-y-2">
                           <span className="text-xs font-bold text-primary block">S - Strengths</span>
-                          <div className="space-y-1.5 text-xs text-muted-foreground">
-                            {activeProject.swot.items.filter(i => i.type === 'strength').map((item) => (
+                          <div className="space-y-1.5 text-xs text-muted-foreground max-h-[120px] overflow-y-auto">
+                            {activeProject.swot.items.filter((i: any) => i.type === 'strength').map((item: any) => (
                               <div key={item.id}>• {item.content}</div>
                             ))}
                           </div>
@@ -504,8 +574,8 @@ export default function WorkspacePage() {
                         {/* Weaknesses */}
                         <div className="p-4 rounded-lg border border-border bg-surface-secondary/40 space-y-2">
                           <span className="text-xs font-bold text-primary block">W - Weaknesses</span>
-                          <div className="space-y-1.5 text-xs text-muted-foreground">
-                            {activeProject.swot.items.filter(i => i.type === 'weakness').map((item) => (
+                          <div className="space-y-1.5 text-xs text-muted-foreground max-h-[120px] overflow-y-auto">
+                            {activeProject.swot.items.filter((i: any) => i.type === 'weakness').map((item: any) => (
                               <div key={item.id}>• {item.content}</div>
                             ))}
                           </div>
@@ -513,8 +583,8 @@ export default function WorkspacePage() {
                         {/* Opportunities */}
                         <div className="p-4 rounded-lg border border-border bg-surface-secondary/40 space-y-2">
                           <span className="text-xs font-bold text-primary block">O - Opportunities</span>
-                          <div className="space-y-1.5 text-xs text-muted-foreground">
-                            {activeProject.swot.items.filter(i => i.type === 'opportunity').map((item) => (
+                          <div className="space-y-1.5 text-xs text-muted-foreground max-h-[120px] overflow-y-auto">
+                            {activeProject.swot.items.filter((i: any) => i.type === 'opportunity').map((item: any) => (
                               <div key={item.id}>• {item.content}</div>
                             ))}
                           </div>
@@ -522,8 +592,8 @@ export default function WorkspacePage() {
                         {/* Threats */}
                         <div className="p-4 rounded-lg border border-border bg-surface-secondary/40 space-y-2">
                           <span className="text-xs font-bold text-primary block">T - Threats</span>
-                          <div className="space-y-1.5 text-xs text-muted-foreground">
-                            {activeProject.swot.items.filter(i => i.type === 'threat').map((item) => (
+                          <div className="space-y-1.5 text-xs text-muted-foreground max-h-[120px] overflow-y-auto">
+                            {activeProject.swot.items.filter((i: any) => i.type === 'threat').map((item: any) => (
                               <div key={item.id}>• {item.content}</div>
                             ))}
                           </div>
@@ -556,15 +626,15 @@ export default function WorkspacePage() {
                       <div className="grid grid-cols-3 gap-4 text-center p-4 bg-surface-secondary border border-border/80 rounded-lg">
                         <div>
                           <span className="text-[10px] text-muted-foreground block">Estimated MVP Cost</span>
-                          <span className="text-lg font-bold text-primary">${activeProject.cost.mvpCost}</span>
+                          <span className="text-lg font-bold text-primary">${activeProject.cost.mvpCost.toLocaleString()}</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-muted-foreground block">Year 1 Projection</span>
-                          <span className="text-lg font-bold text-primary">${activeProject.cost.year1Cost}</span>
+                          <span className="text-lg font-bold text-primary">${activeProject.cost.year1Cost.toLocaleString()}</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-muted-foreground block">Funding Required</span>
-                          <span className="text-lg font-bold text-accent-blue">${activeProject.cost.fundingRequirement}</span>
+                          <span className="text-lg font-bold text-accent-blue">${activeProject.cost.fundingRequirement.toLocaleString()}</span>
                         </div>
                       </div>
 
@@ -573,7 +643,7 @@ export default function WorkspacePage() {
                           Budget Scenarios Simulator
                         </span>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          {activeProject.cost.scenarios.map((scen) => (
+                          {activeProject.cost.scenarios.map((scen: any) => (
                             <button
                               key={scen.id}
                               onClick={() => setSelectedScenario(scen.id)}
@@ -584,8 +654,8 @@ export default function WorkspacePage() {
                                   : "border-border/60 bg-white hover:border-standard"
                               )}
                             >
-                              <span className="text-xs font-bold text-primary block">{scen.name}</span>
-                              <span className="text-lg font-bold text-accent-blue block">${scen.mvpCost} MVP</span>
+                              <span className="text-xs font-bold text-primary block uppercase">{scen.name}</span>
+                              <span className="text-lg font-bold text-accent-blue block">${scen.mvpCost.toLocaleString()} MVP</span>
                               <span className="text-[11px] text-muted-foreground leading-relaxed block">{scen.description}</span>
                             </button>
                           ))}
@@ -624,8 +694,28 @@ export default function WorkspacePage() {
                           <span className="text-xs text-muted-foreground">The compiled strategy plan has been generated and validated. Ready for export.</span>
                         </div>
                         <div className="flex gap-2">
-                          <Button className="h-8 text-xs">Download PDF package</Button>
-                          <Button variant="outline" className="h-8 text-xs">Share secure web view</Button>
+                          <Button 
+                            onClick={() => window.open(api.exports.pdf(activeProject.id), '_blank')}
+                            className="h-8 text-xs"
+                          >
+                            Download PDF Package
+                          </Button>
+                          <Button 
+                            onClick={async () => {
+                              try {
+                                const payload = await api.exports.share(activeProject.id);
+                                const url = `${window.location.origin}/shared/${payload.token}`;
+                                setStreamLog(prev => [`Generated shareable link: ${url}`, ...prev]);
+                                alert(`Investor link created: ${url}`);
+                              } catch (err: any) {
+                                alert(`Failed to share: ${err.message}`);
+                              }
+                            }}
+                            variant="outline" 
+                            className="h-8 text-xs"
+                          >
+                            Share Secure Web View
+                          </Button>
                         </div>
                       </div>
                     </CardContent>

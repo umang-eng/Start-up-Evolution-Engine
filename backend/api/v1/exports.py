@@ -19,6 +19,7 @@ logger = logging.getLogger("app.exports")
 
 
 @router.post("/pdf/{project_id}")
+@router.get("/pdf/{project_id}")
 async def export_pdf(
     project_id: str = Depends(verify_project_access),
     db: AsyncSession = Depends(get_db)
@@ -56,6 +57,7 @@ async def export_pdf(
 
 
 @router.post("/deck/{project_id}")
+@router.get("/deck/{project_id}")
 async def export_deck(
     project_id: str = Depends(verify_project_access),
     db: AsyncSession = Depends(get_db)

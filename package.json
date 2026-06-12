@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev:frontend": "next dev",
-    "dev:backend": "cd backend && uvicorn app.main:app --reload --port 8000",
+    "dev:backend": "cd backend && PYTHONPATH=.. uvicorn app.main:app --reload --port 8000",
     "dev": "concurrently -n \"next,fastapi\" -c \"cyan,green\" \"npm run dev:frontend\" \"npm run dev:backend\"",
     "build": "next build",
     "start": "next start",

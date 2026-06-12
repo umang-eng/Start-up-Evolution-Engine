@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useBlueprintStore } from '@/store/use-blueprint-store';
+import { useAuth } from '@/components/shared/auth-provider';
 import { cn } from '@/lib/utils';
 import { 
   Dna, 
@@ -34,6 +35,7 @@ export function Sidebar() {
     setActiveProject
   } = useBlueprintStore();
 
+  const { logout } = useAuth();
   const activeProject = projects.find(p => p.id === activeProjectId);
 
   const stages: { name: StageName; label: string; icon: React.ComponentType<any> }[] = [
@@ -46,9 +48,13 @@ export function Sidebar() {
     { name: 'final-blueprint', label: '7. Final Blueprint', icon: ScrollText },
   ];
 
-  const handleNewProject = () => {
+  const handleNewProject = async () => {
     const defaultPrompt = "I want to build a marketplace for solar panel maintenance targeting suburban homeowners.";
-    createNewProject("New Solar Marketplace", defaultPrompt);
+    try {
+      await createNewProject("New Solar Marketplace", defaultPrompt);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -161,15 +167,26 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Bottom Settings Link */}
-      <div className="p-2 border-t border-border/50">
+      {/* Bottom Settings & Log Out */}
+      <div className="p-2 border-t border-border/50 space-y-1">
         <button
           className={cn(
-            "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-left transition-all duration-150 text-sm text-muted-foreground hover:bg-black/5"
+            "w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-all duration-150 text-sm text-muted-foreground hover:bg-black/5"
           )}
         >
           <Settings className="h-4 w-4 text-muted-foreground" />
           {sidebarOpen && <span className="text-xs">Settings</span>}
+        </button>
+        <button
+          onClick={logout}
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-all duration-150 text-sm text-red-500 hover:bg-red-500/10"
+          )}
+        >
+          <svg className="h-4 w-4 shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          {sidebarOpen && <span className="text-xs font-medium">Log Out</span>}
         </button>
       </div>
     </aside>
