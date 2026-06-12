@@ -21,13 +21,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     setup_logging(log_level="INFO" if settings.ENVIRONMENT == "production" else "DEBUG")
     logger.info("Starting Start-up Evolution Engine backend app...")
 
-    # 2. Initialize Redis connection pool
+    # 2. Check Database connectivity and initialize SQLite fallback if needed
+    from backend.database.session import verify_db_connectivity
+    await verify_db_connectivity()
+
+    # 3. Initialize Redis connection pool and trigger mock fallback if down
     redis_manager.initialize()
-    health = await redis_manager.is_healthy()
-    if health:
-        logger.info("Redis cache connection verified successfully.")
-    else:
-        logger.error("Redis cache connection failed check during initialization!")
+    await redis_manager.is_healthy()
 
     yield
 
