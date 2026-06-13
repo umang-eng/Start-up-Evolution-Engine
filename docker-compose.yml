@@ -6,9 +6,9 @@ services:
     container_name: startup-evolution-db
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: startup_evolution
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-startup_evolution}
     ports:
       - "5432:5432"
     volumes:
@@ -42,16 +42,19 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - ENVIRONMENT=development
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
-      - POSTGRES_DB=startup_evolution
+      - POSTGRES_DB=${POSTGRES_DB:-startup_evolution}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - SECRET_KEY=39fca85521b7c191a0c4f8263152d24269e8ef81d11ff31ff215443210ef8abc
+      # REQUIRED: Override SECRET_KEY with a strong random value in production
+      - SECRET_KEY=${SECRET_KEY:-39fca85521b7c191a0c4f8263152d24269e8ef81d11ff31ff215443210ef8abc}
+      # CORS origins — restrict to actual frontend domain in production
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,7 +70,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      # In Docker the frontend calls the backend service by container name
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:8000}
     depends_on:
       - backend
 

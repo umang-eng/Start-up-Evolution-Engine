@@ -1,5 +1,6 @@
 import os
 from typing import Literal
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,9 +16,12 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: Literal["development", "staging", "production"] = "development"
 
-    # Security
-    SECRET_KEY: str = "39fca85521b7c191a0c4f8263152d24269e8ef81d11ff31ff215443210ef8abc"  # Override in prod
-    ALGORITHM: str = "HS256"  # Symmetric fallback
+    # CORS — tighten in production via ALLOWED_ORIGINS env var
+    ALLOWED_ORIGINS: str = "http://localhost:3000"
+
+    # Security — MUST be overridden in production via environment variable
+    SECRET_KEY: str = "39fca85521b7c191a0c4f8263152d24269e8ef81d11ff31ff215443210ef8abc"
+    ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
@@ -37,14 +41,30 @@ class Settings(BaseSettings):
     # AI Configuration
     GEMINI_API_KEY: str = ""
 
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def validate_secret_key(cls, v: str) -> str:
+        """Ensure the secret key meets minimum entropy for production deployments."""
+        if len(v) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters long.")
+        return v
+
     @property
     def DATABASE_URL(self) -> str:
-        return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        return (
+            f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
 
     @property
     def REDIS_URL(self) -> str:
         password_prefix = f":{self.REDIS_PASSWORD}@" if self.REDIS_PASSWORD else ""
         return f"redis://{password_prefix}{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """Parse the comma-separated ALLOWED_ORIGINS string into a list."""
+        return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
 
 
 settings = Settings()

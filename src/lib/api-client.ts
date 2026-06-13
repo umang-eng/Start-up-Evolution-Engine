@@ -56,8 +56,12 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
 
   const response = await fetch(url, { ...options, headers });
 
-  if (response.status === 401) {
-    // Attempt Token Rotation
+  // Auth endpoints (login, register, refresh) must never trigger the token-refresh
+  // loop — a 401 from them is a real credential error, not an expired session.
+  const isAuthPath = path.startsWith('/api/v1/auth/');
+
+  if (response.status === 401 && !isAuthPath) {
+    // Attempt Token Rotation for protected endpoints
     const refreshed = await attemptTokenRefresh();
     if (refreshed) {
       // Retry with new access token

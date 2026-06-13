@@ -49,3 +49,10 @@ next-env.d.ts
 **/venv/
 **/env/
 
+# SQLite dev fallback databases (never commit these)
+*.db
+*.sqlite
+*.sqlite3
+
+# Allow .env.example to be tracked for onboarding
+!.env.example

@@ -50,17 +50,17 @@ async def get_shared_blueprint(
     db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
     """Retrieve a blueprint via a secure, tokenized public sharing URL (no standard login required)."""
-    import jwt
+    from jose import jwt as jose_jwt, JWTError
     from backend.core.config import settings
     from backend.core.exceptions import BaseBusinessException
 
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-    except jwt.PyJWTError as e:
+        payload = jose_jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except JWTError as e:
         raise BaseBusinessException(
             message=f"The sharing link is invalid or has expired: {str(e)}",
             code="INVALID_SHARE_LINK",
-            status_code=status.HTTP_401_UNAUTHORIZED if hasattr(status, "HTTP_401_UNAUTHORIZED") else 401
+            status_code=401
         )
 
     project_id_str = payload.get("project_id")

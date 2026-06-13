@@ -43,13 +43,14 @@ app = FastAPI(
     redoc_url="/redoc" if settings.ENVIRONMENT != "production" else None,
 )
 
-# Enforce Security CORS limitations
+# CORS: restrict origins to those configured in settings
+# Set ALLOWED_ORIGINS env var as a comma-separated list in production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production environment configurations
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Correlation-Id", "Accept"],
 )
 
 # App-level logging and correlation tracing middlewares

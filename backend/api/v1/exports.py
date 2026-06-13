@@ -123,7 +123,7 @@ async def create_share_link(
     claims: dict[str, Any] = Depends(get_token_payload)
 ) -> dict[str, Any]:
     """Generates a tokenized public sharing URL with specific access scopes."""
-    import jwt
+    from jose import jwt as jose_jwt
     from datetime import datetime, timedelta, timezone
 
     # Generate a long-lived token (e.g., 30 days expiration) for the share scope
@@ -136,7 +136,7 @@ async def create_share_link(
         "type": "share"
     }
     
-    token = jwt.encode(share_payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    token = jose_jwt.encode(share_payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     share_url = f"/api/v1/blueprints/shared/{token}"
     
     return {
