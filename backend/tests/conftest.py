@@ -134,3 +134,20 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         
     app.dependency_overrides.clear()
 
+
+@pytest.fixture(autouse=True)
+def mock_gemini_adapter() -> Generator[None, None, None]:
+    """Mocks the LLM adapter methods to avoid external API dependencies in tests."""
+    from unittest.mock import AsyncMock, patch
+    
+    with patch("backend.ai.gemini.gemini_adapter.generate_text", new_callable=AsyncMock) as mock_text, \
+         patch("backend.ai.gemini.gemini_adapter.generate", new_callable=AsyncMock) as mock_structured:
+        
+        # Default mock responses
+        mock_text.return_value = (
+            "Fitness app targeting busy professionals with personalized workouts "
+            "and a premium monthly subscription model."
+        )
+        yield
+
+

@@ -60,3 +60,23 @@ async def test_project_crud_and_generator_api_flow(client: AsyncClient, db_sessi
     assert del_response.status_code == 200
     assert del_response.json()["success"] is True
 
+
+async def test_enhance_idea_api(client: AsyncClient, db_session: Any) -> None:
+    # 1. Register and login
+    user_payload = UserCreate(email="enhancer@test.com", password="securepassword123")
+    user = await user_service.register_user(db_session, obj_in=user_payload)
+    tokens = user_service.generate_user_tokens(user)
+    token = tokens.access_token
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Call Enhance API with valid data
+    payload = {"idea": "Fitness coaching app for busy people"}
+    response = await client.post("/api/v1/generator/enhance", json=payload, headers=headers)
+    assert response.status_code == 200
+    res_data = response.json()
+    assert res_data["success"] is True
+    assert "enhanced_idea" in res_data["data"]
+    assert res_data["data"]["original_idea"] == payload["idea"]
+
+
