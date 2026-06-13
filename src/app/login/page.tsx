@@ -108,7 +108,7 @@ export default function LoginPage() {
 
             <div className="text-center pt-4 border-t border-border/50">
               <span className="text-xs text-muted-foreground">
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <Link
                   href="/signup"
                   onClick={() => setError(null)}

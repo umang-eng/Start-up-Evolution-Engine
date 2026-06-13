@@ -33,6 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const loadUser = async () => {
+    await Promise.resolve(); // Defer execution to prevent synchronous state updates inside useEffect
     const token = getAccessToken();
     if (!token) {
       setUser(null);
@@ -53,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadUser();
   }, []);
 
