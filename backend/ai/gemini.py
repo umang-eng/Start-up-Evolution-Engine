@@ -14,13 +14,15 @@ from backend.core.logging import logger, performance_logger
 T = TypeVar("T", bound=BaseModel)
 
 # Ordered list of models to try — fastest/cheapest first
+# NOTE: With google-genai SDK v2 (v1beta API), use exact model IDs from:
+# https://ai.google.dev/gemini-api/docs/models/gemini
 MODEL_PRIORITY = [
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
+    "gemini-2.0-flash",           # Fastest, hits quota first on free tier
+    "gemini-2.0-flash-lite",      # Lighter quota limits
+    "gemini-1.5-flash-8b",        # Smallest, most available on free tier
 ]
 
-# Backoff wait times (seconds) per model on 429 — gives the quota window time to reset
+# Backoff wait times (seconds) per model on quota exhaustion
 MODEL_BACKOFF_SECONDS = [15, 45, 90]
 
 
@@ -136,23 +138,22 @@ class GeminiAdapter(LLMProvider):
                     error_str = str(ce)
                     status_code = getattr(ce, 'status_code', 0)
 
-                    if status_code == 429 or "RESOURCE_EXHAUSTED" in error_str or "429" in error_str:
-                        backoff = MODEL_BACKOFF_SECONDS[model_idx]
+                    if status_code == 429 or "RESOURCE_EXHAUSTED" in error_str:
+                        backoff = MODEL_BACKOFF_SECONDS[min(model_idx, len(MODEL_BACKOFF_SECONDS) - 1)]
                         logger.warning(
                             f"Rate limit 429 on {model_name}. Waiting {backoff}s before trying next model.",
                             extra_data={"model": model_name, "backoff_seconds": backoff}
                         )
                         await asyncio.sleep(backoff)
-                        last_error = ce
-                        break  # Move to next model
+                    else:
+                        # 404 (model not found), 400 (bad request), 5xx — try next model without waiting
+                        logger.warning(
+                            f"ClientError {status_code} on {model_name}, trying next model.",
+                            extra_data={"model": model_name, "error": error_str[:100]}
+                        )
 
-                    # Non-429 client error — don't retry different models
-                    logger.error(f"Gemini ClientError [{model_name}]: {error_str}", exc_info=ce)
-                    raise BaseBusinessException(
-                        message=f"AI service error: {error_str[:200]}",
-                        code="AI_PROVIDER_ERROR",
-                        status_code=502
-                    )
+                    last_error = ce
+                    break  # Move to next model
 
                 except BaseBusinessException:
                     raise
@@ -173,7 +174,11 @@ class GeminiAdapter(LLMProvider):
         )
 
     async def generate_text(self, prompt: str, system_instruction: str | None = None) -> str:
-        """Generates a plain text response (non-structured) — used for idea enhancement."""
+        """Generates a plain text response (non-structured) — used for idea enhancement.
+        
+        Treats ANY model-level error (404, 429, 5xx) as non-fatal and tries the next model.
+        Only raises after ALL models are exhausted.
+        """
         last_error: Exception | None = None
 
         for model_idx, model_name in enumerate(MODEL_PRIORITY):
@@ -194,26 +199,39 @@ class GeminiAdapter(LLMProvider):
                 if response_text and response_text.strip():
                     return response_text.strip()
 
+                # Empty response — try next model
+                last_error = ValueError(f"Empty response from {model_name}")
+                continue
+
             except ClientError as ce:
                 error_str = str(ce)
                 status_code = getattr(ce, 'status_code', 0)
+                
                 if status_code == 429 or "RESOURCE_EXHAUSTED" in error_str:
-                    backoff = MODEL_BACKOFF_SECONDS[model_idx]
+                    backoff = MODEL_BACKOFF_SECONDS[min(model_idx, len(MODEL_BACKOFF_SECONDS) - 1)]
+                    logger.warning(
+                        f"Rate limit 429 on {model_name} (text). Waiting {backoff}s.",
+                        extra_data={"model": model_name}
+                    )
                     await asyncio.sleep(backoff)
-                    last_error = ce
-                    continue
-                raise BaseBusinessException(
-                    message=f"AI service error: {error_str[:200]}",
-                    code="AI_PROVIDER_ERROR",
-                    status_code=502
-                )
+                else:
+                    # 404, 400, 5xx — model unavailable, try next without waiting
+                    logger.warning(
+                        f"ClientError {status_code} on {model_name} (text), trying next model.",
+                        extra_data={"model": model_name, "error": error_str[:100]}
+                    )
+                
+                last_error = ce
+                continue  # Always try next model for any client error
 
             except Exception as e:
+                logger.warning(f"Unexpected error on {model_name} (text): {str(e)[:100]}")
                 last_error = e
                 continue
 
+        # All models failed — raise meaningful error
         raise BaseBusinessException(
-            message="AI service is currently rate-limited. Please try again in a moment.",
+            message="AI service is currently unavailable. Please try again in a moment.",
             code="AI_QUOTA_EXHAUSTED",
             status_code=503
         )
