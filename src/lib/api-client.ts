@@ -127,55 +127,67 @@ async function attemptTokenRefresh(): Promise<boolean> {
 
 export function mapDnaResponse(data: any): any {
   if (!data) return null;
+  const scores = data.scores || {};
   return {
     category: data.category || 'B2B SaaS',
-    industry: data.market_type || 'Tech',
-    businessModel: data.business_model || '',
-    targetMarket: data.customer_type || '',
-    valueProposition: data.value_proposition || '',
+    industry: data.market_type || data.industry || 'Tech',
+    businessModel: data.business_model || data.businessModel || '',
+    targetMarket: data.customer_type || data.targetMarket || '',
+    valueProposition: data.value_proposition || data.valueProposition || '',
     usp: data.usp || '',
-    summary: data.executive_summary || '',
+    summary: data.executive_summary || data.summary || '',
     scores: {
-      innovation: data.scores?.innovation ?? 80,
-      scalability: data.scores?.scalability ?? 80,
-      complexity: data.scores?.complexity ?? 50,
-      opportunity: data.scores?.market_opportunity ?? 80,
-      risk: data.scores?.risk_factor ?? 40,
-      competition: data.scores?.competition ?? 60,
+      innovation: scores.innovation ?? 80,
+      scalability: scores.scalability ?? 80,
+      complexity: scores.complexity ?? 50,
+      opportunity: scores.market_opportunity ?? scores.opportunity ?? 80,
+      risk: scores.risk_factor ?? scores.risk ?? 40,
+      competition: scores.competition ?? 60,
     },
-    recommendations: data.strategic_recommendations || [],
-    confidence: Math.round((data.confidence_score ?? 0.8) * 100),
+    recommendations: data.strategic_recommendations || data.recommendations || [],
+    confidence: Math.round(((data.confidence_score ?? data.confidence ?? 0.8)) * (data.confidence_score !== undefined && data.confidence_score <= 1 ? 100 : 1)),
     assumptions: [data.confidence_rationale || 'Context-driven score calculation.'],
-    nextSteps: data.strategic_recommendations || [],
+    nextSteps: data.strategic_recommendations || data.nextSteps || [],
   };
 }
 
 export function mapFeaturesResponse(data: any): any {
   if (!data) return null;
-  const features = (data.features || []).map((f: any) => ({
-    id: f.id,
-    name: f.name,
-    description: f.description,
+  const features = (data.features || []).map((f: any, idx: number) => ({
+    id: f.id || `feature_${idx}`,
+    name: f.name || 'Unnamed Feature',
+    description: f.description || '',
     category: mapFeatureCategory(f.category),
     priority: mapFeaturePriority(f.priority),
     complexity: (f.complexity || 'MEDIUM').toLowerCase(),
     dependencies: f.dependencies || [],
-    benefits: 'Core MVP value capability.',
-    risks: 'Complexity dependency risk.',
+    benefits: f.benefits || 'Core MVP value capability.',
+    risks: f.risks || 'Complexity dependency risk.',
   }));
 
   const mvpFeatureIds = (data.features || [])
-    .filter((f: any) => f.priority === 'MUST_HAVE')
-    .map((f: any) => f.id);
+    .filter((f: any) => f.priority === 'MUST_HAVE' || f.priority === 'critical')
+    .map((f: any, idx: number) => f.id || `feature_${idx}`);
+
+  // Derive complexity score from the actual feature items since backend has no top-level field
+  const complexityCounts = features.reduce((acc: Record<string, number>, f: any) => {
+    const c = (f.complexity || 'medium').toLowerCase();
+    acc[c] = (acc[c] || 0) + 1;
+    return acc;
+  }, {});
+  const dominantComplexity = Object.entries(complexityCounts)
+    .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0] || 'medium';
+  // Also accept explicit field from backend if ever added
+  const complexityRaw = data.complexity_score || data.complexityScore || dominantComplexity;
 
   return {
     totalFeatures: features.length,
-    complexityScore: (data.complexityScore || 'medium').toLowerCase(),
+    complexityScore: String(complexityRaw).toLowerCase(),
     features,
     mvpFeatureIds,
     aiRecommendations: [
       data.mvp_scope_rationale,
-      ...(data.core_stack || []).map((tech: string) => `Tech Option: ${tech}`),
+      ...(data.core_stack || []).map((tech: string) => `Recommended Stack: ${tech}`),
       ...(data.blockers || []).map((block: string) => `Risk Blocker: ${block}`),
     ].filter(Boolean),
   };
@@ -324,28 +336,34 @@ export function mapSwotResponse(data: any): any {
 export function mapCostResponse(data: any): any {
   if (!data) return null;
   const costItems = (data.operational_costs || []).map((c: any) => ({
-    name: c.description,
-    amount: c.monthly_usd,
-    category: mapCostCategory(c.category),
+    name: c.description || c.name || 'Cost Item',
+    amount: c.monthly_usd || c.amount || 0,
+    category: mapCostCategory(c.category || ''),
     frequency: 'monthly',
   }));
 
-  const scenarios = (data.budget_scenarios || []).map((s: any) => ({
-    id: s.name.toLowerCase(),
-    name: s.name,
-    mvpCost: Math.round(s.monthly_burn_usd * s.runway_months * 0.7),
-    year1Cost: Math.round(s.monthly_burn_usd * 12),
-    monthlyBurn: s.monthly_burn_usd,
-    runwayMonths: s.runway_months,
-    description: s.description,
+  const scenarios = (data.budget_scenarios || []).map((s: any, idx: number) => ({
+    id: (s.name || `scenario_${idx}`).toLowerCase().replace(/\s+/g, '_'),
+    name: s.name || `Scenario ${idx + 1}`,
+    mvpCost: Math.round((s.monthly_burn_usd || 0) * (s.runway_months || 12) * 0.7),
+    year1Cost: Math.round((s.monthly_burn_usd || 0) * 12),
+    monthlyBurn: s.monthly_burn_usd || 0,
+    runwayMonths: s.runway_months || 12,
+    description: s.description || '',
   }));
 
+  const mvpCost = data.mvp_cost_estimate || data.mvpCost || 0;
+  const year1Cost = data.year_1_cost_estimate || data.year1Cost || 0;
+  const fundingReq = data.funding_requirements?.optimal_target_usd
+    ?? data.fundingRequirement
+    ?? (mvpCost * 1.5);
+
   return {
-    mvpCost: data.mvp_cost_estimate,
-    launchCost: Math.round(data.year_1_cost_estimate / 2),
-    year1Cost: data.year_1_cost_estimate,
-    fundingRequirement: data.funding_requirements?.optimal_target_usd ?? data.mvp_cost_estimate * 1.5,
-    riskLevel: (data.financial_risk_level || 'MEDIUM').toLowerCase(),
+    mvpCost,
+    launchCost: Math.round(year1Cost / 2),
+    year1Cost,
+    fundingRequirement: fundingReq,
+    riskLevel: (data.financial_risk_level || data.riskLevel || 'MEDIUM').toLowerCase(),
     readinessRating: 80,
     costItems,
     scenarios,
@@ -379,6 +397,10 @@ export const api = {
   },
   generator: {
     run: (projectId: string) => request(`/api/v1/generator/run?project_id=${projectId}`, { method: 'POST' }),
+    enhance: (idea: string) => request('/api/v1/generator/enhance', {
+      method: 'POST',
+      body: JSON.stringify({ idea }),
+    }),
   },
   blueprints: {
     get: (projectId: string) => request(`/api/v1/blueprints/${projectId}`),

@@ -13,12 +13,15 @@ from backend.core.logging import logger, performance_logger
 
 T = TypeVar("T", bound=BaseModel)
 
-# Ordered list of models to try — fastest/cheapest first, fallback to more capable
+# Ordered list of models to try — fastest/cheapest first
 MODEL_PRIORITY = [
     "gemini-2.0-flash",
     "gemini-1.5-flash",
     "gemini-1.5-pro",
 ]
+
+# Backoff wait times (seconds) per model on 429 — gives the quota window time to reset
+MODEL_BACKOFF_SECONDS = [15, 45, 90]
 
 
 class GeminiAdapter(LLMProvider):
@@ -34,37 +37,38 @@ class GeminiAdapter(LLMProvider):
     def client(self) -> genai.Client:
         if not self._client:
             raise BaseBusinessException(
-                message="Gemini API key is not configured.",
+                message="Gemini API key is not configured. Set GEMINI_API_KEY in your environment.",
                 code="AI_CONFIGURATION_ERROR",
                 status_code=500
             )
         return self._client
 
     async def generate(
-        self, 
-        prompt: str, 
-        schema: Type[T], 
+        self,
+        prompt: str,
+        schema: Type[T],
         system_instruction: str | None = None
     ) -> T:
-        """Generates structured content conforming to the schema, with up to 3 repair attempts."""
-        max_validation_attempts = 3
+        """Generates structured content conforming to the schema with exponential backoff on rate limits."""
+        max_validation_attempts = 2
         current_prompt = prompt
+        last_error: Exception | None = None
 
-        # Try models in priority order; skip to next on quota/rate-limit errors
-        for model_name in MODEL_PRIORITY:
+        for model_idx, model_name in enumerate(MODEL_PRIORITY):
             for attempt in range(max_validation_attempts):
                 start_time = time.perf_counter()
                 try:
                     logger.info(
-                        f"Initiating Gemini Request: {model_name}",
-                        extra_data={"attempt": attempt + 1, "prompt_len": len(current_prompt)}
+                        f"Gemini Request: model={model_name} attempt={attempt + 1}",
+                        extra_data={"model": model_name, "attempt": attempt + 1, "prompt_len": len(current_prompt)}
                     )
 
                     config = types.GenerateContentConfig(
                         response_mime_type="application/json",
                         response_schema=schema,
-                        temperature=0.2,
+                        temperature=0.3,
                         system_instruction=system_instruction,
+                        max_output_tokens=8192,
                     )
 
                     response = await self.client.aio.models.generate_content(
@@ -82,7 +86,7 @@ class GeminiAdapter(LLMProvider):
                         candidates_tokens = response.usage_metadata.candidates_token_count or 0
 
                     performance_logger.info(
-                        f"Gemini Request Succeeded in {latency_ms}ms",
+                        f"Gemini OK: {model_name} in {latency_ms}ms",
                         extra_data={
                             "model": model_name,
                             "latency_ms": latency_ms,
@@ -91,52 +95,61 @@ class GeminiAdapter(LLMProvider):
                         }
                     )
 
+                    # Fire-and-forget analytics logging
                     from backend.core.logging import active_project_id_ctx, active_module_name_ctx, correlation_id_ctx
                     proj_id = active_project_id_ctx.get()
-                    mod_name = active_module_name_ctx.get() or "unknown"
-                    corr_id = correlation_id_ctx.get() or "unknown"
-
                     if proj_id:
-                        await self._log_analytics(
+                        mod_name = active_module_name_ctx.get() or "unknown"
+                        corr_id = correlation_id_ctx.get() or "unknown"
+                        asyncio.create_task(self._log_analytics(
                             project_id=proj_id,
                             correlation_id=corr_id,
                             module_name=mod_name,
                             prompt_tokens=prompt_tokens,
                             completion_tokens=candidates_tokens,
                             latency_ms=latency_ms
-                        )
+                        ))
 
                     response_text = response.text
-                    if not response_text:
-                        raise ValueError("Gemini returned an empty response.")
+                    if not response_text or not response_text.strip():
+                        raise ValueError(f"Gemini returned an empty response on model {model_name}.")
 
-                    return schema.model_validate_json(response_text)
-
-                except ValidationError as ve:
-                    logger.warning(
-                        f"Pydantic Validation failed on LLM output JSON: attempt {attempt + 1}",
-                        extra_data={"errors": ve.errors()}
-                    )
-                    if attempt == max_validation_attempts - 1:
-                        break  # Move to next model
-                    current_prompt = (
-                        f"{prompt}\n\n"
-                        f"ERROR ENCOUNTERED PREVIOUSLY: The response did not match the validation schema. "
-                        f"Validation details: {ve.errors()}\n"
-                        f"Please re-generate the JSON matching the required schema keys strictly."
-                    )
+                    try:
+                        return schema.model_validate_json(response_text)
+                    except ValidationError as ve:
+                        logger.warning(
+                            f"Validation error attempt {attempt + 1}/{max_validation_attempts} on {model_name}",
+                            extra_data={"errors": ve.errors()[:3]}
+                        )
+                        if attempt < max_validation_attempts - 1:
+                            current_prompt = (
+                                f"{prompt}\n\n"
+                                f"IMPORTANT: Your previous response failed schema validation. "
+                                f"Errors: {ve.errors()[:3]}\n"
+                                f"Return ONLY valid JSON matching the schema exactly. No extra text."
+                            )
+                            continue
+                        last_error = ve
+                        break  # Try next model
 
                 except ClientError as ce:
-                    status_code = ce.status_code if hasattr(ce, 'status_code') else 0
-                    if status_code == 429:
+                    error_str = str(ce)
+                    status_code = getattr(ce, 'status_code', 0)
+
+                    if status_code == 429 or "RESOURCE_EXHAUSTED" in error_str or "429" in error_str:
+                        backoff = MODEL_BACKOFF_SECONDS[model_idx]
                         logger.warning(
-                            f"Rate limit hit on model {model_name}, trying next fallback model.",
-                            extra_data={"model": model_name}
+                            f"Rate limit 429 on {model_name}. Waiting {backoff}s before trying next model.",
+                            extra_data={"model": model_name, "backoff_seconds": backoff}
                         )
-                        break  # Move to next model in priority list
-                    logger.error(f"Gemini Client API Error [{model_name}]: {str(ce)}", exc_info=ce)
+                        await asyncio.sleep(backoff)
+                        last_error = ce
+                        break  # Move to next model
+
+                    # Non-429 client error — don't retry different models
+                    logger.error(f"Gemini ClientError [{model_name}]: {error_str}", exc_info=ce)
                     raise BaseBusinessException(
-                        message=f"LLM API execution failed: {str(ce)}",
+                        message=f"AI service error: {error_str[:200]}",
                         code="AI_PROVIDER_ERROR",
                         status_code=502
                     )
@@ -145,15 +158,62 @@ class GeminiAdapter(LLMProvider):
                     raise
 
                 except Exception as e:
-                    logger.error(f"Gemini Client Error [{model_name}]: {str(e)}", exc_info=e)
-                    raise BaseBusinessException(
-                        message=f"LLM API execution failed: {str(e)}",
-                        code="AI_PROVIDER_ERROR",
-                        status_code=502
-                    )
+                    logger.error(f"Unexpected Gemini error [{model_name}]: {str(e)}", exc_info=e)
+                    last_error = e
+                    break  # Try next model
 
         raise BaseBusinessException(
-            message="All Gemini model variants are currently rate-limited or unavailable. Please retry later.",
+            message=(
+                "All Gemini model variants are rate-limited or unavailable. "
+                "The Gemini API free tier has per-minute/per-day limits. "
+                "Please wait 1-2 minutes and try again, or upgrade your Gemini API quota."
+            ),
+            code="AI_QUOTA_EXHAUSTED",
+            status_code=503
+        )
+
+    async def generate_text(self, prompt: str, system_instruction: str | None = None) -> str:
+        """Generates a plain text response (non-structured) — used for idea enhancement."""
+        last_error: Exception | None = None
+
+        for model_idx, model_name in enumerate(MODEL_PRIORITY):
+            try:
+                config = types.GenerateContentConfig(
+                    temperature=0.7,
+                    system_instruction=system_instruction,
+                    max_output_tokens=512,
+                )
+
+                response = await self.client.aio.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=config,
+                )
+
+                response_text = response.text
+                if response_text and response_text.strip():
+                    return response_text.strip()
+
+            except ClientError as ce:
+                error_str = str(ce)
+                status_code = getattr(ce, 'status_code', 0)
+                if status_code == 429 or "RESOURCE_EXHAUSTED" in error_str:
+                    backoff = MODEL_BACKOFF_SECONDS[model_idx]
+                    await asyncio.sleep(backoff)
+                    last_error = ce
+                    continue
+                raise BaseBusinessException(
+                    message=f"AI service error: {error_str[:200]}",
+                    code="AI_PROVIDER_ERROR",
+                    status_code=502
+                )
+
+            except Exception as e:
+                last_error = e
+                continue
+
+        raise BaseBusinessException(
+            message="AI service is currently rate-limited. Please try again in a moment.",
             code="AI_QUOTA_EXHAUSTED",
             status_code=503
         )
@@ -174,8 +234,8 @@ class GeminiAdapter(LLMProvider):
             from backend.models.analytics import AnalyticsLog
 
             # Costs for gemini-2.0-flash:
-            # Input: $0.10 / million tokens -> $0.0000001 per token
-            # Output: $0.40 / million tokens -> $0.0000004 per token
+            # Input: $0.10/million tokens → $0.0000001 per token
+            # Output: $0.40/million tokens → $0.0000004 per token
             cost = (prompt_tokens * 0.0000001) + (completion_tokens * 0.0000004)
 
             async with AsyncSessionLocal() as db:
@@ -191,16 +251,15 @@ class GeminiAdapter(LLMProvider):
                 db.add(log_entry)
                 await db.commit()
         except Exception as e:
-            logger.error("Failed to persist analytics log in database", exc_info=e)
+            logger.error("Failed to persist analytics log", exc_info=e)
 
     async def generate_stream(
-        self, 
-        prompt: str, 
-        schema: Type[T], 
+        self,
+        prompt: str,
+        schema: Type[T],
         system_instruction: str | None = None
     ):
-        """Generates stream chunks (Placeholder endpoint wrapper)."""
-        # Note: Streaming is implemented in the streaming layer context later.
+        """Placeholder — streaming handled at module level."""
         raise NotImplementedError("Streaming generate is handled inside specific module workflows.")
 
 

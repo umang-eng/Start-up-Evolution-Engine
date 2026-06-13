@@ -38,12 +38,16 @@ class BlueprintModule(BaseModule):
         swot = context.get("swot")
         cost = context.get("cost")
 
-        if not all([dna, features, roadmap, team, swot, cost]):
+        if not all([dna, features, roadmap, team, cost]):
             raise BaseBusinessException(
-                message="All preceding modules (DNA, Features, Roadmap, Team, SWOT, Cost) must be completed to run Composer.",
+                message="Core modules (DNA, Features, Roadmap, Team, Cost) must complete before Blueprint Composer.",
                 code="DEPENDENCY_MISSING_ERROR",
                 status_code=400
             )
+        # SWOT is non-critical — use empty dict if missing
+        if not swot:
+            swot = {"strengths": [], "weaknesses": [], "opportunities": [], "threats": [], "mitigations": [], "founder_actions": []}
+            logger.warning("SWOT data missing — using empty defaults for Blueprint composition.")
 
         # 2. Run Conflict Resolution Engine (Applying Stage Priority Override Rules)
         resolved_team, resolved_cost, conflict_logs = self._resolve_conflicts(team, cost)

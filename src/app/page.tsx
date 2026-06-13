@@ -72,24 +72,32 @@ export default function WorkspacePage() {
     }
   }, [activeProjectId]);
 
-  // Auto-enhance idea trigger
-  const handleEnhance = () => {
-    if (!inputVal) return;
+  // AI-powered idea enhancement — calls real Gemini backend
+  const handleEnhance = async () => {
+    if (!inputVal.trim()) return;
     setIsEnhancing(true);
-    setTimeout(() => {
-      setInputVal(prev => prev + " targeting urban professionals, monetized via usage-based monthly subscription model with minimal hosting infrastructure.");
+    try {
+      const result = await api.generator.enhance(inputVal.trim());
+      if (result?.enhanced_idea) {
+        setInputVal(result.enhanced_idea);
+      }
+    } catch (err: any) {
+      console.error('Idea enhancement failed:', err);
+      // Fallback: append strategic context if API fails
+      setInputVal(prev => prev + ' — targeting early adopters via a SaaS subscription model with freemium onboarding and usage-based pricing.');
+    } finally {
       setIsEnhancing(false);
-    }, 1200);
+    }
   };
 
   // Run real generation sequence using Server-Sent Events (SSE)
   const handleStartGeneration = async (projId: string) => {
     updateProjectStatus(projId, 'generating');
-    setStreamLog(["Contacting business intelligence diagnostics orchestrator..."]);
+    setStreamLog(["Contacting intelligence orchestrator..."]);
 
     const token = getAccessToken();
     if (!token) {
-      setStreamLog(prev => ["Error: Authentication credentials missing", ...prev]);
+      setStreamLog(prev => ["❌ Error: Authentication credentials missing. Please log in again.", ...prev]);
       updateProjectStatus(projId, 'error');
       return;
     }
@@ -97,23 +105,29 @@ export default function WorkspacePage() {
     try {
       // 1. Trigger Async execution run
       await api.generator.run(projId);
-      setStreamLog(prev => ["Workflow generation triggered successfully. Launching streaming connection...", ...prev]);
+      setStreamLog(prev => ["✅ Generation pipeline triggered. Opening stream connection...", ...prev]);
 
       // 2. Open EventSource connection with token query param
       const eventSourceUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/streams/progress/${projId}?token=${encodeURIComponent(token)}`;
       const es = new EventSource(eventSourceUrl);
+      let consecutiveErrors = 0;
+      const MAX_ERRORS = 5;
+
+      es.addEventListener('system:init', () => {
+        setStreamLog(prev => ["🔗 Stream channel established.", ...prev]);
+      });
 
       es.addEventListener('workflow:started', () => {
-        setStreamLog(prev => ["Pipeline running - Evolving startup DNA architecture...", ...prev]);
+        setStreamLog(prev => ["🚀 Pipeline running — evolving startup DNA architecture...", ...prev]);
       });
 
       es.addEventListener('module:started', (e: any) => {
         try {
           const data = JSON.parse(e.data);
           const stageName = data.module_info?.module_name || '';
-          setStreamLog(prev => [`Starting Stage [${stageName.toUpperCase()}]: Compiling dataset...`, ...prev]);
+          setStreamLog(prev => [`⚙️ Stage [${stageName.toUpperCase()}]: compiling dataset...`, ...prev]);
         } catch (err) {
-          console.error(err);
+          console.error('module:started parse error', err);
         }
       });
 
@@ -123,60 +137,65 @@ export default function WorkspacePage() {
           const stageName = data.module_info?.module_name;
           const result = data.result_info;
 
-          setStreamLog(prev => [`Stage Completed: [${stageName.toUpperCase()}] compiled successfully.`, ...prev]);
+          setStreamLog(prev => [`✅ Stage [${stageName?.toUpperCase()}] compiled successfully.`, ...prev]);
 
           // Save partial result structures into Zustand store in real-time
-          if (stageName === 'dna') {
-            saveDNA(projId, mapDnaResponse(result));
-          } else if (stageName === 'features') {
-            saveFeatures(projId, mapFeaturesResponse(result));
-          } else if (stageName === 'roadmap') {
-            saveRoadmap(projId, mapRoadmapResponse(result));
-          } else if (stageName === 'team') {
-            saveTeam(projId, mapTeamResponse(result));
-          } else if (stageName === 'swot') {
-            saveSWOT(projId, mapSwotResponse(result));
-          } else if (stageName === 'cost') {
-            saveCost(projId, mapCostResponse(result));
-          }
+          if (stageName === 'dna') saveDNA(projId, mapDnaResponse(result));
+          else if (stageName === 'features') saveFeatures(projId, mapFeaturesResponse(result));
+          else if (stageName === 'roadmap') saveRoadmap(projId, mapRoadmapResponse(result));
+          else if (stageName === 'team') saveTeam(projId, mapTeamResponse(result));
+          else if (stageName === 'swot') saveSWOT(projId, mapSwotResponse(result));
+          else if (stageName === 'cost') saveCost(projId, mapCostResponse(result));
         } catch (err) {
-          console.error('Failed to process streaming result payload:', err);
+          console.error('module:completed parse error', err);
         }
-      });
-
-      es.addEventListener('workflow:completed', () => {
-        setStreamLog(prev => ["🎉 Operating Blueprint Compiled successfully. Synchronizing state...", ...prev]);
-        es.close();
-        loadBlueprint(projId);
       });
 
       es.addEventListener('module:failed', (e: any) => {
         try {
           const data = JSON.parse(e.data);
-          setStreamLog(prev => [`[Warning] Module execution failed: ${data.error_info?.error_message}`, ...prev]);
+          const stageName = data.module_info?.module_name;
+          const errMsg = data.error_info?.error_message || 'Unknown error';
+          const isFatal = data.error_info?.is_fatal;
+          setStreamLog(prev => [
+            `${isFatal ? '❌' : '⚠️'} Stage [${stageName?.toUpperCase()}] ${isFatal ? 'FAILED' : 'warning'}: ${errMsg}`,
+            ...prev
+          ]);
         } catch (err) {
-          console.error(err);
+          console.error('module:failed parse error', err);
         }
+      });
+
+      es.addEventListener('workflow:completed', () => {
+        setStreamLog(prev => ["🎉 Blueprint compiled successfully!", ...prev]);
+        es.close();
+        loadBlueprint(projId);
       });
 
       es.addEventListener('workflow:failed', (e: any) => {
         try {
           const data = JSON.parse(e.data);
-          setStreamLog(prev => [`Fatal compilation error: ${data.error_info?.error_message}`, ...prev]);
+          const errMsg = data.error_info?.error_message || 'Compilation failed';
+          setStreamLog(prev => [`❌ Fatal error: ${errMsg}`, ...prev]);
           updateProjectStatus(projId, 'error');
           es.close();
         } catch (err) {
-          console.error(err);
+          console.error('workflow:failed parse error', err);
         }
       });
 
-      es.onerror = () => {
-        // EventSource will automatically retry connection if dropped
-        console.warn('EventSource encountered connection interruption.');
+      es.onerror = (event) => {
+        consecutiveErrors++;
+        if (consecutiveErrors >= MAX_ERRORS) {
+          setStreamLog(prev => ['❌ Stream connection lost. Generation may still be running in background.', ...prev]);
+          es.close();
+        } else {
+          console.warn(`EventSource error #${consecutiveErrors} — retrying...`);
+        }
       };
 
     } catch (err: any) {
-      setStreamLog(prev => [`Orchestrator Trigger failed: ${err.message}`, ...prev]);
+      setStreamLog(prev => [`❌ Trigger failed: ${err.message}`, ...prev]);
       updateProjectStatus(projId, 'error');
     }
   };
@@ -315,22 +334,60 @@ export default function WorkspacePage() {
             <div className="h-full flex gap-8">
               {/* Left Column: Canvas document display */}
               <div className="flex-1 max-w-4xl space-y-6">
-                {/* Generation state skeletons */}
-                {activeProject.status === 'generating' && (
-                  <Card className="shadow-lvl-1 border-border bg-white animate-pulse">
+                {/* ERROR STATE */}
+                {activeProject.status === 'error' && (
+                  <Card className="shadow-lvl-1 border-red-200 bg-red-50/50">
                     <CardHeader>
-                      <CardTitle className="text-lg font-semibold text-primary flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-accent-blue animate-pulse" />
-                        Architecting Venture Blueprint Modules...
+                      <CardTitle className="text-base font-semibold text-red-700 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        Generation Failed
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="h-4 bg-black/5 rounded w-3/4" />
-                      <div className="h-4 bg-black/5 rounded w-1/2" />
-                      <div className="h-32 bg-black/5 rounded w-full" />
+                    <CardContent className="space-y-3">
+                      <p className="text-xs text-red-600 leading-relaxed">
+                        The AI pipeline encountered an error. This is often caused by Gemini API rate limits (the free tier has per-minute quotas).
+                        <br /><strong>Wait 1-2 minutes</strong> and retry — the system will automatically try backup models.
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleStartGeneration(activeProject.id)}
+                          className="h-8 text-xs gap-1.5 bg-red-600 hover:bg-red-700"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                          <span>Retry Generation</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => loadBlueprint(activeProject.id)}
+                          className="h-8 text-xs gap-1.5"
+                        >
+                          <span>Load Partial Results</span>
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 )}
+
+                {/* Generation state skeletons */}
+                {activeProject.status === 'generating' && (
+                  <Card className="shadow-lvl-1 border-border bg-white">
+                    <CardHeader>
+                      <CardTitle className="text-lg font-semibold text-primary flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-accent-blue animate-pulse" />
+                        Architecting Venture Blueprint...
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="h-4 bg-black/5 rounded w-3/4 animate-pulse" />
+                      <div className="h-4 bg-black/5 rounded w-1/2 animate-pulse" />
+                      <div className="h-32 bg-black/5 rounded w-full animate-pulse" />
+                      <p className="text-xs text-muted-foreground">
+                        AI models are working through each stage. Gemini free-tier may take 2-5 minutes with rate limiting. Check the AI Feed →
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
 
                 {/* STAGE: DNA ANALYZER */}
                 {activeStage === 'dna-analyzer' && activeProject.dna && (
