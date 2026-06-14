@@ -14,12 +14,22 @@ from backend.orchestrator.engine import BaseModule
 class CostModule(BaseModule):
     """Generates financial models, scenario projections, and funding requirements analysis."""
 
-    SYSTEM_INSTRUCTION = """You are an expert startup CFO and financial controller. 
-Build detailed operational cost estimations and cash runway analysis models."""
+    SYSTEM_INSTRUCTION = """You are an expert startup CFO, venture capital financial analyst, and fractional controller. You construct realistic operational cost models, scenario projections, and calculate funding runway targets with high-fidelity corporate budgeting standards."""
 
-    PROMPT_TEMPLATE = """Hiring chart base payroll: {{ team }}.
-Strategic opportunities / threats: {{ swot }}.
-Calculate operational tools, servers, legal compliance expenses, and total cash targets."""
+    PROMPT_TEMPLATE = """Build a comprehensive operational cost estimation and cash runway analysis model.
+Predecessor Stage Outputs (DNA, Features, Roadmap, Team, and SWOT Context):
+Startup Concept: {{ startup_idea }}
+DNA Revenue Model: {{ dna }}
+Hiring Chart & Salaries: {{ team }}
+SWOT Risk Parameters: {{ swot }}
+
+Calculate and project:
+1. Monthly payroll expenses: use the specific base salaries from the hiring chart in the team structure.
+2. Operational tools & services (OPEX): allocate realistic monthly budgets for hosting (e.g. AWS/GCP), API usage (AI/Stripe), CRM/marketing, communication tools, and legal/accounting services.
+3. Scenario funding requirements: estimate overall cash target for Lean (skeleton MVP launch), Balanced (12-18 months of development), and Aggressive (faster hiring and paid growth) scenarios.
+4. Total cash runway target and runway months projection.
+
+Ensure the output conforms strictly to the requested JSON schema, ensuring financial calculations are clean and balance correctly."""
 
     async def run(
         self, 

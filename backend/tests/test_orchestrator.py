@@ -32,9 +32,9 @@ async def test_prompt_rendering() -> None:
         user_template=dna_module.PROMPT_TEMPLATE,
         variables={"startup_idea": "AI Broker", "industry": "Finance", "target_audience": "Banks", "notes": "None"}
     )
-    assert "Feasibility" in system or "venture architect" in system
-    assert "Evaluate the concept: AI Broker" in user
-    assert "Target audience segment: Banks" in user
+    assert "feasibility" in system.lower() or "venture architect" in system.lower()
+    assert "Startup Idea: AI Broker" in user
+    assert "Target Audience: Banks" in user
 
 
 async def test_workflow_orchestrator_success(db_session: AsyncSession) -> None:

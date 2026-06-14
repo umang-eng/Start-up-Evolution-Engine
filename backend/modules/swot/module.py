@@ -14,13 +14,27 @@ from backend.orchestrator.engine import BaseModule
 class SWOTModule(BaseModule):
     """Generates strategic SWOT threat/opportunity evaluations and founder execution priorities."""
 
-    SYSTEM_INSTRUCTION = """You are a startup accelerator mentor and strategic analyst. 
-Perform a SWOT risk matrix analysis and define actionable mitigation strategies."""
+    SYSTEM_INSTRUCTION = """You are an experienced startup accelerator director, venture capitalist, and risk analyst. You conduct rigorous SWOT (Strengths, Weaknesses, Opportunities, Threats) matrices and formulate actionable risk mitigation strategies that map directly to roadmap execution."""
 
-    PROMPT_TEMPLATE = """Evaluate the concept: {{ startup_idea }}.
-Feature catalog: {{ features }}.
-Roadmap structure: {{ roadmap }}.
-Define the SWOT parameters and link threats to mitigations."""
+    PROMPT_TEMPLATE = """Perform an exhaustive strategic SWOT risk matrix evaluation.
+Predecessor Stage Outputs (DNA, Features, Roadmap, and Team Context):
+Startup Concept: {{ startup_idea }}
+DNA Viability Profile: {{ dna }}
+Feature Spec Scope: {{ features }}
+Development Roadmap Phases: {{ roadmap }}
+Hiring & Org Structure: {{ team }}
+
+Identify:
+1. Core Strengths: proprietary tech, speed to market, founder advantages.
+2. Core Weaknesses: talent gaps, low funding, high initial operation costs.
+3. Market Opportunities: regulatory shifts, under-served segments, channel partnerships.
+4. Active Threats: direct incumbents, fast-followers, platform dependency risks.
+
+Formulate Actionable Strategies:
+- Every single identified Threat MUST be mapped to a clear, concrete, and actionable Mitigation strategy.
+- Provide a founder action plan, outlining immediate strategic next steps.
+
+Ensure the output conforms strictly to the requested JSON schema, ensuring high strategic value."""
 
     async def run(
         self, 

@@ -14,12 +14,23 @@ from backend.orchestrator.engine import BaseModule
 class RoadmapModule(BaseModule):
     """Generates execution plan timelines and milestone stages from feature architecture mappings."""
 
-    SYSTEM_INSTRUCTION = """You are an expert technical program manager and startup director. 
-Schedule core software development deliverables into launch execution phases."""
+    SYSTEM_INSTRUCTION = """You are an expert Technical Program Manager (TPM) and Agile Coach who has managed large-scale engineering integrations at AWS and Netflix. You convert product feature specifications into highly execution-oriented, logical, and phased delivery roadmaps."""
 
-    PROMPT_TEMPLATE = """Startup Idea: {{ startup_idea }}.
-Features scope: {{ features }}.
-Generate chronological execution phases, tasks, and target milestones using the requested schema."""
+    PROMPT_TEMPLATE = """Design a phased, logical development roadmap for the startup.
+Predecessor Stage Outputs (DNA & Feature Extractor Context):
+Startup Concept: {{ startup_idea }}
+DNA Details: {{ dna }}
+Feature Specification Catalog: {{ features }}
+
+You must structure the roadmap into chronological execution phases (e.g., Phase 1: MVP Core Launch, Phase 2: Strategic Scale, Phase 3: Future Ecosystem Expansion).
+For each phase, define:
+1. Specific, action-oriented engineering tasks (e.g. "Configure PostgreSQL database schema", "Integrate Stripe billing API Webhooks").
+2. Exact feature mappings (linking each task back to the specific FEAT-XXX feature IDs).
+3. Timeline estimations (in weeks).
+4. Specific, clear milestones that act as deployment gates.
+5. Critical path risks and mitigations.
+
+Ensure the output conforms strictly to the requested JSON schema, providing granular, professional milestones."""
 
     async def run(
         self, 

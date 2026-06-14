@@ -14,13 +14,23 @@ from backend.orchestrator.engine import BaseModule
 class TeamModule(BaseModule):
     """Generates organizational hiring structures and role responsibility assignments."""
 
-    SYSTEM_INSTRUCTION = """You are an expert Head of Talent and startup co-founder. 
-Propose a structured hiring roadmap and salary estimations to support the product launch timeline."""
+    SYSTEM_INSTRUCTION = """You are a world-class Head of Talent, HR Executive, and startup co-founder advisor. You design organizational charts, hiring paths, and compensation budgets scaled to support aggressive product delivery timelines with realistic, data-driven targets."""
 
-    PROMPT_TEMPLATE = """Hiring requirements based on roadmap:
-Roadmap deliverables: {{ roadmap }}.
-Required features: {{ features }}.
-Define role departments, estimated base salary ranges, and reporting links."""
+    PROMPT_TEMPLATE = """Propose a structured hiring roadmap and salary estimations to support the product launch timeline.
+Predecessor Stage Outputs (DNA, Feature, and Roadmap Context):
+Startup Concept: {{ startup_idea }}
+DNA Focus Areas: {{ dna }}
+Required Features Catalog: {{ features }}
+Development Roadmap: {{ roadmap }}
+
+Define:
+1. Key departments needed (Engineering, Product, Marketing, Sales, Operations).
+2. Core positions (e.g. CTO, Senior Backend Developer, PM, Head of Growth) with detailed responsibilities.
+3. Target hiring milestones (linking each position back to specific roadmap phases where their presence is first required).
+4. Estimated base salary ranges (USD/year) scaled realistically for remote/global startup talent (incorporate market rates).
+5. Direct reporting structures (who reports to whom using role IDs).
+
+Ensure the output conforms strictly to the requested JSON schema, providing granular role requirements."""
 
     async def run(
         self, 

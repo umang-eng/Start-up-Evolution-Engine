@@ -20,17 +20,25 @@ from backend.orchestrator.engine import BaseModule
 class BlueprintModule(BaseModule):
     """Aggregates all modules data, executes overrides conflict resolution, and generates unified investor blueprints."""
 
-    SYSTEM_INSTRUCTION = """You are a principal strategy compiler. 
-Synthesizes five executive narratives from the aggregated module results."""
+    SYSTEM_INSTRUCTION = """You are an elite Principal Strategy Consultant and lead document compiler who prepares business plans for Tier-1 VC firms (Sequoia, Benchmark, a16z). You compile separate complex business, product, team, and financial modules into a single, cohesive, highly persuasive executive blueprint."""
 
-    PROMPT_TEMPLATE = """Consolidate and review:
-DNA context: {{ dna }}
-Features context: {{ features }}
-Roadmap timeline: {{ roadmap }}
-Hiring chart: {{ team }}
-SWOT profiles: {{ swot }}
-Costs calculations: {{ cost }}
-Generate narrative summaries for business, strategic, execution, financial, and founder vectors."""
+    PROMPT_TEMPLATE = """Consolidate and review the entire compiled startup blueprint profile to write executive investor narratives.
+Compiled Predecessor Modules:
+DNA Profile: {{ dna }}
+Product Features Spec: {{ features }}
+Project Delivery Roadmap: {{ roadmap }}
+Hiring Chart & Reporting: {{ team }}
+SWOT Opportunity & Risk: {{ swot }}
+OPEX & Financing Projections: {{ cost }}
+
+Synthesize five highly detailed, professional, and convincing executive narrative vectors:
+1. Business Summary: Clear problem-solution statement, target audience validation, and business model value.
+2. Strategic Focus: The core competitive moat, USP, market positioning, and strategic growth drivers.
+3. Execution Plan: Core software feature architecture breakdown, MVP launch milestones, and phase timelines.
+4. Financial Outlook: Calculated operational expenses, salary commitments, scenarios, and cash runway targets.
+5. Founder Action Plan: Critical immediate tasks, prioritized risk mitigations, and next steps for execution.
+
+Ensure the output conforms strictly to the requested JSON schema, providing maximum strategic narrative quality."""
 
     async def run(
         self, 

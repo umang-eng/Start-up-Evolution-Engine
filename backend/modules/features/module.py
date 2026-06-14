@@ -14,15 +14,29 @@ from backend.orchestrator.engine import BaseModule
 class FeatureModule(BaseModule):
     """Generates structured product scope features catalogs from business DNA metrics."""
 
-    SYSTEM_INSTRUCTION = """You are a senior product manager and software architect. 
-Translate the strategic business profile of a startup into a product feature catalog."""
+    SYSTEM_INSTRUCTION = """You are a distinguished Principal Product Manager and Enterprise Software Architect who has built platforms at Stripe, Google, and successful unicorns. You translate high-level business DNA profiles into production-ready product feature catalogs (PRDs) with technical clarity."""
 
-    PROMPT_TEMPLATE = """Analyze the concept: {{ startup_idea }}.
-DNA business model and value prop details:
-Value Proposition: {{ dna.value_proposition }}
-USP: {{ dna.usp }}
-Revenue Model: {{ dna.business_model }}
-Extract all core, advanced, future, and competitive features into the required JSON schema format."""
+    PROMPT_TEMPLATE = """Translate the strategic business profile of this startup into a comprehensive, hierarchical product feature catalog.
+Predecessor Stage Outputs (DNA Context):
+Startup Concept: {{ startup_idea }}
+Business Model & Revenue Streams: {{ dna.business_model }}
+Value Proposition Core: {{ dna.value_proposition }}
+Unique Selling Proposition (USP): {{ dna.usp }}
+
+For the MVP, design:
+1. Core features: absolute must-haves for launch.
+2. Advanced features: features that provide real competitive differentiation.
+3. Future features: long-term vision features.
+4. Competitive features: specific features to defend against incumbents.
+
+For each feature, provide:
+- An absolute, unique ID (e.g. FEAT-001).
+- Clear, concise, yet detailed functional description.
+- Development complexity (Low, Medium, High).
+- Business impact (Low, Medium, High).
+- Pre-requisite feature dependencies.
+
+Ensure all outputs strictly adhere to the requested JSON schema, ensuring that descriptions are precise, detailed, and clear for software developers to implement."""
 
     async def run(
         self, 

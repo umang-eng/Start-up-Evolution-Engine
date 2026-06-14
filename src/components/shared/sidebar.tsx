@@ -106,27 +106,49 @@ export function Sidebar() {
                 Active Blueprint
               </span>
             )}
-            {stages.map((stage) => {
+            {stages.map((stage, idx) => {
               const Icon = stage.icon;
-              const isCompleted = activeProject.currentStage === 'final-blueprint' || 
-                stages.findIndex(s => s.name === activeProject.currentStage) > stages.findIndex(s => s.name === stage.name);
               const isActive = activeStage === stage.name;
+              
+              // Dependency checking: check if all preceding stages are completed
+              let isLocked = false;
+              if (idx > 0) {
+                const precedingStages = stages.slice(0, idx);
+                const hasUncompletedPredecessor = precedingStages.some((s) => {
+                  if (s.name === 'dna-analyzer') return !activeProject.dna;
+                  if (s.name === 'feature-extractor') return !activeProject.features;
+                  if (s.name === 'roadmap') return !activeProject.roadmap;
+                  if (s.name === 'team-structure') return !activeProject.team;
+                  if (s.name === 'swot') return !activeProject.swot;
+                  if (s.name === 'cost-estimator') return !activeProject.cost;
+                  return false;
+                });
+                isLocked = hasUncompletedPredecessor;
+              }
+
+              // Also lock when project is generating to prevent tab switches
+              const isGenerating = activeProject.status === 'generating';
+              const isDisabled = isLocked || isGenerating;
 
               return (
                 <button
                   key={stage.name}
+                  disabled={isDisabled}
                   onClick={() => setActiveStage(stage.name)}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-all duration-150 text-sm",
                     isActive 
                       ? "bg-accent-foreground/10 text-accent-blue font-medium" 
-                      : "text-muted-foreground hover:bg-black/5"
+                      : isDisabled
+                        ? "opacity-50 cursor-not-allowed text-muted-foreground/60"
+                        : "text-muted-foreground hover:bg-black/5"
                   )}
                 >
                   <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-accent-blue" : "text-muted-foreground")} />
                   {sidebarOpen && (
                     <span className="truncate flex-1 flex justify-between items-center">
-                      {stage.label}
+                      <span>{stage.label}</span>
+                      {isLocked && <span className="text-xs text-muted-foreground/50 ml-1">🔒</span>}
                     </span>
                   )}
                 </button>

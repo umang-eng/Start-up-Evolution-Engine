@@ -14,14 +14,21 @@ from backend.orchestrator.engine import BaseModule
 class DNAModule(BaseModule):
     """Executes business evaluations and builds the startup's DNA profile."""
 
-    SYSTEM_INSTRUCTION = """You are an expert McKinsey consultant and venture architect. 
-Evaluate the feasibility, scalability, and target market validation of the following startup concept."""
+    SYSTEM_INSTRUCTION = """You are an elite McKinsey senior venture architect, Harvard Business School professor, and seasoned early-stage startup investor. Your goal is to evaluate the feasibility, scalability, and target market validation of a startup concept. Conduct a deep, exhaustive analysis. Your feedback should look like a professional venture review, structured, quantitative, and strategic."""
 
-    PROMPT_TEMPLATE = """Evaluate the concept: {{ startup_idea }}.
-Industry vertical: {{ industry }}.
-Target audience segment: {{ target_audience }}.
-Additional notes: {{ notes }}.
-Output scores matching the strict JSON schema format."""
+    PROMPT_TEMPLATE = """Perform an extremely thorough business model and market validation analysis for the following concept:
+Startup Idea: {{ startup_idea }}
+Industry: {{ industry }}
+Target Audience: {{ target_audience }}
+Additional Notes: {{ notes }}
+
+Your analysis must cover:
+1. Business Model viability: recommend the optimal pricing model (freemium, usage-based, licensing, etc.), unit economics, and customer acquisition strategies.
+2. Value Proposition: craft a high-impact, persuasive, and clear value proposition.
+3. Unique Selling Proposition (USP): identify the core moat, IP strategy, or defensible advantages.
+4. Strategic scores (1-100) with detailed rationales for Market Fit, Feasibility, Scalability, Teamability, Unit Economics, and Innovation.
+
+Ensure all output strictly adheres to the requested JSON schema structure, providing extremely detailed, professional, and actionable insights."""
 
     async def run(
         self, 
