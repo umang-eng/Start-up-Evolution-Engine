@@ -3,7 +3,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.ai.gemini import gemini_adapter
-from backend.ai.prompts import prompt_manager
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.models.project import Project
@@ -14,6 +13,13 @@ from backend.orchestrator.engine import BaseModule
 
 class RoadmapModule(BaseModule):
     """Generates execution plan timelines and milestone stages from feature architecture mappings."""
+
+    SYSTEM_INSTRUCTION = """You are an expert technical program manager and startup director. 
+Schedule core software development deliverables into launch execution phases."""
+
+    PROMPT_TEMPLATE = """Startup Idea: {{ startup_idea }}.
+Features scope: {{ features }}.
+Generate chronological execution phases, tasks, and target milestones using the requested schema."""
 
     async def run(
         self, 
@@ -41,9 +47,10 @@ class RoadmapModule(BaseModule):
             "features": features_context
         }
 
-        # 3. Render prompt instructions
-        system_instruction, rendered_prompt = prompt_manager.render_prompt(
-            module_name="roadmap_generator",
+        # 3. Render system instructions and prompt templates owned by this module
+        system_instruction, rendered_prompt = self.render_prompt(
+            system_template=self.SYSTEM_INSTRUCTION,
+            user_template=self.PROMPT_TEMPLATE,
             variables=variables
         )
 

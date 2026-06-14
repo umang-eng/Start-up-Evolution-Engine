@@ -58,9 +58,9 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
 
   // Auth endpoints (login, register, refresh) must never trigger the token-refresh
   // loop — a 401 from them is a real credential error, not an expired session.
-  const isAuthPath = path.startsWith('/api/v1/auth/');
+  const isAuthActionPath = path === '/api/v1/auth/login' || path === '/api/v1/auth/register' || path === '/api/v1/auth/refresh';
 
-  if (response.status === 401 && !isAuthPath) {
+  if (response.status === 401 && !isAuthActionPath) {
     // Attempt Token Rotation for protected endpoints
     const refreshed = await attemptTokenRefresh();
     if (refreshed) {
@@ -396,7 +396,7 @@ export const api = {
     delete: (id: string) => request(`/api/v1/projects/${id}`, { method: 'DELETE' }),
   },
   generator: {
-    run: (projectId: string) => request(`/api/v1/generator/run?project_id=${projectId}`, { method: 'POST' }),
+    run: (projectId: string, stage?: string) => request(`/api/v1/generator/run?project_id=${projectId}${stage ? `&stage=${stage}` : ''}`, { method: 'POST' }),
     enhance: (idea: string) => request('/api/v1/generator/enhance', {
       method: 'POST',
       body: JSON.stringify({ idea }),

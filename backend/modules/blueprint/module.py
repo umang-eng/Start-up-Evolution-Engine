@@ -4,7 +4,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.ai.gemini import gemini_adapter
-from backend.ai.prompts import prompt_manager
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.models.project import Project
@@ -20,6 +19,18 @@ from backend.orchestrator.engine import BaseModule
 
 class BlueprintModule(BaseModule):
     """Aggregates all modules data, executes overrides conflict resolution, and generates unified investor blueprints."""
+
+    SYSTEM_INSTRUCTION = """You are a principal strategy compiler. 
+Synthesizes five executive narratives from the aggregated module results."""
+
+    PROMPT_TEMPLATE = """Consolidate and review:
+DNA context: {{ dna }}
+Features context: {{ features }}
+Roadmap timeline: {{ roadmap }}
+Hiring chart: {{ team }}
+SWOT profiles: {{ swot }}
+Costs calculations: {{ cost }}
+Generate narrative summaries for business, strategic, execution, financial, and founder vectors."""
 
     async def run(
         self, 
@@ -65,8 +76,9 @@ class BlueprintModule(BaseModule):
             "cost": resolved_cost
         }
 
-        system_instruction, rendered_prompt = prompt_manager.render_prompt(
-            module_name="blueprint_composer",
+        system_instruction, rendered_prompt = self.render_prompt(
+            system_template=self.SYSTEM_INSTRUCTION,
+            user_template=self.PROMPT_TEMPLATE,
             variables=variables
         )
 

@@ -3,7 +3,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.ai.gemini import gemini_adapter
-from backend.ai.prompts import prompt_manager
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.models.project import Project
@@ -14,6 +13,14 @@ from backend.orchestrator.engine import BaseModule
 
 class TeamModule(BaseModule):
     """Generates organizational hiring structures and role responsibility assignments."""
+
+    SYSTEM_INSTRUCTION = """You are an expert Head of Talent and startup co-founder. 
+Propose a structured hiring roadmap and salary estimations to support the product launch timeline."""
+
+    PROMPT_TEMPLATE = """Hiring requirements based on roadmap:
+Roadmap deliverables: {{ roadmap }}.
+Required features: {{ features }}.
+Define role departments, estimated base salary ranges, and reporting links."""
 
     async def run(
         self, 
@@ -43,9 +50,10 @@ class TeamModule(BaseModule):
             "roadmap": roadmap_context
         }
 
-        # 3. Render prompt instructions
-        system_instruction, rendered_prompt = prompt_manager.render_prompt(
-            module_name="team_structure",
+        # 3. Render system instructions and prompt templates owned by this module
+        system_instruction, rendered_prompt = self.render_prompt(
+            system_template=self.SYSTEM_INSTRUCTION,
+            user_template=self.PROMPT_TEMPLATE,
             variables=variables
         )
 

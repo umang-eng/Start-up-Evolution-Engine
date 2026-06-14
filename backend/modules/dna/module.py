@@ -3,7 +3,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.ai.gemini import gemini_adapter
-from backend.ai.prompts import prompt_manager
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.models.project import Project
@@ -14,6 +13,15 @@ from backend.orchestrator.engine import BaseModule
 
 class DNAModule(BaseModule):
     """Executes business evaluations and builds the startup's DNA profile."""
+
+    SYSTEM_INSTRUCTION = """You are an expert McKinsey consultant and venture architect. 
+Evaluate the feasibility, scalability, and target market validation of the following startup concept."""
+
+    PROMPT_TEMPLATE = """Evaluate the concept: {{ startup_idea }}.
+Industry vertical: {{ industry }}.
+Target audience segment: {{ target_audience }}.
+Additional notes: {{ notes }}.
+Output scores matching the strict JSON schema format."""
 
     async def run(
         self, 
@@ -32,9 +40,10 @@ class DNAModule(BaseModule):
             "notes": "None"
         }
 
-        # 2. Render versioned system instructions and prompt templates
-        system_instruction, rendered_prompt = prompt_manager.render_prompt(
-            module_name="dna_analyzer",
+        # 2. Render system instructions and prompt templates owned by this module
+        system_instruction, rendered_prompt = self.render_prompt(
+            system_template=self.SYSTEM_INSTRUCTION,
+            user_template=self.PROMPT_TEMPLATE,
             variables=variables
         )
 

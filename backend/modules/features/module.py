@@ -3,7 +3,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.ai.gemini import gemini_adapter
-from backend.ai.prompts import prompt_manager
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.models.project import Project
@@ -14,6 +13,16 @@ from backend.orchestrator.engine import BaseModule
 
 class FeatureModule(BaseModule):
     """Generates structured product scope features catalogs from business DNA metrics."""
+
+    SYSTEM_INSTRUCTION = """You are a senior product manager and software architect. 
+Translate the strategic business profile of a startup into a product feature catalog."""
+
+    PROMPT_TEMPLATE = """Analyze the concept: {{ startup_idea }}.
+DNA business model and value prop details:
+Value Proposition: {{ dna.value_proposition }}
+USP: {{ dna.usp }}
+Revenue Model: {{ dna.business_model }}
+Extract all core, advanced, future, and competitive features into the required JSON schema format."""
 
     async def run(
         self, 
@@ -39,9 +48,10 @@ class FeatureModule(BaseModule):
             "dna": dna_context
         }
 
-        # 3. Render prompts instructions
-        system_instruction, rendered_prompt = prompt_manager.render_prompt(
-            module_name="feature_extractor",
+        # 3. Render system instructions and prompt templates owned by this module
+        system_instruction, rendered_prompt = self.render_prompt(
+            system_template=self.SYSTEM_INSTRUCTION,
+            user_template=self.PROMPT_TEMPLATE,
             variables=variables
         )
 

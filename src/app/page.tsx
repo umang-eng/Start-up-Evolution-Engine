@@ -30,6 +30,19 @@ import {
 } from 'lucide-react';
 import { StageName } from '@/types/blueprint';
 
+const getBackendStageName = (frontendStage: string): string => {
+  const mapping: Record<string, string> = {
+    'dna-analyzer': 'dna',
+    'feature-extractor': 'features',
+    'roadmap': 'roadmap',
+    'team-structure': 'team',
+    'swot': 'swot',
+    'cost-estimator': 'cost',
+    'final-blueprint': 'blueprint'
+  };
+  return mapping[frontendStage] || 'dna';
+};
+
 export default function WorkspacePage() {
   const { 
     projects, 
@@ -91,9 +104,9 @@ export default function WorkspacePage() {
   };
 
   // Run real generation sequence using Server-Sent Events (SSE)
-  const handleStartGeneration = async (projId: string) => {
+  const handleStartGeneration = async (projId: string, stage: string) => {
     updateProjectStatus(projId, 'generating');
-    setStreamLog(["Contacting intelligence orchestrator..."]);
+    setStreamLog([`Contacting intelligence orchestrator for stage [${stage.toUpperCase()}]...`]);
 
     const token = getAccessToken();
     if (!token) {
@@ -104,7 +117,7 @@ export default function WorkspacePage() {
 
     try {
       // 1. Trigger Async execution run
-      await api.generator.run(projId);
+      await api.generator.run(projId, stage);
       setStreamLog(prev => ["✅ Generation pipeline triggered. Opening stream connection...", ...prev]);
 
       // 2. Open EventSource connection with token query param
@@ -208,7 +221,7 @@ export default function WorkspacePage() {
       try {
         const p = await createNewProject("Evolved Startup Idea", inputVal);
         setInputVal('');
-        handleStartGeneration(p.id);
+        handleStartGeneration(p.id, 'dna');
       } catch (err) {
         console.error('Failed to evolve startup idea:', err);
       }
@@ -350,7 +363,7 @@ export default function WorkspacePage() {
                       </p>
                       <div className="flex gap-2">
                         <Button
-                          onClick={() => handleStartGeneration(activeProject.id)}
+                          onClick={() => handleStartGeneration(activeProject.id, getBackendStageName(activeStage))}
                           className="h-8 text-xs gap-1.5 bg-red-600 hover:bg-red-700"
                         >
                           <RefreshCw className="h-3.5 w-3.5" />
@@ -474,6 +487,28 @@ export default function WorkspacePage() {
                   </Card>
                 )}
 
+                {/* STAGE: DNA ANALYZER EMPTY STATE */}
+                {activeStage === 'dna-analyzer' && !activeProject.dna && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
+                  <Card className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
+                      <Dna className="h-7 w-7" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <h3 className="text-lg font-bold text-primary">Business DNA Analyzer</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Evaluate market viability, validate user demographics, map value propositions, and outline key competitive advantages for your concept.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleStartGeneration(activeProject.id, 'dna')}
+                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>Analyze Concept DNA</span>
+                    </Button>
+                  </Card>
+                )}
+
                 {/* STAGE: FEATURE EXTRACTOR */}
                 {activeStage === 'feature-extractor' && activeProject.features && (
                   <Card className="shadow-lvl-1 border-border bg-white">
@@ -531,6 +566,28 @@ export default function WorkspacePage() {
                   </Card>
                 )}
 
+                {/* STAGE: FEATURE EXTRACTOR EMPTY STATE */}
+                {activeStage === 'feature-extractor' && !activeProject.features && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
+                  <Card className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
+                      <GitBranch className="h-7 w-7" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <h3 className="text-lg font-bold text-primary">Technical Feature Extractor</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Convert your business DNA and target market specifications into a structured Product Requirement Document (PRD), feature lists, and MVP scoped items.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleStartGeneration(activeProject.id, 'features')}
+                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>Extract MVP Features</span>
+                    </Button>
+                  </Card>
+                )}
+
                 {/* STAGE: ROADMAP */}
                 {activeStage === 'roadmap' && activeProject.roadmap && (
                   <Card className="shadow-lvl-1 border-border bg-white">
@@ -572,6 +629,28 @@ export default function WorkspacePage() {
                   </Card>
                 )}
 
+                {/* STAGE: ROADMAP EMPTY STATE */}
+                {activeStage === 'roadmap' && !activeProject.roadmap && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
+                  <Card className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
+                      <LineChart className="h-7 w-7" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <h3 className="text-lg font-bold text-primary">Execution Roadmap Compiler</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Translate your technical feature spec and complexity ratings into a multi-phase, week-by-week development roadmap with key task durations.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleStartGeneration(activeProject.id, 'roadmap')}
+                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>Generate Timeline Roadmap</span>
+                    </Button>
+                  </Card>
+                )}
+
                 {/* STAGE: TEAM STRUCTURE */}
                 {activeStage === 'team-structure' && activeProject.team && (
                   <Card className="shadow-lvl-1 border-border bg-white">
@@ -606,6 +685,28 @@ export default function WorkspacePage() {
                         </Button>
                       </div>
                     </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: TEAM STRUCTURE EMPTY STATE */}
+                {activeStage === 'team-structure' && !activeProject.team && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
+                  <Card className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
+                      <Network className="h-7 w-7" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <h3 className="text-lg font-bold text-primary">Resource & Team Allocator</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Forecast and structure hiring requirements, define team roles, allocate departments, and calculate optimal monthly role salaries based on development scope.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleStartGeneration(activeProject.id, 'team')}
+                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>Plan Team Hires</span>
+                    </Button>
                   </Card>
                 )}
 
@@ -671,6 +772,28 @@ export default function WorkspacePage() {
                   </Card>
                 )}
 
+                {/* STAGE: SWOT EMPTY STATE */}
+                {activeStage === 'swot' && !activeProject.swot && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
+                  <Card className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
+                      <TrendingUp className="h-7 w-7" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <h3 className="text-lg font-bold text-primary">Strategic SWOT Board</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Compile strategic Strengths, Weaknesses, Opportunities, and Threats using your market positioning and timeline requirements.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleStartGeneration(activeProject.id, 'swot')}
+                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>Conduct SWOT Analysis</span>
+                    </Button>
+                  </Card>
+                )}
+
                 {/* STAGE: COST ESTIMATOR */}
                 {activeStage === 'cost-estimator' && activeProject.cost && (
                   <Card className="shadow-lvl-1 border-border bg-white">
@@ -733,8 +856,30 @@ export default function WorkspacePage() {
                   </Card>
                 )}
 
+                {/* STAGE: COST ESTIMATOR EMPTY STATE */}
+                {activeStage === 'cost-estimator' && !activeProject.cost && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
+                  <Card className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
+                      <Award className="h-7 w-7" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <h3 className="text-lg font-bold text-primary">Financial Plan & Cost Estimator</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Model MVP development costs, first-year burn rates, runway forecasts, and strategic funding requirements for lean, balanced, and aggressive scenarios.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleStartGeneration(activeProject.id, 'cost')}
+                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>Calculate Runway Costs</span>
+                    </Button>
+                  </Card>
+                )}
+
                 {/* STAGE: FINAL BLUEPRINT */}
-                {activeStage === 'final-blueprint' && (
+                {activeStage === 'final-blueprint' && activeProject.blueprintCompiled && (
                   <Card className="shadow-lvl-1 border-border bg-white">
                     <CardHeader>
                       <CardTitle className="text-xl font-bold tracking-tight text-primary">
@@ -776,6 +921,28 @@ export default function WorkspacePage() {
                         </div>
                       </div>
                     </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: FINAL BLUEPRINT EMPTY STATE */}
+                {activeStage === 'final-blueprint' && !activeProject.blueprintCompiled && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
+                  <Card className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
+                      <ScrollText className="h-7 w-7" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <h3 className="text-lg font-bold text-primary">Startup Blueprint Compiler</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Assemble all generated modules into an investor-ready, comprehensive operating blueprint packet with secure sharing and PDF export options.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleStartGeneration(activeProject.id, 'blueprint')}
+                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>Compile Final Blueprint</span>
+                    </Button>
                   </Card>
                 )}
               </div>

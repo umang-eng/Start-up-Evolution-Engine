@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.ai.context import context_manager
-from backend.ai.prompts import prompt_manager
+from backend.modules.dna.module import DNAModule
 from backend.models.project import Project
 from backend.models.user import User
 from backend.orchestrator.engine import BaseModule, orchestrator
@@ -26,9 +26,11 @@ class DummyFailureModule(BaseModule):
 
 async def test_prompt_rendering() -> None:
     # Render with simple values
-    system, user = prompt_manager.render_prompt(
-        "dna_analyzer", 
-        {"startup_idea": "AI Broker", "industry": "Finance", "target_audience": "Banks", "notes": "None"}
+    dna_module = DNAModule()
+    system, user = dna_module.render_prompt(
+        system_template=dna_module.SYSTEM_INSTRUCTION,
+        user_template=dna_module.PROMPT_TEMPLATE,
+        variables={"startup_idea": "AI Broker", "industry": "Finance", "target_audience": "Banks", "notes": "None"}
     )
     assert "Feasibility" in system or "venture architect" in system
     assert "Evaluate the concept: AI Broker" in user

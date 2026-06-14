@@ -19,6 +19,13 @@ class BaseModule(ABC):
         """Runs the AI logic of the module and returns the structured output dict."""
         pass
 
+    def render_prompt(self, system_template: str, user_template: str, variables: dict[str, Any]) -> tuple[str, str]:
+        """Interpolates variables into the system instruction and prompt templates."""
+        from jinja2 import Template
+        system_rendered = Template(system_template).render(**variables)
+        user_rendered = Template(user_template).render(**variables)
+        return system_rendered, user_rendered
+
 
 class WorkflowOrchestrator:
     """Orchestrates the multi-stage startup compilation pipeline."""
@@ -44,20 +51,33 @@ class WorkflowOrchestrator:
         self, 
         db: AsyncSession, 
         project: Project, 
-        correlation_id: str
+        correlation_id: str,
+        target_stage: str | None = None
     ) -> GenerationSession:
-        """Runs the full compilation sequence, updates state, and streams status telemetry."""
-        # 1. Initialize Generation Session record
-        session = GenerationSession(
-            project_id=project.id,
-            status="INITIALIZING",
-            correlation_id=correlation_id,
-            current_stage="init",
-            progress_percentage=0.0
-        )
-        db.add(session)
-        await db.commit()
-        await db.refresh(session)
+        """Runs the compilation sequence (full or single stage), updates state, and streams status telemetry."""
+        # Check if there is an existing session
+        from sqlalchemy import select
+        stmt = select(GenerationSession).where(GenerationSession.project_id == project.id).order_by(GenerationSession.created_at.desc())
+        existing_session = (await db.execute(stmt)).scalars().first()
+
+        if existing_session:
+            session = existing_session
+            session.status = "INITIALIZING"
+            session.correlation_id = correlation_id
+            session.error_message = None
+            await db.commit()
+            await db.refresh(session)
+        else:
+            session = GenerationSession(
+                project_id=project.id,
+                status="INITIALIZING",
+                correlation_id=correlation_id,
+                current_stage="init",
+                progress_percentage=0.0
+            )
+            db.add(session)
+            await db.commit()
+            await db.refresh(session)
 
         channel_name = f"project:run:{project.id}:stream"
         await self._publish_event(channel_name, {
@@ -67,15 +87,24 @@ class WorkflowOrchestrator:
         })
 
         # Stages sequence list in order
-        sequence = ["dna", "features", "roadmap", "team", "swot", "cost", "blueprint"]
-        total_stages = len(sequence)
+        stages_list = ["dna", "features", "roadmap", "team", "swot", "cost", "blueprint"]
+        if target_stage:
+            if target_stage not in self.stages_config:
+                raise ValueError(f"Invalid stage name: {target_stage}")
+            sequence = [target_stage]
+        else:
+            sequence = stages_list
+
+        total_stages = len(stages_list)
 
         session.status = "RUNNING"
         await db.commit()
 
         for idx, stage_name in enumerate(sequence):
             stage_num, is_critical = self.stages_config[stage_name]
-            progress = round(((idx) / total_stages) * 100, 2)
+            # Use global index of the stage in the full sequence for correct progress percentage
+            global_idx = stages_list.index(stage_name)
+            progress = round(((global_idx) / total_stages) * 100, 2)
 
             # Update Session DB
             session.current_stage = stage_name
@@ -177,7 +206,11 @@ class WorkflowOrchestrator:
 
         # Pipeline finished successfully
         session.status = "COMPLETED"
-        session.progress_percentage = 100.0
+        if target_stage:
+            global_idx = stages_list.index(target_stage)
+            session.progress_percentage = round(((global_idx + 1) / total_stages) * 100, 2)
+        else:
+            session.progress_percentage = 100.0
         await db.commit()
 
         await self._publish_event(channel_name, {

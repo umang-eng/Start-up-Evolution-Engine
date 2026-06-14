@@ -3,7 +3,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.ai.gemini import gemini_adapter
-from backend.ai.prompts import prompt_manager
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.models.project import Project
@@ -14,6 +13,14 @@ from backend.orchestrator.engine import BaseModule
 
 class SWOTModule(BaseModule):
     """Generates strategic SWOT threat/opportunity evaluations and founder execution priorities."""
+
+    SYSTEM_INSTRUCTION = """You are a startup accelerator mentor and strategic analyst. 
+Perform a SWOT risk matrix analysis and define actionable mitigation strategies."""
+
+    PROMPT_TEMPLATE = """Evaluate the concept: {{ startup_idea }}.
+Feature catalog: {{ features }}.
+Roadmap structure: {{ roadmap }}.
+Define the SWOT parameters and link threats to mitigations."""
 
     async def run(
         self, 
@@ -45,9 +52,10 @@ class SWOTModule(BaseModule):
             "team": team_context
         }
 
-        # 3. Render prompt instructions
-        system_instruction, rendered_prompt = prompt_manager.render_prompt(
-            module_name="swot_generator",
+        # 3. Render system instructions and prompt templates owned by this module
+        system_instruction, rendered_prompt = self.render_prompt(
+            system_template=self.SYSTEM_INSTRUCTION,
+            user_template=self.PROMPT_TEMPLATE,
             variables=variables
         )
 

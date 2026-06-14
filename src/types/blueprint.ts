@@ -171,5 +171,6 @@ export interface StartupProject {
   team?: OrgStructure;
   swot?: SWOTAnalysis;
   cost?: CostEstimation;
+  blueprintCompiled?: boolean;
   createdAt: string;
 }

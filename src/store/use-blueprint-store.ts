@@ -160,7 +160,8 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
           swot,
           cost,
           status: 'completed',
-          currentStage: 'final-blueprint'
+          currentStage: 'final-blueprint',
+          blueprintCompiled: true
         } : p),
         activeStage: 'final-blueprint'
       }));

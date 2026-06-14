@@ -3,7 +3,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.ai.gemini import gemini_adapter
-from backend.ai.prompts import prompt_manager
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.models.project import Project
@@ -14,6 +13,13 @@ from backend.orchestrator.engine import BaseModule
 
 class CostModule(BaseModule):
     """Generates financial models, scenario projections, and funding requirements analysis."""
+
+    SYSTEM_INSTRUCTION = """You are an expert startup CFO and financial controller. 
+Build detailed operational cost estimations and cash runway analysis models."""
+
+    PROMPT_TEMPLATE = """Hiring chart base payroll: {{ team }}.
+Strategic opportunities / threats: {{ swot }}.
+Calculate operational tools, servers, legal compliance expenses, and total cash targets."""
 
     async def run(
         self, 
@@ -48,9 +54,10 @@ class CostModule(BaseModule):
             "swot": swot_context
         }
 
-        # 3. Render prompt instructions
-        system_instruction, rendered_prompt = prompt_manager.render_prompt(
-            module_name="cost_estimator",
+        # 3. Render system instructions and prompt templates owned by this module
+        system_instruction, rendered_prompt = self.render_prompt(
+            system_template=self.SYSTEM_INSTRUCTION,
+            user_template=self.PROMPT_TEMPLATE,
             variables=variables
         )
 
