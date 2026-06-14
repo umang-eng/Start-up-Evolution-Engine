@@ -40,6 +40,7 @@ class Settings(BaseSettings):
 
     # AI Configuration
     GEMINI_API_KEY: str = ""
+    HF_TOKEN: str = ""
 
     @field_validator("SECRET_KEY")
     @classmethod
