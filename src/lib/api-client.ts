@@ -403,7 +403,7 @@ export const api = {
     }),
   },
   blueprints: {
-    get: (projectId: string) => request(`/api/v1/blueprints/${projectId}`),
+    get: (projectId: string, allowPartial: boolean = false) => request(`/api/v1/blueprints/${projectId}${allowPartial ? '?allow_partial=true' : ''}`),
     getShared: (token: string) => request(`/api/v1/blueprints/shared/${token}`),
   },
   exports: {

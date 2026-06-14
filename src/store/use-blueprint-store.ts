@@ -140,7 +140,7 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
 
   loadBlueprint: async (projectId) => {
     try {
-      const blueprintData = await api.blueprints.get(projectId);
+      const blueprintData = await api.blueprints.get(projectId, true);
       if (!blueprintData) return;
 
       const dna = mapDnaResponse(blueprintData.startup_dna);
@@ -150,21 +150,49 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
       const swot = mapSwotResponse(blueprintData.swot_analysis);
       const cost = mapCostResponse(blueprintData.financial_plan);
 
-      set((state) => ({
-        projects: state.projects.map((p) => p.id === projectId ? {
-          ...p,
-          dna,
-          features,
-          roadmap,
-          team,
-          swot,
-          cost,
-          status: 'completed',
-          currentStage: 'final-blueprint',
-          blueprintCompiled: true
-        } : p),
-        activeStage: 'final-blueprint'
-      }));
+      // Determine the compilation completion status and current stage
+      const hasFullBlueprint = !!blueprintData.executive_summary || !!blueprintData.health_indicators;
+      
+      let resolvedStage: StageName = 'dna-analyzer';
+      let resolvedStatus: StartupProject['status'] = 'idle';
+      let resolvedCompiled = false;
+
+      if (hasFullBlueprint) {
+        resolvedStage = 'final-blueprint';
+        resolvedStatus = 'completed';
+        resolvedCompiled = true;
+      } else if (cost) {
+        resolvedStage = 'final-blueprint';
+      } else if (swot) {
+        resolvedStage = 'cost-estimator';
+      } else if (team) {
+        resolvedStage = 'swot';
+      } else if (roadmap) {
+        resolvedStage = 'team-structure';
+      } else if (features) {
+        resolvedStage = 'roadmap';
+      } else if (dna) {
+        resolvedStage = 'feature-extractor';
+      }
+
+      set((state) => {
+        const isCurrentlyActive = state.activeProjectId === projectId;
+        return {
+          projects: state.projects.map((p) => p.id === projectId ? {
+            ...p,
+            dna,
+            features,
+            roadmap,
+            team,
+            swot,
+            cost,
+            status: p.status === 'completed' && !hasFullBlueprint ? 'idle' : (resolvedStatus || p.status),
+            currentStage: resolvedStage,
+            blueprintCompiled: resolvedCompiled
+          } : p),
+          activeStage: isCurrentlyActive ? resolvedStage : state.activeStage
+        };
+      });
     } catch (err) {
       console.error('Failed to load compiled blueprint:', err);
     }

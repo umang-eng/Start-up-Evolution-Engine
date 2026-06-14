@@ -27,6 +27,9 @@ TestSessionLocal = async_sessionmaker(
     expire_on_commit=False
 )
 
+from backend.database.session import AsyncSessionLocal
+AsyncSessionLocal.configure(bind=test_engine)
+
 
 class MockPubSub:
     """Mock Redis PubSub instance."""
@@ -135,6 +138,40 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides.clear()
 
 
+def get_mock_model_instance(schema):
+    from typing import get_args, get_origin, Literal, Union
+    import types
+    
+    annotation = schema
+    if get_origin(annotation) is Union or isinstance(annotation, types.UnionType):
+        args = get_args(annotation)
+        annotation = args[0]
+        
+    if get_origin(annotation) is Literal:
+        return get_args(annotation)[0]
+        
+    if annotation is str:
+        return "mock_value"
+    elif annotation is int:
+        return 1
+    elif annotation is float:
+        return 0.8
+    elif annotation is bool:
+        return True
+    elif get_origin(annotation) is list:
+        item_type = get_args(annotation)[0] if get_args(annotation) else str
+        return [get_mock_model_instance(item_type)]
+    elif get_origin(annotation) is dict:
+        return {}
+    elif hasattr(annotation, "model_fields"):
+        dummy_data = {}
+        for field_name, field_info in annotation.model_fields.items():
+            dummy_data[field_name] = get_mock_model_instance(field_info.annotation)
+        return annotation(**dummy_data)
+    else:
+        return None
+
+
 @pytest.fixture(autouse=True)
 def mock_gemini_adapter() -> Generator[None, None, None]:
     """Mocks the LLM adapter methods to avoid external API dependencies in tests."""
@@ -148,6 +185,11 @@ def mock_gemini_adapter() -> Generator[None, None, None]:
             "Fitness app targeting busy professionals with personalized workouts "
             "and a premium monthly subscription model."
         )
+        
+        async def mock_generate(prompt, schema, system_instruction=None):
+            return get_mock_model_instance(schema)
+            
+        mock_structured.side_effect = mock_generate
         yield
 
 

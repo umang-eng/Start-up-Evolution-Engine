@@ -78,9 +78,9 @@ export default function WorkspacePage() {
     }
   }, [isAuthenticated]);
 
-  // Load compiled details if active project state is already completed but empty in store
+  // Load compiled details or partial results if active project state is not yet loaded in store
   useEffect(() => {
-    if (activeProject && activeProject.status === 'completed' && !activeProject.dna && activeProjectId) {
+    if (activeProject && !activeProject.dna && activeProjectId) {
       loadBlueprint(activeProjectId);
     }
   }, [activeProjectId]);
@@ -180,7 +180,8 @@ export default function WorkspacePage() {
       });
 
       es.addEventListener('workflow:completed', () => {
-        setStreamLog(prev => ["🎉 Blueprint compiled successfully!", ...prev]);
+        const stageLabel = stage === 'blueprint' ? 'Final Blueprint' : `Stage [${stage.toUpperCase()}]`;
+        setStreamLog(prev => [`🎉 ${stageLabel} compiled successfully!`, ...prev]);
         es.close();
         loadBlueprint(projId);
       });
