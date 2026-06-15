@@ -19,7 +19,7 @@ T = TypeVar("T", bound=BaseModel)
 MODEL_PRIORITY = [
     "gemini-2.0-flash",           # Fastest, hits quota first on free tier
     "gemini-2.0-flash-lite",      # Lighter quota limits
-    "gemini-1.5-flash-8b",        # Smallest, most available on free tier
+    "gemini-1.5-flash",           # Universally supported fallback on free tier
 ]
 
 # Backoff wait times (seconds) per model on quota exhaustion
