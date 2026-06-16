@@ -17,7 +17,8 @@ import {
   Cpu,
   Clock,
   DollarSign,
-  TrendingUp
+  TrendingUp,
+  Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -351,6 +352,15 @@ export function Navbar() {
                   <span className="text-[10px] text-muted-foreground block truncate">{user?.email || 'builder@test.com'}</span>
                 </div>
                 <div className="py-1">
+                  <button
+                    onClick={() => {
+                      setProfileOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs text-muted-foreground hover:bg-black/5 flex items-center gap-2 transition-colors border-0 cursor-pointer"
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                    <span>Settings</span>
+                  </button>
                   <button
                     onClick={() => {
                       logout();
