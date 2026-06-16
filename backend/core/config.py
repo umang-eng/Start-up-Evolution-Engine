@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: Literal["development", "staging", "production"] = "development"
 
     # CORS — tighten in production via ALLOWED_ORIGINS env var
-    ALLOWED_ORIGINS: str = "http://localhost:3000"
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     # Security — MUST be overridden in production via environment variable
     SECRET_KEY: str = "39fca85521b7c191a0c4f8263152d24269e8ef81d11ff31ff215443210ef8abc"

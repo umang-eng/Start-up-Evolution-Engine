@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncGenerator
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -35,9 +36,12 @@ async def verify_db_connectivity() -> None:
     
     logger.info("Verifying database connectivity...")
     try:
-        # Try running a select 1 check on active connection
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
+        # Try running a select 1 check on active connection with a 2.0s timeout
+        async def check_conn():
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+        
+        await asyncio.wait_for(check_conn(), timeout=2.0)
         logger.info("Database connection verified successfully (PostgreSQL).")
     except Exception as e:
         logger.warning(

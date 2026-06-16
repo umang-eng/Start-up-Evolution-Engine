@@ -5,6 +5,7 @@
   "scripts": {
     "dev:frontend": "next dev",
     "dev:backend": "cd backend && PYTHONPATH=.. uvicorn app.main:app --reload --port 8000",
+    "kill-backend": "kill -9 $(lsof -t -i:8000) || true",
     "dev": "concurrently -n \"next,fastapi\" -c \"cyan,green\" \"npm run dev:frontend\" \"npm run dev:backend\"",
     "build": "next build",
     "start": "next start",
