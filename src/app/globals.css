@@ -194,42 +194,50 @@
 .glass-btn {
   position: relative;
   overflow: hidden;
-  backdrop-filter: blur(8px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  backdrop-filter: blur(14px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
   box-shadow: 
-    inset 0 1px 2px rgba(255, 255, 255, 0.4),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.15),
-    0 4px 10px rgba(0, 0, 0, 0.04) !important;
-  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.5),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.1),
+    inset 0 8px 12px rgba(255, 255, 255, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.04) !important;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  text-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.1);
+  font-weight: 550 !important;
 }
 
-/* Subtle water/bubble pattern background */
+/* Elegant, premium water-ripple / fluid pattern background */
 .glass-btn::before {
   content: '';
   position: absolute;
   inset: 0;
-  opacity: 0.08;
+  opacity: 0.12;
   background-image: 
-    radial-gradient(circle at 1px 1px, currentColor 1.5px, transparent 0),
-    repeating-linear-gradient(45deg, transparent, transparent 5px, currentColor 5px, currentColor 6px);
-  background-size: 10px 10px, 14px 14px;
+    radial-gradient(circle at 50% 120%, rgba(255, 255, 255, 0.25), transparent 70%),
+    radial-gradient(circle at 15% 25%, rgba(255, 255, 255, 0.25) 1.5px, transparent 1.5px),
+    radial-gradient(circle at 85% 35%, rgba(255, 255, 255, 0.25) 1.5px, transparent 1.5px),
+    radial-gradient(circle at 35% 75%, rgba(255, 255, 255, 0.25) 1.5px, transparent 1.5px),
+    radial-gradient(circle at 70% 80%, rgba(255, 255, 255, 0.25) 1.5px, transparent 1.5px),
+    repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(255, 255, 255, 0.06) 8px, rgba(255, 255, 255, 0.06) 9px),
+    repeating-linear-gradient(-45deg, transparent, transparent 8px, rgba(255, 255, 255, 0.06) 8px, rgba(255, 255, 255, 0.06) 9px);
+  background-size: 100% 100%, 24px 24px, 32px 32px, 28px 28px, 36px 36px, 16px 16px, 16px 16px;
   pointer-events: none;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.3s ease, transform 0.5s ease;
   z-index: 0;
 }
 
-/* Water/Liquid Gloss Shine Highlight */
+/* Water/Liquid Gloss 3D Dome Highlight */
 .glass-btn::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.02) 100%);
+  inset: 1px;
+  background: 
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.1) 45%, transparent 80%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, transparent 100%);
   pointer-events: none;
   border-radius: inherit;
   z-index: 1;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Ensure contents (text, icons) render above pseudo-elements */
@@ -240,76 +248,179 @@
 
 /* Hover and Active State Animations */
 .glass-btn:hover {
-  transform: translateY(-1px);
+  transform: translateY(-1.5px) scale(1.015);
+  border-color: rgba(255, 255, 255, 0.55) !important;
   box-shadow: 
-    inset 0 1px 3px rgba(255, 255, 255, 0.55),
-    inset 0 -1px 3px rgba(0, 0, 0, 0.2),
-    0 6px 16px rgba(0, 0, 0, 0.06) !important;
+    inset 0 2px 1px rgba(255, 255, 255, 0.65),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.12),
+    inset 0 8px 16px rgba(255, 255, 255, 0.2),
+    0 8px 20px rgba(0, 0, 0, 0.06) !important;
 }
 
 .glass-btn:hover::before {
-  opacity: 0.13;
+  opacity: 0.18;
+  transform: scale(1.05);
+}
+
+.glass-btn:hover::after {
+  opacity: 1;
+  background: 
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.15) 45%, transparent 80%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, transparent 100%);
 }
 
 .glass-btn:active {
-  transform: translateY(1px);
+  transform: translateY(0.5px) scale(0.99);
   box-shadow: 
-    inset 0 1px 1px rgba(255, 255, 255, 0.2),
-    inset 0 -1px 1px rgba(0, 0, 0, 0.1),
-    0 2px 4px rgba(0, 0, 0, 0.02) !important;
+    inset 0 1px 1px rgba(255, 255, 255, 0.3),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.15),
+    0 2px 6px rgba(0, 0, 0, 0.02) !important;
 }
 
 /* VARIANT OVERRIDES */
 
-/* 1. Default (Blue/Cyan Primary) */
+/* 1. Default (Vibrant Liquid Blue Primary) */
 .glass-btn:not(.hover\:bg-muted):not(.bg-secondary):not(.bg-destructive\/10):not(.hover\:bg-primary\/80) {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.8) 0%, rgba(2, 132, 199, 0.9) 100%) !important;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.85) 0%, rgba(2, 132, 199, 0.95) 100%) !important;
   color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.45) !important;
+  box-shadow: 
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.55),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.15),
+    inset 0 8px 12px rgba(255, 255, 255, 0.2),
+    0 6px 16px -4px rgba(2, 132, 199, 0.4) !important;
 }
-.glass-btn:not(.hover\:bg-muted):not(.bg-secondary):not(.bg-destructive\/10):hover {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.9) 0%, rgba(2, 132, 199, 0.98) 100%) !important;
+.glass-btn:not(.hover\:bg-muted):not(.bg-secondary):not(.bg-destructive\/10):not(.hover\:bg-primary\/80):hover {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.92) 0%, rgba(2, 132, 199, 0.98) 100%) !important;
+  box-shadow: 
+    inset 0 2px 1px rgba(255, 255, 255, 0.65),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.18),
+    inset 0 8px 16px rgba(255, 255, 255, 0.25),
+    0 10px 24px -5px rgba(2, 132, 199, 0.55) !important;
 }
 
-/* 2. Secondary (Muted light grey glass) */
+/* Dark Mode Primary Override */
+.dark .glass-btn:not(.hover\:bg-muted):not(.bg-secondary):not(.bg-destructive\/10):not(.hover\:bg-primary\/80) {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.82) 0%, rgba(14, 165, 233, 0.92) 100%) !important;
+  border-color: rgba(255, 255, 255, 0.55) !important;
+  box-shadow: 
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.65),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.2),
+    inset 0 8px 12px rgba(255, 255, 255, 0.25),
+    0 8px 20px -4px rgba(14, 165, 233, 0.5) !important;
+}
+.dark .glass-btn:not(.hover\:bg-muted):not(.bg-secondary):not(.bg-destructive\/10):not(.hover\:bg-primary\/80):hover {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.92) 0%, rgba(14, 165, 233, 0.98) 100%) !important;
+  box-shadow: 
+    inset 0 2px 1px rgba(255, 255, 255, 0.75),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.25),
+    inset 0 8px 16px rgba(255, 255, 255, 0.35),
+    0 12px 28px -5px rgba(14, 165, 233, 0.65) !important;
+}
+
+/* 2. Secondary (Muted light ice / obsidian glass) */
 .glass-btn.bg-secondary {
-  background: rgba(255, 255, 255, 0.5) !important;
+  background: rgba(255, 255, 255, 0.45) !important;
   color: var(--color-foreground) !important;
-  border-color: rgba(255, 255, 255, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.6),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.06),
+    0 4px 12px rgba(0, 0, 0, 0.03) !important;
 }
 .glass-btn.bg-secondary:hover {
   background: rgba(255, 255, 255, 0.65) !important;
+  box-shadow: 
+    inset 0 2px 1px rgba(255, 255, 255, 0.7),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.06),
+    0 8px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+.dark .glass-btn.bg-secondary {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: var(--color-foreground) !important;
+  box-shadow: 
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.15),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.35),
+    0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+.dark .glass-btn.bg-secondary:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  box-shadow: 
+    inset 0 2px 1px rgba(255, 255, 255, 0.25),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.35),
+    0 8px 20px rgba(0, 0, 0, 0.2) !important;
 }
 
 /* 3. Outline (Semi-transparent background border) */
 .glass-btn.border-border {
-  background: rgba(255, 255, 255, 0.35) !important;
+  background: rgba(255, 255, 255, 0.25) !important;
   color: var(--color-foreground) !important;
-  border-color: rgba(255, 255, 255, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.4),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.03),
+    0 4px 12px rgba(0, 0, 0, 0.02) !important;
 }
 .glass-btn.border-border:hover {
-  background: rgba(255, 255, 255, 0.55) !important;
+  background: rgba(255, 255, 255, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 
+    inset 0 2px 1px rgba(255, 255, 255, 0.5),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.03),
+    0 8px 20px rgba(0, 0, 0, 0.04) !important;
 }
 
-/* 4. Destructive (Red liquid glass) */
+.dark .glass-btn.border-border {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: var(--color-foreground) !important;
+}
+.dark .glass-btn.border-border:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+/* 4. Destructive (Ruby Liquid Glass) */
 .glass-btn.bg-destructive\/10 {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.25) 100%) !important;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(220, 38, 38, 0.35) 100%) !important;
   color: hsl(2 100% 60%) !important;
-  border-color: rgba(239, 68, 68, 0.25) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  box-shadow: 
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.25),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.12),
+    0 4px 12px rgba(239, 68, 68, 0.1) !important;
 }
 .glass-btn.bg-destructive\/10:hover {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(220, 38, 38, 0.35) 100%) !important;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.35) 0%, rgba(220, 38, 38, 0.45) 100%) !important;
+  box-shadow: 
+    inset 0 2px 1px rgba(255, 255, 255, 0.35),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.15),
+    0 8px 20px rgba(239, 68, 68, 0.2) !important;
+}
+
+.dark .glass-btn.bg-destructive\/10 {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18) 0%, rgba(220, 38, 38, 0.28) 100%) !important;
+  border-color: rgba(239, 68, 68, 0.28) !important;
+}
+.dark .glass-btn.bg-destructive\/10:hover {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.28) 0%, rgba(220, 38, 38, 0.38) 100%) !important;
 }
 
 /* 5. Ghost / Link variants (Disable patterns & gradients for text links) */
 .glass-btn.hover\:bg-muted:not(.border-border) {
-  backdrop-filter: none;
+  backdrop-filter: none !important;
   border-color: transparent !important;
   background: transparent !important;
   box-shadow: none !important;
 }
 .glass-btn.hover\:bg-muted:not(.border-border):hover {
   background: rgba(0, 0, 0, 0.05) !important;
+}
+.dark .glass-btn.hover\:bg-muted:not(.border-border):hover {
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 .glass-btn.hover\:bg-muted:not(.border-border)::before,
 .glass-btn.hover\:bg-muted:not(.border-border)::after {
