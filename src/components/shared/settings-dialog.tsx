@@ -75,10 +75,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 <User className="h-3.5 w-3.5" />
                 <span>Founder</span>
               </TabsTrigger>
-              <TabsTrigger value="ai" className="flex items-center gap-1.5 py-2">
-                <Cpu className="h-3.5 w-3.5" />
-                <span>AI Models</span>
-              </TabsTrigger>
+
               <TabsTrigger value="financial" className="flex items-center gap-1.5 py-2">
                 <DollarSign className="h-3.5 w-3.5" />
                 <span>Financials</span>
@@ -145,64 +142,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               </div>
             </TabsContent>
 
-            {/* TAB 2: AI PARAMETERS */}
-            <TabsContent value="ai" className="space-y-4 py-2">
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-muted-foreground uppercase flex items-center justify-between">
-                    <span>Orchestrator Foundation Model</span>
-                    <span className="text-[10px] text-primary/80 lowercase italic font-normal">SDK auto-failover active</span>
-                  </label>
-                  <Select
-                    value={settings.model}
-                    onValueChange={(val) => settings.updateSettings({ model: val || 'gemini-2.0-flash' })}
-                  >
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue placeholder="Select model" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash (Fastest / Recommended)</SelectItem>
-                      <SelectItem value="gemini-2.0-flash-lite">Gemini 2.0 Flash-Lite (Low latency)</SelectItem>
-                      <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash (Legacy stable)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <label className="text-[11px] font-semibold text-muted-foreground uppercase">AI Generation Temperature</label>
-                    <span className="text-xs font-mono font-bold text-primary">{settings.temperature}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={settings.temperature}
-                    onChange={(e) => settings.updateSettings({ temperature: parseFloat(e.target.value) })}
-                    className="w-full h-1 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>Deterministic (0.0)</span>
-                    <span>Creative (1.0)</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-muted-foreground uppercase flex items-center gap-1">
-                    <span>Custom Gemini API Key</span>
-                    <span className="text-[9px] text-muted-foreground lowercase italic font-normal">(stored locally)</span>
-                  </label>
-                  <Input
-                    type="password"
-                    value={settings.customApiKey}
-                    onChange={(e) => settings.updateSettings({ customApiKey: e.target.value })}
-                    placeholder="Enter custom GEMINI_API_KEY..."
-                    className="h-9 text-xs"
-                  />
-                </div>
-              </div>
-            </TabsContent>
 
             {/* TAB 3: FINANCIAL PREFERENCES */}
             <TabsContent value="financial" className="space-y-4 py-2">
