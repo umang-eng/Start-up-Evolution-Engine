@@ -21,6 +21,8 @@ import {
   Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SettingsDialog } from './settings-dialog';
+import { useSettingsStore } from '@/store/use-settings-store';
 
 export function Navbar() {
   const { projects, activeProjectId, setActiveStage } = useBlueprintStore();
@@ -30,6 +32,8 @@ export function Navbar() {
 
   // UI States
   const [profileOpen, setProfileOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settings = useSettingsStore();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -348,13 +352,14 @@ export function Navbar() {
             {profileOpen && (
               <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-lvl-3 py-2 z-30 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-4 py-2 border-b border-border/60">
-                  <span className="text-xs font-semibold text-primary block truncate">Founder Member</span>
-                  <span className="text-[10px] text-muted-foreground block truncate">{user?.email || 'builder@test.com'}</span>
+                  <span className="text-xs font-semibold text-primary block truncate">{settings.founderName}</span>
+                  <span className="text-[10px] text-muted-foreground block truncate">{settings.founderTitle}</span>
                 </div>
                 <div className="py-1">
                   <button
                     onClick={() => {
                       setProfileOpen(false);
+                      setSettingsOpen(true);
                     }}
                     className="w-full text-left px-4 py-2 text-xs text-muted-foreground hover:bg-black/5 flex items-center gap-2 transition-colors border-0 cursor-pointer"
                   >
@@ -470,6 +475,8 @@ export function Navbar() {
           </div>
         </div>
       )}
+      {/* Settings Dialog Panel */}
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </>
   );
 }

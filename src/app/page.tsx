@@ -5,6 +5,7 @@ import { useBlueprintStore } from '@/store/use-blueprint-store';
 import { useAuth } from '@/components/shared/auth-provider';
 import { api, getAccessToken, mapDnaResponse, mapFeaturesResponse, mapRoadmapResponse, mapTeamResponse, mapSwotResponse, mapCostResponse } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
+import { useSettingsStore } from '@/store/use-settings-store';
 import { Sidebar } from '@/components/shared/sidebar';
 import { Navbar } from '@/components/shared/navbar';
 import { GlassPanel } from '@/components/shared/glass-panel';
@@ -70,6 +71,12 @@ export default function WorkspacePage() {
   const [isPending, startTransition] = useTransition();
 
   const activeProject = projects.find(p => p.id === activeProjectId);
+  const { currencySymbol, costBuffer } = useSettingsStore();
+
+  const formatCost = (amount: number) => {
+    const paddedAmount = amount * (1 + (costBuffer || 0) / 100);
+    return `${currencySymbol || '$'}${Math.round(paddedAmount).toLocaleString()}`;
+  };
 
   // Load projects from database on startup
   useEffect(() => {
@@ -669,7 +676,7 @@ export default function WorkspacePage() {
                               <span className="text-xs text-muted-foreground font-medium capitalize">{role.department.replace('_', ' ')} • Stage: {role.hiringStage}</span>
                             </div>
                             <span className="text-xs font-semibold text-accent-blue">
-                              ${role.monthlyCost.toLocaleString()}/mo
+                              {formatCost(role.monthlyCost)}/mo
                             </span>
                           </div>
                         ))}
@@ -807,15 +814,15 @@ export default function WorkspacePage() {
                       <div className="grid grid-cols-3 gap-4 text-center p-4 bg-surface-secondary border border-border/80 rounded-lg">
                         <div>
                           <span className="text-[10px] text-muted-foreground block">Estimated MVP Cost</span>
-                          <span className="text-lg font-bold text-primary">${activeProject.cost.mvpCost.toLocaleString()}</span>
+                          <span className="text-lg font-bold text-primary">{formatCost(activeProject.cost.mvpCost)}</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-muted-foreground block">Year 1 Projection</span>
-                          <span className="text-lg font-bold text-primary">${activeProject.cost.year1Cost.toLocaleString()}</span>
+                          <span className="text-lg font-bold text-primary">{formatCost(activeProject.cost.year1Cost)}</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-muted-foreground block">Funding Required</span>
-                          <span className="text-lg font-bold text-accent-blue">${activeProject.cost.fundingRequirement.toLocaleString()}</span>
+                          <span className="text-lg font-bold text-accent-blue">{formatCost(activeProject.cost.fundingRequirement)}</span>
                         </div>
                       </div>
 
@@ -836,7 +843,7 @@ export default function WorkspacePage() {
                               )}
                             >
                               <span className="text-xs font-bold text-primary block uppercase">{scen.name}</span>
-                              <span className="text-lg font-bold text-accent-blue block">${scen.mvpCost.toLocaleString()} MVP</span>
+                              <span className="text-lg font-bold text-accent-blue block">{formatCost(scen.mvpCost)} MVP</span>
                               <span className="text-[11px] text-muted-foreground leading-relaxed block">{scen.description}</span>
                             </button>
                           ))}
