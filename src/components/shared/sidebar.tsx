@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useBlueprintStore } from '@/store/use-blueprint-store';
 import { cn } from '@/lib/utils';
 import { 
@@ -16,10 +16,21 @@ import {
   Network,
   TrendingUp,
   LineChart,
-  Award
+  Award,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StageName } from '@/types/blueprint';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 export function Sidebar() {
   const { 
@@ -45,12 +56,28 @@ export function Sidebar() {
     { name: 'final-blueprint', label: '7. Final Blueprint', icon: ScrollText },
   ];
 
-  const handleNewProject = async () => {
-    const defaultPrompt = "I want to build a marketplace for solar panel maintenance targeting suburban homeowners.";
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [projectName, setProjectName] = useState('');
+  const [projectPrompt, setProjectPrompt] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleNewProject = () => {
+    setProjectName('');
+    setProjectPrompt('');
+    setNewProjectOpen(true);
+  };
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!projectName.trim() || !projectPrompt.trim()) return;
+    setIsCreating(true);
     try {
-      await createNewProject("New Solar Marketplace", defaultPrompt);
+      await createNewProject(projectName.trim(), projectPrompt.trim());
+      setNewProjectOpen(false);
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -185,6 +212,64 @@ export function Sidebar() {
           </div>
         </div>
       </div>
+      {/* New Startup Dialog */}
+      <Dialog open={newProjectOpen} onOpenChange={setNewProjectOpen}>
+        <DialogContent className="sm:max-w-[420px] bg-card/95 backdrop-blur-md border border-border shadow-lvl-3 rounded-xl p-0 overflow-hidden">
+          <form onSubmit={handleCreateProject}>
+            <DialogHeader className="p-6 pb-2">
+              <DialogTitle className="text-base font-bold tracking-tight text-primary flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-accent-blue" />
+                <span>Initialize Startup Concept</span>
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Set up a new venture workspace. The engine will compile your strategic blueprints step-by-step.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="px-6 py-2 space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase">Startup Name</label>
+                <Input
+                  required
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="e.g. Solarify Maintenance"
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase">Core Vision / Concept</label>
+                <Textarea
+                  required
+                  value={projectPrompt}
+                  onChange={(e) => setProjectPrompt(e.target.value)}
+                  placeholder="Describe your startup concept, target audience, pricing model, and competitive edge..."
+                  className="text-xs min-h-[90px]"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="mt-6 border-t border-border/40 p-4 bg-muted/40 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setNewProjectOpen(false)}
+                className="text-xs h-8 px-4 border-border"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isCreating || !projectName.trim() || !projectPrompt.trim()}
+                className="text-xs h-8 px-4"
+              >
+                {isCreating ? 'Creating Workspace...' : 'Launch Workspace'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </aside>
   );
 }

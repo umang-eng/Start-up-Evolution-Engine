@@ -45,13 +45,117 @@ class GeminiAdapter(LLMProvider):
             )
         return self._client
 
+    def _generate_json_template(self, model: Type[BaseModel]) -> dict:
+        from typing import Union, get_origin, get_args
+        template = {}
+        for field_name, field_info in model.model_fields.items():
+            annotation = field_info.annotation
+            origin = get_origin(annotation)
+            if origin is Union:
+                args = get_args(annotation)
+                non_none = [a for a in args if a is not type(None)]
+                if non_none:
+                    annotation = non_none[0]
+                    origin = get_origin(annotation)
+            
+            # Determine constraints if any
+            min_v = None
+            max_v = None
+            for meta in field_info.metadata:
+                for attr in ['ge', 'le', 'gt', 'lt']:
+                    val = getattr(meta, attr, None)
+                    if val is not None:
+                        if attr == 'ge': min_v = f">= {val}"
+                        elif attr == 'gt': min_v = f"> {val}"
+                        elif attr == 'le': max_v = f"<= {val}"
+                        elif attr == 'lt': max_v = f"< {val}"
+
+            constraint_str = ""
+            if min_v is not None and max_v is not None:
+                constraint_str = f" ({min_v} and {max_v})"
+            elif min_v is not None:
+                constraint_str = f" ({min_v})"
+            elif max_v is not None:
+                constraint_str = f" ({max_v})"
+
+            if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+                template[field_name] = self._generate_json_template(annotation)
+            elif origin is list:
+                args = get_args(annotation)
+                if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
+                    template[field_name] = [self._generate_json_template(args[0])]
+                else:
+                    desc = field_info.description or "item"
+                    template[field_name] = [f"<string - {desc}>"]
+            else:
+                desc = field_info.description or field_name
+                type_name = "string"
+                if annotation is int:
+                    type_name = "integer"
+                elif annotation is float:
+                    type_name = "float"
+                elif annotation is bool:
+                    type_name = "boolean (true/false)"
+                template[field_name] = f"<{type_name} - {desc}{constraint_str}>"
+        return template
+
     async def generate(
         self,
         prompt: str,
         schema: Type[T],
         system_instruction: str | None = None
     ) -> T:
-        """Generates structured content conforming to the schema with exponential backoff on rate limits."""
+        """Generates structured content conforming to the schema. Checks local Ollama first, falls back to Gemini."""
+        import httpx
+        import json
+
+        # 1. Attempt local Ollama generation using gemma2:2b
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                ollama_check = await client.get("http://localhost:11434/api/tags")
+                if ollama_check.status_code == 200:
+                    models = ollama_check.json().get("models", [])
+                    has_gemma2 = any("gemma2" in m.get("name", "").lower() for m in models)
+                    if has_gemma2:
+                        logger.info("Ollama gemma2:2b model detected. Executing local structured generation workflow...")
+                        system_content = system_instruction or "You are a strategic startup assistant."
+                        template = self._generate_json_template(schema)
+                        system_content += (
+                            f"\n\nIMPORTANT: You must return ONLY a JSON object filled with information matching "
+                            f"this template structure exactly. Do NOT use placeholder values, return actual content. "
+                            f"For integer and float types, return a raw number without quotes. Example: 85, not '85'.\n\n"
+                            f"Template structure:\n{json.dumps(template, indent=2)}"
+                        )
+                        
+                        payload = {
+                            "model": "gemma2:2b",
+                            "messages": [
+                                {"role": "system", "content": system_content},
+                                {"role": "user", "content": prompt}
+                            ],
+                            "format": "json",
+                            "stream": False,
+                            "options": {
+                                "temperature": 0.3
+                            }
+                        }
+                        
+                        async with httpx.AsyncClient(timeout=120.0) as work_client:
+                            response = await work_client.post("http://localhost:11434/api/chat", json=payload)
+                            if response.status_code == 200:
+                                res_data = response.json()
+                                content = res_data.get("message", {}).get("content", "")
+                                if content:
+                                    try:
+                                        validated = schema.model_validate_json(content)
+                                        logger.info("Local Ollama gemma2:2b generation succeeded and validated successfully.")
+                                        return validated
+                                    except Exception as ve:
+                                        logger.warning(f"Ollama output validation failed: {str(ve)}. Response content: {content}")
+        except Exception as e:
+            logger.warning(f"Local Ollama checks/generation failed, falling back to Gemini API: {str(e)}")
+
+        # 2. Gemini fallback
         max_validation_attempts = 2
         current_prompt = prompt
         last_error: Exception | None = None
@@ -176,9 +280,40 @@ class GeminiAdapter(LLMProvider):
     async def generate_text(self, prompt: str, system_instruction: str | None = None) -> str:
         """Generates a plain text response (non-structured) — used for idea enhancement.
         
-        Treats ANY model-level error (404, 429, 5xx) as non-fatal and tries the next model.
-        Only raises after ALL models are exhausted.
+        Checks local Ollama first, falls back to Gemini.
         """
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                ollama_check = await client.get("http://localhost:11434/api/tags")
+                if ollama_check.status_code == 200:
+                    models = ollama_check.json().get("models", [])
+                    has_gemma2 = any("gemma2" in m.get("name", "").lower() for m in models)
+                    if has_gemma2:
+                        logger.info("Ollama gemma2:2b model detected. Running local text generation...")
+                        
+                        payload = {
+                            "model": "gemma2:2b",
+                            "messages": [
+                                {"role": "system", "content": system_instruction or "You are a startup compiler assistant."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            "stream": False,
+                            "options": {
+                                "temperature": 0.7
+                            }
+                        }
+                        
+                        async with httpx.AsyncClient(timeout=60.0) as work_client:
+                            response = await work_client.post("http://localhost:11434/api/chat", json=payload)
+                            if response.status_code == 200:
+                                res_data = response.json()
+                                content = res_data.get("message", {}).get("content", "")
+                                if content and content.strip():
+                                    return content.strip()
+        except Exception as e:
+            logger.warning(f"Ollama text generation failed, falling back to Gemini: {str(e)}")
+
         last_error: Exception | None = None
 
         for model_idx, model_name in enumerate(MODEL_PRIORITY):

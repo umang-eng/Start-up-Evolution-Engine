@@ -18,14 +18,15 @@ import {
   Clock,
   DollarSign,
   TrendingUp,
-  Settings
+  Settings,
+  Folder
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SettingsDialog } from './settings-dialog';
 import { useSettingsStore } from '@/store/use-settings-store';
 
 export function Navbar() {
-  const { projects, activeProjectId, setActiveStage } = useBlueprintStore();
+  const { projects, activeProjectId, setActiveStage, setActiveProject } = useBlueprintStore();
   const { user, logout } = useAuth();
   
   const activeProject = projects.find(p => p.id === activeProjectId);
@@ -100,97 +101,133 @@ export function Navbar() {
 
   // Generate dynamic search results
   const getSearchResults = () => {
-    if (!activeProject || !searchQuery.trim()) return [];
+    if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
     const results: Array<{
       id: string;
+      projectId: string;
       title: string;
       subtitle: string;
       stage: StageName;
-      type: 'feature' | 'task' | 'role' | 'cost' | 'dna';
+      type: 'project' | 'dna' | 'feature' | 'task' | 'role' | 'cost';
+      matchLabel?: string;
     }> = [];
 
-    // Search DNA
-    if (activeProject.dna) {
-      const dna = activeProject.dna;
-      if (
-        dna.category.toLowerCase().includes(q) ||
-        dna.valueProposition.toLowerCase().includes(q) ||
-        dna.usp.toLowerCase().includes(q)
-      ) {
+    projects.forEach((proj) => {
+      // 1. Search Project Title / history
+      if (proj.name.toLowerCase().includes(q)) {
         results.push({
-          id: 'dna-match',
-          title: 'Strategic Moat & USP',
-          subtitle: dna.usp.substring(0, 60) + '...',
+          id: `${proj.id}-project`,
+          projectId: proj.id,
+          title: proj.name,
+          subtitle: `Startup Idea: ${proj.ideaPrompt || 'No prompt info'}`,
           stage: 'dna-analyzer',
-          type: 'dna'
+          type: 'project',
+          matchLabel: 'Project'
+        });
+      } else if (proj.ideaPrompt.toLowerCase().includes(q)) {
+        results.push({
+          id: `${proj.id}-prompt`,
+          projectId: proj.id,
+          title: proj.name,
+          subtitle: `Idea Prompt Match: "${proj.ideaPrompt}"`,
+          stage: 'dna-analyzer',
+          type: 'project',
+          matchLabel: 'Prompt Match'
         });
       }
-    }
 
-    // Search Features
-    if (activeProject.features?.features) {
-      activeProject.features.features.forEach(f => {
-        if (f.name.toLowerCase().includes(q) || f.description.toLowerCase().includes(q)) {
+      // 2. Search Topics in DNA
+      if (proj.dna) {
+        if (
+          proj.dna.category.toLowerCase().includes(q) ||
+          proj.dna.valueProposition.toLowerCase().includes(q) ||
+          proj.dna.usp.toLowerCase().includes(q)
+        ) {
           results.push({
-            id: f.id,
-            title: f.name,
-            subtitle: `Priority: ${f.priority} • Complexity: ${f.complexity}`,
-            stage: 'feature-extractor',
-            type: 'feature'
+            id: `${proj.id}-dna`,
+            projectId: proj.id,
+            title: proj.name,
+            subtitle: `DNA / USP Match: "${proj.dna.usp}"`,
+            stage: 'dna-analyzer',
+            type: 'dna',
+            matchLabel: 'DNA / USP'
           });
         }
-      });
-    }
+      }
 
-    // Search Roadmap/Tasks
-    if (activeProject.roadmap?.phases) {
-      activeProject.roadmap.phases.forEach(p => {
-        p.tasks.forEach(t => {
-          if (t.name.toLowerCase().includes(q)) {
+      // 3. Search Topics in Features
+      if (proj.features?.features) {
+        proj.features.features.forEach((f) => {
+          if (f.name.toLowerCase().includes(q) || f.description.toLowerCase().includes(q)) {
             results.push({
-              id: t.id,
-              title: t.name,
-              subtitle: `Phase: ${p.name} • Duration: ${t.durationWeeks}w`,
-              stage: 'roadmap',
-              type: 'task'
+              id: `${proj.id}-feat-${f.id}`,
+              projectId: proj.id,
+              title: `${proj.name} › ${f.name}`,
+              subtitle: `Feature: ${f.description} (${f.priority} priority)`,
+              stage: 'feature-extractor',
+              type: 'feature',
+              matchLabel: 'Feature'
             });
           }
         });
-      });
-    }
+      }
 
-    // Search Team structure
-    if (activeProject.team?.roles) {
-      activeProject.team.roles.forEach(r => {
-        if (r.name.toLowerCase().includes(q) || r.department.toLowerCase().includes(q)) {
-          results.push({
-            id: r.id,
-            title: r.name,
-            subtitle: `Dept: ${r.department} • Cost: $${r.monthlyCost.toLocaleString()}/mo`,
-            stage: 'team-structure',
-            type: 'role'
+      // 4. Search Topics in Roadmap/Tasks
+      if (proj.roadmap?.phases) {
+        proj.roadmap.phases.forEach((phase) => {
+          phase.tasks.forEach((t) => {
+            if (t.name.toLowerCase().includes(q)) {
+              results.push({
+                id: `${proj.id}-task-${t.id}`,
+                projectId: proj.id,
+                title: `${proj.name} › ${t.name}`,
+                subtitle: `Roadmap Task: Phase "${phase.name}"`,
+                stage: 'roadmap',
+                type: 'task',
+                matchLabel: 'Roadmap'
+              });
+            }
           });
-        }
-      });
-    }
+        });
+      }
 
-    // Search Costs
-    if (activeProject.cost?.costItems) {
-      activeProject.cost.costItems.forEach((c, idx) => {
-        if (c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q)) {
-          results.push({
-            id: `cost_${idx}`,
-            title: c.name,
-            subtitle: `Category: ${c.category} • Cost: $${c.amount.toLocaleString()}`,
-            stage: 'cost-estimator',
-            type: 'cost'
-          });
-        }
-      });
-    }
+      // 5. Search Topics in Team structure
+      if (proj.team?.roles) {
+        proj.team.roles.forEach((r) => {
+          if (r.name.toLowerCase().includes(q) || r.department.toLowerCase().includes(q)) {
+            results.push({
+              id: `${proj.id}-role-${r.id}`,
+              projectId: proj.id,
+              title: `${proj.name} › ${r.name}`,
+              subtitle: `Role: ${r.department.replace('_', ' ')} ($${r.monthlyCost.toLocaleString()}/mo)`,
+              stage: 'team-structure',
+              type: 'role',
+              matchLabel: 'Org Role'
+            });
+          }
+        });
+      }
 
-    return results;
+      // 6. Search Topics in Costs
+      if (proj.cost?.costItems) {
+        proj.cost.costItems.forEach((c, idx) => {
+          if (c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q)) {
+            results.push({
+              id: `${proj.id}-cost-${idx}`,
+              projectId: proj.id,
+              title: `${proj.name} › ${c.name}`,
+              subtitle: `Cost Item: Category "${c.category}" • $${c.amount.toLocaleString()}`,
+              stage: 'cost-estimator',
+              type: 'cost',
+              matchLabel: 'Finance'
+            });
+          }
+        });
+      }
+    });
+
+    return results.slice(0, 8);
   };
 
   const searchResults = getSearchResults();
@@ -400,7 +437,7 @@ export function Navbar() {
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Type to search features, costs, roadmap tasks..."
+                placeholder="Search projects by title, prompt, or internal topic keywords..."
                 autoFocus
                 className="w-full h-12 bg-transparent text-sm outline-none text-primary placeholder-muted-foreground/60 border-0"
               />
@@ -415,6 +452,7 @@ export function Navbar() {
                 <div
                   key={res.id}
                   onClick={() => {
+                    setActiveProject(res.projectId);
                     setActiveStage(res.stage);
                     setSearchOpen(false);
                     setSearchQuery('');
@@ -422,6 +460,7 @@ export function Navbar() {
                   className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-black/5 cursor-pointer transition-colors"
                 >
                   <div className="h-7 w-7 rounded bg-accent-blue/10 flex items-center justify-center text-accent-blue shrink-0">
+                    {res.type === 'project' && <Folder className="h-3.5 w-3.5" />}
                     {res.type === 'feature' && <Cpu className="h-3.5 w-3.5" />}
                     {res.type === 'task' && <Clock className="h-3.5 w-3.5" />}
                     {res.type === 'role' && <User className="h-3.5 w-3.5" />}
@@ -433,7 +472,7 @@ export function Navbar() {
                     <span className="text-[10px] text-muted-foreground block truncate mt-0.5 text-left">{res.subtitle}</span>
                   </div>
                   <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-black/5 text-muted-foreground select-none shrink-0">
-                    {res.stage.replace('-', ' ')}
+                    {res.matchLabel || res.stage.replace('-', ' ')}
                   </span>
                 </div>
               ))}
