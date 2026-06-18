@@ -1,6 +1,6 @@
 import asyncio
 import time
-from typing import Type, TypeVar
+from typing import Type, TypeVar, Any
 from google import genai
 from google.genai import types
 from google.genai.errors import ClientError
@@ -128,6 +128,144 @@ class GeminiAdapter(LLMProvider):
                 template[field_name] = f"<{type_name} - {desc}{constraint_str}>"
         return template
 
+    def _normalize_json_data(self, data: Any, model: Type[BaseModel]) -> Any:
+        from typing import Union, get_origin, get_args
+        try:
+            from typing import Literal as TypLiteral
+        except ImportError:
+            TypLiteral = None
+        try:
+            from typing_extensions import Literal as ExtLiteral
+        except ImportError:
+            ExtLiteral = None
+
+        if not isinstance(data, dict):
+            return data
+
+        normalized = {}
+        for field_name, field_info in model.model_fields.items():
+            if field_name not in data:
+                continue
+            
+            val = data[field_name]
+            annotation = field_info.annotation
+            origin = get_origin(annotation)
+            
+            if origin is Union:
+                args = get_args(annotation)
+                non_none = [a for a in args if a is not type(None)]
+                if non_none:
+                    annotation = non_none[0]
+                    origin = get_origin(annotation)
+
+            is_literal = (origin is TypLiteral) or (ExtLiteral and origin is ExtLiteral)
+
+            if is_literal and isinstance(val, str):
+                choices = get_args(annotation)
+                val_upper = val.strip().upper().replace(" ", "_").replace("-", "_")
+                matched = False
+                for choice in choices:
+                    if isinstance(choice, str) and choice.upper() == val_upper:
+                        normalized[field_name] = choice
+                        matched = True
+                        break
+                
+                if not matched:
+                    # Synonym mapping for MoSCoW priorities
+                    val_lower = val.lower()
+                    if "critical" in val_lower or "urgent" in val_lower or "must" in val_lower:
+                        for choice in choices:
+                            if choice == "MUST_HAVE":
+                                normalized[field_name] = "MUST_HAVE"
+                                matched = True
+                                break
+                    elif "should" in val_lower:
+                        for choice in choices:
+                            if choice == "SHOULD_HAVE":
+                                normalized[field_name] = "SHOULD_HAVE"
+                                matched = True
+                                break
+                    elif "could" in val_lower:
+                        for choice in choices:
+                            if choice == "COULD_HAVE":
+                                normalized[field_name] = "COULD_HAVE"
+                                matched = True
+                                break
+                    elif "wont" in val_lower or "won't" in val_lower or "will not" in val_lower:
+                        for choice in choices:
+                            if choice == "WONT_HAVE":
+                                normalized[field_name] = "WONT_HAVE"
+                                matched = True
+                                break
+                
+                if not matched:
+                    normalized[field_name] = val
+            elif isinstance(annotation, type) and issubclass(annotation, BaseModel):
+                normalized[field_name] = self._normalize_json_data(val, annotation)
+            elif origin is list and isinstance(val, list):
+                args = get_args(annotation)
+                if args:
+                    item_type = args[0]
+                    item_origin = get_origin(item_type)
+                    item_is_literal = (item_origin is TypLiteral) or (ExtLiteral and item_origin is ExtLiteral)
+                    
+                    new_list = []
+                    for item in val:
+                        if item_is_literal and isinstance(item, str):
+                            item_choices = get_args(item_type)
+                            item_upper = item.strip().upper().replace(" ", "_").replace("-", "_")
+                            matched = False
+                            for choice in item_choices:
+                                if isinstance(choice, str) and choice.upper() == item_upper:
+                                    new_list.append(choice)
+                                    matched = True
+                                    break
+                            
+                            if not matched:
+                                item_lower = item.lower()
+                                if "critical" in item_lower or "urgent" in item_lower or "must" in item_lower:
+                                    for choice in item_choices:
+                                        if choice == "MUST_HAVE":
+                                            new_list.append("MUST_HAVE")
+                                            matched = True
+                                            break
+                                elif "should" in item_lower:
+                                    for choice in item_choices:
+                                        if choice == "SHOULD_HAVE":
+                                            new_list.append("SHOULD_HAVE")
+                                            matched = True
+                                            break
+                                elif "could" in item_lower:
+                                    for choice in item_choices:
+                                        if choice == "COULD_HAVE":
+                                            new_list.append("COULD_HAVE")
+                                            matched = True
+                                            break
+                                elif "wont" in item_lower or "won't" in item_lower or "will not" in item_lower:
+                                    for choice in item_choices:
+                                        if choice == "WONT_HAVE":
+                                            new_list.append("WONT_HAVE")
+                                            matched = True
+                                            break
+                            if not matched:
+                                new_list.append(item)
+                        elif isinstance(item_type, type) and issubclass(item_type, BaseModel):
+                            new_list.append(self._normalize_json_data(item, item_type))
+                        else:
+                            new_list.append(item)
+                    normalized[field_name] = new_list
+                else:
+                    normalized[field_name] = val
+            else:
+                normalized[field_name] = val
+        
+        # Add any other fields from data that weren't in model_fields just in case
+        for k, v in data.items():
+            if k not in normalized:
+                normalized[k] = v
+                
+        return normalized
+
     async def generate(
         self,
         prompt: str,
@@ -182,7 +320,10 @@ class GeminiAdapter(LLMProvider):
                     )
                 
                 try:
-                    return schema.model_validate_json(content)
+                    # Parse and normalize JSON data to handle case-insensitivity and synonym matching for Literals
+                    parsed_data = json.loads(content)
+                    normalized_data = self._normalize_json_data(parsed_data, schema)
+                    return schema.model_validate(normalized_data)
                 except Exception as ve:
                     logger.error(f"Ollama output validation failed: {str(ve)}. Response content: {content}")
                     raise BaseBusinessException(
