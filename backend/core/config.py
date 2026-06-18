@@ -40,6 +40,8 @@ class Settings(BaseSettings):
 
     # AI Configuration
     GEMINI_API_KEY: str = ""
+    OLLAMA_HOST: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "nemotron-3-super:cloud"
 
     @field_validator("SECRET_KEY")
     @classmethod

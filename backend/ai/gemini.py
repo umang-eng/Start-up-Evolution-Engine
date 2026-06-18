@@ -272,13 +272,13 @@ class GeminiAdapter(LLMProvider):
         schema: Type[T],
         system_instruction: str | None = None
     ) -> T:
-        """Generates structured content conforming to the schema using local Ollama model gemma2:2b."""
+        """Generates structured content conforming to the schema using local/cloud Ollama model."""
         import httpx
         import json
 
-        # Force local Ollama generation using gemma2:2b
+        # Force Ollama generation using configured host and model settings
         try:
-            logger.info("Executing local structured generation workflow via Ollama gemma2:2b...")
+            logger.info(f"Executing Ollama structured generation workflow via model '{settings.OLLAMA_MODEL}'...")
             system_content = system_instruction or "You are a strategic startup assistant."
             template = self._generate_json_template(schema)
             system_content += (
@@ -289,7 +289,7 @@ class GeminiAdapter(LLMProvider):
             )
             
             payload = {
-                "model": "gemma2:2b",
+                "model": settings.OLLAMA_MODEL,
                 "messages": [
                     {"role": "system", "content": system_content},
                     {"role": "user", "content": prompt}
@@ -302,10 +302,10 @@ class GeminiAdapter(LLMProvider):
             }
             
             async with httpx.AsyncClient(timeout=120.0) as work_client:
-                response = await work_client.post("http://localhost:11434/api/chat", json=payload)
+                response = await work_client.post(f"{settings.OLLAMA_HOST}/api/chat", json=payload)
                 if response.status_code != 200:
                     raise BaseBusinessException(
-                        message=f"Local Ollama API returned status code {response.status_code}: {response.text}",
+                        message=f"Ollama API ({settings.OLLAMA_MODEL}) returned status code {response.status_code}: {response.text}",
                         code="OLLAMA_ERROR",
                         status_code=500
                     )
@@ -314,7 +314,7 @@ class GeminiAdapter(LLMProvider):
                 content = res_data.get("message", {}).get("content", "")
                 if not content:
                     raise BaseBusinessException(
-                        message="Local Ollama model returned an empty response.",
+                        message=f"Ollama model '{settings.OLLAMA_MODEL}' returned an empty response.",
                         code="OLLAMA_EMPTY_RESPONSE",
                         status_code=500
                     )
@@ -336,18 +336,18 @@ class GeminiAdapter(LLMProvider):
         except Exception as e:
             logger.error(f"Ollama generation failed: {str(e)}")
             raise BaseBusinessException(
-                message=f"Local Ollama generation failed. Make sure the Ollama app is running and gemma2:2b is pulled. Error: {str(e)}",
+                message=f"Ollama generation failed. Make sure the Ollama host '{settings.OLLAMA_HOST}' is reachable and the model '{settings.OLLAMA_MODEL}' is active. Error: {str(e)}",
                 code="OLLAMA_UNAVAILABLE",
                 status_code=503
             )
 
     async def generate_text(self, prompt: str, system_instruction: str | None = None) -> str:
-        """Generates a plain text response (non-structured) using local Ollama model gemma2:2b."""
+        """Generates a plain text response (non-structured) using Ollama model."""
         import httpx
         try:
-            logger.info("Executing local text generation workflow via Ollama gemma2:2b...")
+            logger.info(f"Executing Ollama text generation workflow via model '{settings.OLLAMA_MODEL}'...")
             payload = {
-                "model": "gemma2:2b",
+                "model": settings.OLLAMA_MODEL,
                 "messages": [
                     {"role": "system", "content": system_instruction or "You are a startup compiler assistant."},
                     {"role": "user", "content": prompt}
@@ -359,10 +359,10 @@ class GeminiAdapter(LLMProvider):
             }
             
             async with httpx.AsyncClient(timeout=60.0) as work_client:
-                response = await work_client.post("http://localhost:11434/api/chat", json=payload)
+                response = await work_client.post(f"{settings.OLLAMA_HOST}/api/chat", json=payload)
                 if response.status_code != 200:
                     raise BaseBusinessException(
-                        message=f"Local Ollama API returned status code {response.status_code}: {response.text}",
+                        message=f"Ollama API ({settings.OLLAMA_MODEL}) returned status code {response.status_code}: {response.text}",
                         code="OLLAMA_ERROR",
                         status_code=500
                     )
@@ -373,7 +373,7 @@ class GeminiAdapter(LLMProvider):
                     return content.strip()
                 else:
                     raise BaseBusinessException(
-                        message="Local Ollama model returned an empty text response.",
+                        message=f"Ollama model '{settings.OLLAMA_MODEL}' returned an empty text response.",
                         code="OLLAMA_EMPTY_RESPONSE",
                         status_code=500
                     )
@@ -382,7 +382,7 @@ class GeminiAdapter(LLMProvider):
         except Exception as e:
             logger.error(f"Ollama text generation failed: {str(e)}")
             raise BaseBusinessException(
-                message=f"Local Ollama text generation failed. Make sure the Ollama app is running and gemma2:2b is pulled. Error: {str(e)}",
+                message=f"Ollama text generation failed. Make sure the Ollama host '{settings.OLLAMA_HOST}' is reachable and the model '{settings.OLLAMA_MODEL}' is active. Error: {str(e)}",
                 code="OLLAMA_UNAVAILABLE",
                 status_code=503
             )
