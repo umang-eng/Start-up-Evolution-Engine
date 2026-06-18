@@ -105,271 +105,117 @@ class GeminiAdapter(LLMProvider):
         schema: Type[T],
         system_instruction: str | None = None
     ) -> T:
-        """Generates structured content conforming to the schema. Checks local Ollama first, falls back to Gemini."""
+        """Generates structured content conforming to the schema using local Ollama model gemma2:2b."""
         import httpx
         import json
 
-        # 1. Attempt local Ollama generation using gemma2:2b
+        # Force local Ollama generation using gemma2:2b
         try:
-            async with httpx.AsyncClient(timeout=2.0) as client:
-                ollama_check = await client.get("http://localhost:11434/api/tags")
-                if ollama_check.status_code == 200:
-                    models = ollama_check.json().get("models", [])
-                    has_gemma2 = any("gemma2" in m.get("name", "").lower() for m in models)
-                    if has_gemma2:
-                        logger.info("Ollama gemma2:2b model detected. Executing local structured generation workflow...")
-                        system_content = system_instruction or "You are a strategic startup assistant."
-                        template = self._generate_json_template(schema)
-                        system_content += (
-                            f"\n\nIMPORTANT: You must return ONLY a JSON object filled with information matching "
-                            f"this template structure exactly. Do NOT use placeholder values, return actual content. "
-                            f"For integer and float types, return a raw number without quotes. Example: 85, not '85'.\n\n"
-                            f"Template structure:\n{json.dumps(template, indent=2)}"
-                        )
-                        
-                        payload = {
-                            "model": "gemma2:2b",
-                            "messages": [
-                                {"role": "system", "content": system_content},
-                                {"role": "user", "content": prompt}
-                            ],
-                            "format": "json",
-                            "stream": False,
-                            "options": {
-                                "temperature": 0.3
-                            }
-                        }
-                        
-                        async with httpx.AsyncClient(timeout=120.0) as work_client:
-                            response = await work_client.post("http://localhost:11434/api/chat", json=payload)
-                            if response.status_code == 200:
-                                res_data = response.json()
-                                content = res_data.get("message", {}).get("content", "")
-                                if content:
-                                    try:
-                                        validated = schema.model_validate_json(content)
-                                        logger.info("Local Ollama gemma2:2b generation succeeded and validated successfully.")
-                                        return validated
-                                    except Exception as ve:
-                                        logger.warning(f"Ollama output validation failed: {str(ve)}. Response content: {content}")
-        except Exception as e:
-            logger.warning(f"Local Ollama checks/generation failed, falling back to Gemini API: {str(e)}")
-
-        # 2. Gemini fallback
-        max_validation_attempts = 2
-        current_prompt = prompt
-        last_error: Exception | None = None
-
-        for model_idx, model_name in enumerate(MODEL_PRIORITY):
-            for attempt in range(max_validation_attempts):
-                start_time = time.perf_counter()
+            logger.info("Executing local structured generation workflow via Ollama gemma2:2b...")
+            system_content = system_instruction or "You are a strategic startup assistant."
+            template = self._generate_json_template(schema)
+            system_content += (
+                f"\n\nIMPORTANT: You must return ONLY a JSON object filled with information matching "
+                f"this template structure exactly. Do NOT use placeholder values, return actual content. "
+                f"For integer and float types, return a raw number without quotes. Example: 85, not '85'.\n\n"
+                f"Template structure:\n{json.dumps(template, indent=2)}"
+            )
+            
+            payload = {
+                "model": "gemma2:2b",
+                "messages": [
+                    {"role": "system", "content": system_content},
+                    {"role": "user", "content": prompt}
+                ],
+                "format": "json",
+                "stream": False,
+                "options": {
+                    "temperature": 0.3
+                }
+            }
+            
+            async with httpx.AsyncClient(timeout=120.0) as work_client:
+                response = await work_client.post("http://localhost:11434/api/chat", json=payload)
+                if response.status_code != 200:
+                    raise BaseBusinessException(
+                        message=f"Local Ollama API returned status code {response.status_code}: {response.text}",
+                        code="OLLAMA_ERROR",
+                        status_code=500
+                    )
+                
+                res_data = response.json()
+                content = res_data.get("message", {}).get("content", "")
+                if not content:
+                    raise BaseBusinessException(
+                        message="Local Ollama model returned an empty response.",
+                        code="OLLAMA_EMPTY_RESPONSE",
+                        status_code=500
+                    )
+                
                 try:
-                    logger.info(
-                        f"Gemini Request: model={model_name} attempt={attempt + 1}",
-                        extra_data={"model": model_name, "attempt": attempt + 1, "prompt_len": len(current_prompt)}
+                    return schema.model_validate_json(content)
+                except Exception as ve:
+                    logger.error(f"Ollama output validation failed: {str(ve)}. Response content: {content}")
+                    raise BaseBusinessException(
+                        message=f"Ollama output failed schema validation: {str(ve)}",
+                        code="OLLAMA_VALIDATION_ERROR",
+                        status_code=422
                     )
-
-                    config = types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_schema=schema,
-                        temperature=0.3,
-                        system_instruction=system_instruction,
-                        max_output_tokens=8192,
-                    )
-
-                    response = await self.client.aio.models.generate_content(
-                        model=model_name,
-                        contents=current_prompt,
-                        config=config,
-                    )
-
-                    latency_ms = int((time.perf_counter() - start_time) * 1000)
-
-                    prompt_tokens = 0
-                    candidates_tokens = 0
-                    if response.usage_metadata:
-                        prompt_tokens = response.usage_metadata.prompt_token_count or 0
-                        candidates_tokens = response.usage_metadata.candidates_token_count or 0
-
-                    performance_logger.info(
-                        f"Gemini OK: {model_name} in {latency_ms}ms",
-                        extra_data={
-                            "model": model_name,
-                            "latency_ms": latency_ms,
-                            "prompt_tokens": prompt_tokens,
-                            "candidates_tokens": candidates_tokens
-                        }
-                    )
-
-                    # Fire-and-forget analytics logging
-                    from backend.core.logging import active_project_id_ctx, active_module_name_ctx, correlation_id_ctx
-                    proj_id = active_project_id_ctx.get()
-                    if proj_id:
-                        mod_name = active_module_name_ctx.get() or "unknown"
-                        corr_id = correlation_id_ctx.get() or "unknown"
-                        asyncio.create_task(self._log_analytics(
-                            project_id=proj_id,
-                            correlation_id=corr_id,
-                            module_name=mod_name,
-                            prompt_tokens=prompt_tokens,
-                            completion_tokens=candidates_tokens,
-                            latency_ms=latency_ms
-                        ))
-
-                    response_text = response.text
-                    if not response_text or not response_text.strip():
-                        raise ValueError(f"Gemini returned an empty response on model {model_name}.")
-
-                    try:
-                        return schema.model_validate_json(response_text)
-                    except ValidationError as ve:
-                        logger.warning(
-                            f"Validation error attempt {attempt + 1}/{max_validation_attempts} on {model_name}",
-                            extra_data={"errors": ve.errors()[:3]}
-                        )
-                        if attempt < max_validation_attempts - 1:
-                            current_prompt = (
-                                f"{prompt}\n\n"
-                                f"IMPORTANT: Your previous response failed schema validation. "
-                                f"Errors: {ve.errors()[:3]}\n"
-                                f"Return ONLY valid JSON matching the schema exactly. No extra text."
-                            )
-                            continue
-                        last_error = ve
-                        break  # Try next model
-
-                except ClientError as ce:
-                    error_str = str(ce)
-                    status_code = getattr(ce, 'status_code', 0)
-
-                    if status_code == 429 or "RESOURCE_EXHAUSTED" in error_str:
-                        backoff = MODEL_BACKOFF_SECONDS[min(model_idx, len(MODEL_BACKOFF_SECONDS) - 1)]
-                        logger.warning(
-                            f"Rate limit 429 on {model_name}. Waiting {backoff}s before trying next model.",
-                            extra_data={"model": model_name, "backoff_seconds": backoff}
-                        )
-                        await asyncio.sleep(backoff)
-                    else:
-                        # 404 (model not found), 400 (bad request), 5xx — try next model without waiting
-                        logger.warning(
-                            f"ClientError {status_code} on {model_name}, trying next model.",
-                            extra_data={"model": model_name, "error": error_str[:100]}
-                        )
-
-                    last_error = ce
-                    break  # Move to next model
-
-                except BaseBusinessException:
-                    raise
-
-                except Exception as e:
-                    logger.error(f"Unexpected Gemini error [{model_name}]: {str(e)}", exc_info=e)
-                    last_error = e
-                    break  # Try next model
-
-        raise BaseBusinessException(
-            message=(
-                "All Gemini model variants are rate-limited or unavailable. "
-                "The Gemini API free tier has per-minute/per-day limits. "
-                "Please wait 1-2 minutes and try again, or upgrade your Gemini API quota."
-            ),
-            code="AI_QUOTA_EXHAUSTED",
-            status_code=503
-        )
+        except BaseBusinessException:
+            raise
+        except Exception as e:
+            logger.error(f"Ollama generation failed: {str(e)}")
+            raise BaseBusinessException(
+                message=f"Local Ollama generation failed. Make sure the Ollama app is running and gemma2:2b is pulled. Error: {str(e)}",
+                code="OLLAMA_UNAVAILABLE",
+                status_code=503
+            )
 
     async def generate_text(self, prompt: str, system_instruction: str | None = None) -> str:
-        """Generates a plain text response (non-structured) — used for idea enhancement.
-        
-        Checks local Ollama first, falls back to Gemini.
-        """
+        """Generates a plain text response (non-structured) using local Ollama model gemma2:2b."""
         import httpx
         try:
-            async with httpx.AsyncClient(timeout=2.0) as client:
-                ollama_check = await client.get("http://localhost:11434/api/tags")
-                if ollama_check.status_code == 200:
-                    models = ollama_check.json().get("models", [])
-                    has_gemma2 = any("gemma2" in m.get("name", "").lower() for m in models)
-                    if has_gemma2:
-                        logger.info("Ollama gemma2:2b model detected. Running local text generation...")
-                        
-                        payload = {
-                            "model": "gemma2:2b",
-                            "messages": [
-                                {"role": "system", "content": system_instruction or "You are a startup compiler assistant."},
-                                {"role": "user", "content": prompt}
-                            ],
-                            "stream": False,
-                            "options": {
-                                "temperature": 0.7
-                            }
-                        }
-                        
-                        async with httpx.AsyncClient(timeout=60.0) as work_client:
-                            response = await work_client.post("http://localhost:11434/api/chat", json=payload)
-                            if response.status_code == 200:
-                                res_data = response.json()
-                                content = res_data.get("message", {}).get("content", "")
-                                if content and content.strip():
-                                    return content.strip()
-        except Exception as e:
-            logger.warning(f"Ollama text generation failed, falling back to Gemini: {str(e)}")
-
-        last_error: Exception | None = None
-
-        for model_idx, model_name in enumerate(MODEL_PRIORITY):
-            try:
-                config = types.GenerateContentConfig(
-                    temperature=0.7,
-                    system_instruction=system_instruction,
-                    max_output_tokens=512,
-                )
-
-                response = await self.client.aio.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=config,
-                )
-
-                response_text = response.text
-                if response_text and response_text.strip():
-                    return response_text.strip()
-
-                # Empty response — try next model
-                last_error = ValueError(f"Empty response from {model_name}")
-                continue
-
-            except ClientError as ce:
-                error_str = str(ce)
-                status_code = getattr(ce, 'status_code', 0)
-                
-                if status_code == 429 or "RESOURCE_EXHAUSTED" in error_str:
-                    backoff = MODEL_BACKOFF_SECONDS[min(model_idx, len(MODEL_BACKOFF_SECONDS) - 1)]
-                    logger.warning(
-                        f"Rate limit 429 on {model_name} (text). Waiting {backoff}s.",
-                        extra_data={"model": model_name}
+            logger.info("Executing local text generation workflow via Ollama gemma2:2b...")
+            payload = {
+                "model": "gemma2:2b",
+                "messages": [
+                    {"role": "system", "content": system_instruction or "You are a startup compiler assistant."},
+                    {"role": "user", "content": prompt}
+                ],
+                "stream": False,
+                "options": {
+                    "temperature": 0.7
+                }
+            }
+            
+            async with httpx.AsyncClient(timeout=60.0) as work_client:
+                response = await work_client.post("http://localhost:11434/api/chat", json=payload)
+                if response.status_code != 200:
+                    raise BaseBusinessException(
+                        message=f"Local Ollama API returned status code {response.status_code}: {response.text}",
+                        code="OLLAMA_ERROR",
+                        status_code=500
                     )
-                    await asyncio.sleep(backoff)
+                
+                res_data = response.json()
+                content = res_data.get("message", {}).get("content", "")
+                if content and content.strip():
+                    return content.strip()
                 else:
-                    # 404, 400, 5xx — model unavailable, try next without waiting
-                    logger.warning(
-                        f"ClientError {status_code} on {model_name} (text), trying next model.",
-                        extra_data={"model": model_name, "error": error_str[:100]}
+                    raise BaseBusinessException(
+                        message="Local Ollama model returned an empty text response.",
+                        code="OLLAMA_EMPTY_RESPONSE",
+                        status_code=500
                     )
-                
-                last_error = ce
-                continue  # Always try next model for any client error
-
-            except Exception as e:
-                logger.warning(f"Unexpected error on {model_name} (text): {str(e)[:100]}")
-                last_error = e
-                continue
-
-        # All models failed — raise meaningful error
-        raise BaseBusinessException(
-            message="AI service is currently unavailable. Please try again in a moment.",
-            code="AI_QUOTA_EXHAUSTED",
-            status_code=503
-        )
+        except BaseBusinessException:
+            raise
+        except Exception as e:
+            logger.error(f"Ollama text generation failed: {str(e)}")
+            raise BaseBusinessException(
+                message=f"Local Ollama text generation failed. Make sure the Ollama app is running and gemma2:2b is pulled. Error: {str(e)}",
+                code="OLLAMA_UNAVAILABLE",
+                status_code=503
+            )
 
     async def _log_analytics(
         self,
