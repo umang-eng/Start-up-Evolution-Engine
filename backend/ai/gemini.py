@@ -47,6 +47,15 @@ class GeminiAdapter(LLMProvider):
 
     def _generate_json_template(self, model: Type[BaseModel]) -> dict:
         from typing import Union, get_origin, get_args
+        try:
+            from typing import Literal as TypLiteral
+        except ImportError:
+            TypLiteral = None
+        try:
+            from typing_extensions import Literal as ExtLiteral
+        except ImportError:
+            ExtLiteral = None
+
         template = {}
         for field_name, field_info in model.model_fields.items():
             annotation = field_info.annotation
@@ -57,6 +66,9 @@ class GeminiAdapter(LLMProvider):
                 if non_none:
                     annotation = non_none[0]
                     origin = get_origin(annotation)
+            
+            # Check for Literal type
+            is_literal = (origin is TypLiteral) or (ExtLiteral and origin is ExtLiteral)
             
             # Determine constraints if any
             min_v = None
@@ -78,12 +90,29 @@ class GeminiAdapter(LLMProvider):
             elif max_v is not None:
                 constraint_str = f" ({max_v})"
 
-            if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+            if is_literal:
+                choices = get_args(annotation)
+                desc = field_info.description or field_name
+                choices_str = ", ".join(repr(c) for c in choices)
+                template[field_name] = f"<string - {desc} (MUST be one of: {choices_str})>"
+            elif isinstance(annotation, type) and issubclass(annotation, BaseModel):
                 template[field_name] = self._generate_json_template(annotation)
             elif origin is list:
                 args = get_args(annotation)
-                if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
-                    template[field_name] = [self._generate_json_template(args[0])]
+                if args:
+                    item_type = args[0]
+                    item_origin = get_origin(item_type)
+                    item_is_literal = (item_origin is TypLiteral) or (ExtLiteral and item_origin is ExtLiteral)
+                    if item_is_literal:
+                        item_choices = get_args(item_type)
+                        desc = field_info.description or "item"
+                        choices_str = ", ".join(repr(c) for c in item_choices)
+                        template[field_name] = [f"<string - {desc} (MUST be one of: {choices_str})>"]
+                    elif isinstance(item_type, type) and issubclass(item_type, BaseModel):
+                        template[field_name] = [self._generate_json_template(item_type)]
+                    else:
+                        desc = field_info.description or "item"
+                        template[field_name] = [f"<string - {desc}>"]
                 else:
                     desc = field_info.description or "item"
                     template[field_name] = [f"<string - {desc}>"]
