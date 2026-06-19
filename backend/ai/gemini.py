@@ -297,7 +297,8 @@ class GeminiAdapter(LLMProvider):
                 "format": "json",
                 "stream": False,
                 "options": {
-                    "temperature": 0.3
+                    "temperature": 0.1,
+                    "num_ctx": 4096
                 }
             }
             
@@ -354,7 +355,8 @@ class GeminiAdapter(LLMProvider):
                 ],
                 "stream": False,
                 "options": {
-                    "temperature": 0.7
+                    "temperature": 0.1,
+                    "num_ctx": 4096
                 }
             }
             

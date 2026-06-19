@@ -22,9 +22,142 @@ class BaseModule(ABC):
     def render_prompt(self, system_template: str, user_template: str, variables: dict[str, Any]) -> tuple[str, str]:
         """Interpolates variables into the system instruction and prompt templates."""
         from jinja2 import Template
-        system_rendered = Template(system_template).render(**variables)
-        user_rendered = Template(user_template).render(**variables)
+        compressed_vars = self._compress_prompt_variables(variables)
+        system_rendered = Template(system_template).render(**compressed_vars)
+        user_rendered = Template(user_template).render(**compressed_vars)
         return system_rendered, user_rendered
+
+    def _compress_prompt_variables(self, variables: dict[str, Any]) -> dict[str, Any]:
+        """Recursively compresses context dictionaries specifically for prompt payload reduction."""
+        import copy
+        
+        # Deep copy to avoid modifying original business logic/state dictionaries
+        compressed = copy.deepcopy(variables)
+        
+        # 1. Compress 'dna'
+        if "dna" in compressed and isinstance(compressed["dna"], dict):
+            dna = compressed["dna"]
+            keys_to_keep = ["category", "customer_type", "market_type", "business_model", "revenue_streams", "value_proposition", "usp", "target_segments"]
+            compressed["dna"] = {k: dna[k] for k in keys_to_keep if k in dna}
+
+        # 2. Compress 'features'
+        if "features" in compressed and isinstance(compressed["features"], dict):
+            features = compressed["features"]
+            if "features" in features and isinstance(features["features"], list):
+                c_feats = []
+                for feat in features["features"]:
+                    if isinstance(feat, dict):
+                        c_feats.append({
+                            "id": feat.get("id"),
+                            "title": feat.get("title"),
+                            "complexity": feat.get("complexity"),
+                            "impact": feat.get("impact")
+                        })
+                    else:
+                        c_feats.append(feat)
+                compressed["features"] = {"features": c_feats[:15]}
+
+        # 3. Compress 'roadmap'
+        if "roadmap" in compressed and isinstance(compressed["roadmap"], dict):
+            roadmap = compressed["roadmap"]
+            if "phases" in roadmap and isinstance(roadmap["phases"], list):
+                c_phases = []
+                for phase in roadmap["phases"]:
+                    if isinstance(phase, dict):
+                        c_phase = {
+                            "phase_id": phase.get("phase_id"),
+                            "name": phase.get("name"),
+                            "duration_months": phase.get("duration_months"),
+                            "milestones": phase.get("milestones")
+                        }
+                        tasks = phase.get("tasks", [])
+                        if isinstance(tasks, list):
+                            c_tasks = []
+                            for t in tasks:
+                                if isinstance(t, dict):
+                                    c_tasks.append({
+                                        "id": t.get("id"),
+                                        "title": t.get("title"),
+                                        "duration_weeks": t.get("duration_weeks"),
+                                        "assigned_role_id": t.get("assigned_role_id")
+                                    })
+                                else:
+                                    c_tasks.append(t)
+                            c_phase["tasks"] = c_tasks
+                        c_phases.append(c_phase)
+                    else:
+                        c_phases.append(phase)
+                compressed["roadmap"] = {"phases": c_phases}
+
+        # 4. Compress 'team'
+        if "team" in compressed and isinstance(compressed["team"], dict):
+            team = compressed["team"]
+            if "org_chart" in team and isinstance(team["org_chart"], list):
+                c_org = []
+                for role in team["org_chart"]:
+                    if isinstance(role, dict):
+                        c_org.append({
+                            "role_id": role.get("role_id"),
+                            "title": role.get("title"),
+                            "department": role.get("department"),
+                            "estimated_salary_usd": role.get("estimated_salary_usd"),
+                            "hiring_stage": role.get("hiring_stage")
+                        })
+                    else:
+                        c_org.append(role)
+                compressed["team"] = {
+                    "org_chart": c_org,
+                    "recommended_team_size": team.get("recommended_team_size"),
+                    "hiring_sequence": team.get("hiring_sequence")
+                }
+
+        # 5. Compress 'swot'
+        if "swot" in compressed and isinstance(compressed["swot"], dict):
+            swot = compressed["swot"]
+            c_swot = {}
+            for k in ["strengths", "weaknesses", "opportunities", "threats"]:
+                if k in swot:
+                    c_swot[k] = swot[k]
+            if "mitigations" in swot and isinstance(swot["mitigations"], list):
+                c_mit = []
+                for mit in swot["mitigations"]:
+                    if isinstance(mit, dict):
+                        c_mit.append({
+                            "threat_description": mit.get("threat_description"),
+                            "severity": mit.get("severity"),
+                            "mitigation_strategy": mit.get("mitigation_strategy")
+                        })
+                c_swot["mitigations"] = c_mit
+            if "founder_actions" in swot and isinstance(swot["founder_actions"], list):
+                c_act = []
+                for act in swot["founder_actions"]:
+                    if isinstance(act, dict):
+                        c_act.append({
+                            "horizon": act.get("horizon"),
+                            "action": act.get("action"),
+                            "priority": act.get("priority")
+                        })
+                c_swot["founder_actions"] = c_act
+            compressed["swot"] = c_swot
+
+        # 6. Compress 'cost'
+        if "cost" in compressed and isinstance(compressed["cost"], dict):
+            cost = compressed["cost"]
+            c_cost = {}
+            if "operational_costs" in cost and isinstance(cost["operational_costs"], list):
+                c_op = []
+                for op in cost["operational_costs"]:
+                    if isinstance(op, dict):
+                        c_op.append({
+                            "category": op.get("category"),
+                            "monthly_usd": op.get("monthly_usd")
+                        })
+                c_cost["operational_costs"] = c_op
+            if "funding_requirements" in cost:
+                c_cost["funding_requirements"] = cost["funding_requirements"]
+            compressed["cost"] = c_cost
+
+        return compressed
 
 
 class WorkflowOrchestrator:
