@@ -150,9 +150,8 @@ export function Sidebar() {
                 isLocked = hasUncompletedPredecessor;
               }
 
-              // Also lock when project is generating to prevent tab switches
-              const isGenerating = activeProject.status === 'generating';
-              const isDisabled = isLocked || isGenerating;
+              // Allow tab switches to unlocked/completed stages even during generation
+              const isDisabled = isLocked;
 
               return (
                 <button

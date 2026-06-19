@@ -44,6 +44,17 @@ const getBackendStageName = (frontendStage: string): string => {
   return mapping[frontendStage] || 'dna';
 };
 
+const isStageCompleted = (stage: StageName, project: any): boolean => {
+  if (stage === 'dna-analyzer') return !!project.dna;
+  if (stage === 'feature-extractor') return !!project.features;
+  if (stage === 'roadmap') return !!project.roadmap;
+  if (stage === 'team-structure') return !!project.team;
+  if (stage === 'swot') return !!project.swot;
+  if (stage === 'cost-estimator') return !!project.cost;
+  if (stage === 'final-blueprint') return !!project.blueprintCompiled;
+  return false;
+};
+
 export default function WorkspacePage() {
   const { 
     projects, 
@@ -390,7 +401,7 @@ export default function WorkspacePage() {
                 )}
 
                 {/* Generation state skeletons */}
-                {activeProject.status === 'generating' && (
+                {activeProject.status === 'generating' && !isStageCompleted(activeStage, activeProject) && (
                   <Card className="shadow-lvl-1 border-border bg-white">
                     <CardHeader>
                       <CardTitle className="text-lg font-semibold text-primary flex items-center gap-2">
