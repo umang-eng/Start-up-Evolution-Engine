@@ -41,8 +41,8 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md px-4 z-10">
         <Card className="border-border bg-white/70 backdrop-blur-xl shadow-lvl-3">
           <CardHeader className="space-y-2 text-center pb-6">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-accent-blue/10 text-accent-blue">
-              <Sparkles className="h-5 w-5" />
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden border border-border bg-white shadow-lvl-1">
+              <img src="/logo.png" alt="Evolution Engine Logo" className="h-full w-full object-cover" />
             </div>
             <CardTitle className="text-2xl font-bold tracking-tight text-primary">Reset Password</CardTitle>
             <CardDescription className="text-xs text-muted-foreground">

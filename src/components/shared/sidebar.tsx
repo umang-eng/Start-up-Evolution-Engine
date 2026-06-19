@@ -92,7 +92,7 @@ export function Sidebar() {
       <div className="h-14 flex items-center justify-between px-4 border-b border-border">
         {sidebarOpen && (
           <span className="font-sans font-semibold text-sm tracking-tight text-primary flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-accent-blue animate-pulse" />
+            <img src="/logo.png" alt="Evolution Engine Logo" className="h-5 w-5 object-contain rounded-md" />
             Evolution Engine
           </span>
         )}
