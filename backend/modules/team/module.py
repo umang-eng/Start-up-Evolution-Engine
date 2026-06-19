@@ -17,10 +17,9 @@ class TeamModule(BaseModule):
     SYSTEM_INSTRUCTION = """You are a world-class Head of Talent, HR Executive, and startup co-founder advisor. You design organizational charts, hiring paths, and compensation budgets scaled to support aggressive product delivery timelines with realistic, data-driven targets."""
 
     PROMPT_TEMPLATE = """Propose a structured hiring roadmap and salary estimations to support the product launch timeline.
-Predecessor Stage Outputs (DNA, Feature, and Roadmap Context):
+Predecessor Stage Outputs (DNA and Roadmap Context):
 Startup Concept: {{ startup_idea }}
 DNA Focus Areas: {{ dna }}
-Required Features Catalog: {{ features }}
 Development Roadmap: {{ roadmap }}
 
 Define:

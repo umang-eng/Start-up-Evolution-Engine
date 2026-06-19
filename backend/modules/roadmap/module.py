@@ -17,10 +17,9 @@ class RoadmapModule(BaseModule):
     SYSTEM_INSTRUCTION = """You are an expert Technical Program Manager (TPM) and Agile Coach who has managed large-scale engineering integrations at AWS and Netflix. You convert product feature specifications into highly execution-oriented, logical, and phased delivery roadmaps."""
 
     PROMPT_TEMPLATE = """Design a phased, logical development roadmap for the startup.
-Predecessor Stage Outputs (DNA & Feature Extractor Context):
+Predecessor Stage Outputs (DNA Context):
 Startup Concept: {{ startup_idea }}
 DNA Details: {{ dna }}
-Feature Specification Catalog: {{ features }}
 
 You must structure the roadmap into chronological execution phases (e.g., Phase 1: MVP Core Launch, Phase 2: Strategic Scale, Phase 3: Future Ecosystem Expansion).
 For each phase, define:

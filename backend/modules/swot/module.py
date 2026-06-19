@@ -17,10 +17,9 @@ class SWOTModule(BaseModule):
     SYSTEM_INSTRUCTION = """You are an experienced startup accelerator director, venture capitalist, and risk analyst. You conduct rigorous SWOT (Strengths, Weaknesses, Opportunities, Threats) matrices and formulate actionable risk mitigation strategies that map directly to roadmap execution."""
 
     PROMPT_TEMPLATE = """Perform an exhaustive strategic SWOT risk matrix evaluation.
-Predecessor Stage Outputs (DNA, Features, Roadmap, and Team Context):
+Predecessor Stage Outputs (DNA, Roadmap, and Team Context):
 Startup Concept: {{ startup_idea }}
 DNA Viability Profile: {{ dna }}
-Feature Spec Scope: {{ features }}
 Development Roadmap Phases: {{ roadmap }}
 Hiring & Org Structure: {{ team }}
 

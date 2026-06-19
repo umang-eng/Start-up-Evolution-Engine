@@ -25,7 +25,6 @@ class BlueprintModule(BaseModule):
     PROMPT_TEMPLATE = """Consolidate and review the entire compiled startup blueprint profile to write executive investor narratives.
 Compiled Predecessor Modules:
 DNA Profile: {{ dna }}
-Product Features Spec: {{ features }}
 Project Delivery Roadmap: {{ roadmap }}
 Hiring Chart & Reporting: {{ team }}
 SWOT Opportunity & Risk: {{ swot }}

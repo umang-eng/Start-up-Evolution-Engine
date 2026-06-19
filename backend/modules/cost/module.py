@@ -17,7 +17,7 @@ class CostModule(BaseModule):
     SYSTEM_INSTRUCTION = """You are an expert startup CFO, venture capital financial analyst, and fractional controller. You construct realistic operational cost models, scenario projections, and calculate funding runway targets with high-fidelity corporate budgeting standards."""
 
     PROMPT_TEMPLATE = """Build a comprehensive operational cost estimation and cash runway analysis model.
-Predecessor Stage Outputs (DNA, Features, Roadmap, Team, and SWOT Context):
+Predecessor Stage Outputs (DNA, Roadmap, Team, and SWOT Context):
 Startup Concept: {{ startup_idea }}
 DNA Revenue Model: {{ dna }}
 Hiring Chart & Salaries: {{ team }}
