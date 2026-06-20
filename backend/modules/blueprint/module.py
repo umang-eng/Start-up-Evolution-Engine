@@ -30,14 +30,14 @@ Hiring Chart & Reporting: {{ team }}
 SWOT Opportunity & Risk: {{ swot }}
 OPEX & Financing Projections: {{ cost }}
 
-Synthesize five highly detailed, professional, and convincing executive narrative vectors:
+Synthesize five concise, high-impact, and strategic executive narrative vectors (limit each vector to exactly 2-3 sentences):
 1. Business Summary: Clear problem-solution statement, target audience validation, and business model value.
 2. Strategic Focus: The core competitive moat, USP, market positioning, and strategic growth drivers.
 3. Execution Plan: Core software feature architecture breakdown, MVP launch milestones, and phase timelines.
 4. Financial Outlook: Calculated operational expenses, salary commitments, scenarios, and cash runway targets.
 5. Founder Action Plan: Critical immediate tasks, prioritized risk mitigations, and next steps for execution.
 
-Ensure the output conforms strictly to the requested JSON schema, providing maximum strategic narrative quality."""
+Ensure the output conforms strictly to the requested JSON schema, providing strategic narrative quality."""
 
     async def run(
         self, 

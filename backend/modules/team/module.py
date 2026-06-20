@@ -22,14 +22,15 @@ Startup Concept: {{ startup_idea }}
 DNA Focus Areas: {{ dna }}
 Development Roadmap: {{ roadmap }}
 
+Define a lean, highly execution-oriented startup structure with exactly 3-4 core positions (e.g. CTO, Senior Developer, PM). Keep roles and responsibilities extremely brief (1-2 sentences).
 Define:
-1. Key departments needed (Engineering, Product, Marketing, Sales, Operations).
-2. Core positions (e.g. CTO, Senior Backend Developer, PM, Head of Growth) with detailed responsibilities.
+1. Key departments needed.
+2. Core positions with brief responsibilities.
 3. Target hiring milestones (linking each position back to specific roadmap phases where their presence is first required).
 4. Estimated base salary ranges (USD/year) scaled realistically for remote/global startup talent (incorporate market rates).
 5. Direct reporting structures (who reports to whom using role IDs).
 
-Ensure the output conforms strictly to the requested JSON schema, providing granular role requirements."""
+Ensure the output conforms strictly to the requested JSON schema, providing role requirements."""
 
     async def run(
         self, 

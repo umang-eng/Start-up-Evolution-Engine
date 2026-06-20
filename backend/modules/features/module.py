@@ -23,20 +23,20 @@ Business Model & Revenue Streams: {{ dna.business_model }}
 Value Proposition Core: {{ dna.value_proposition }}
 Unique Selling Proposition (USP): {{ dna.usp }}
 
-For the MVP, design:
-1. Core features: absolute must-haves for launch.
-2. Advanced features: features that provide real competitive differentiation.
-3. Future features: long-term vision features.
-4. Competitive features: specific features to defend against incumbents.
+For the MVP, design exactly 5 prioritized features in total:
+1. Exactly 2 Core features: absolute must-haves for launch.
+2. Exactly 1 Advanced feature: features that provide real competitive differentiation.
+3. Exactly 1 Future feature: long-term vision features.
+4. Exactly 1 Competitive feature: specific features to defend against incumbents.
 
 For each feature, provide:
 - An absolute, unique ID (e.g. FEAT-001).
-- Clear, concise, yet detailed functional description.
+- A concise but clear functional description (max 2 sentences).
 - Development complexity (Low, Medium, High).
 - Business impact (Low, Medium, High).
 - Pre-requisite feature dependencies.
 
-Ensure all outputs strictly adhere to the requested JSON schema, ensuring that descriptions are precise, detailed, and clear for software developers to implement."""
+Ensure all outputs strictly adhere to the requested JSON schema, ensuring that descriptions are precise and clear."""
 
     async def run(
         self, 

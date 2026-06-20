@@ -25,7 +25,7 @@ SWOT Risk Parameters: {{ swot }}
 
 Calculate and project:
 1. Monthly payroll expenses: use the specific base salaries from the hiring chart in the team structure.
-2. Operational tools & services (OPEX): allocate realistic monthly budgets for hosting (e.g. AWS/GCP), API usage (AI/Stripe), CRM/marketing, communication tools, and legal/accounting services.
+2. Operational tools & services (OPEX): allocate realistic monthly budgets for exactly 4 core categories: Hosting/Cloud, APIs/LLM usage, Marketing/Sales, and Operations/Legal.
 3. Scenario funding requirements: estimate overall cash target for Lean (skeleton MVP launch), Balanced (12-18 months of development), and Aggressive (faster hiring and paid growth) scenarios.
 4. Total cash runway target and runway months projection.
 

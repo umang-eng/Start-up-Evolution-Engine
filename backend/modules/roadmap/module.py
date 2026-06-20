@@ -22,6 +22,7 @@ Startup Concept: {{ startup_idea }}
 DNA Details: {{ dna }}
 
 You must structure the roadmap into chronological execution phases (e.g., Phase 1: MVP Core Launch, Phase 2: Strategic Scale, Phase 3: Future Ecosystem Expansion).
+For each phase, define exactly 2 high-priority action-oriented engineering tasks (total 12 tasks for the entire roadmap). Keep descriptions extremely brief (1 sentence).
 For each phase, define:
 1. Specific, action-oriented engineering tasks (e.g. "Configure PostgreSQL database schema", "Integrate Stripe billing API Webhooks").
 2. Exact feature mappings (linking each task back to the specific FEAT-XXX feature IDs).
@@ -29,7 +30,7 @@ For each phase, define:
 4. Specific, clear milestones that act as deployment gates.
 5. Critical path risks and mitigations.
 
-Ensure the output conforms strictly to the requested JSON schema, providing granular, professional milestones."""
+Ensure the output conforms strictly to the requested JSON schema, providing professional milestones."""
 
     async def run(
         self, 

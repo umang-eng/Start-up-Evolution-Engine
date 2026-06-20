@@ -266,6 +266,28 @@ class GeminiAdapter(LLMProvider):
                 
         return normalized
 
+    def _extract_json(self, content: str) -> str:
+        """Cleans and extracts JSON string from potential markdown wrappers or surrounding text."""
+        text = content.strip()
+        
+        # Remove markdown code blocks if present
+        if text.startswith("```"):
+            lines = text.splitlines()
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            text = "\n".join(lines).strip()
+            
+        # If it still doesn't start with { or [, try to find it
+        if not (text.startswith("{") or text.startswith("[")):
+            start_idx = text.find("{")
+            end_idx = text.rfind("}")
+            if start_idx != -1 and end_idx != -1:
+                text = text[start_idx:end_idx + 1]
+                
+        return text
+
     async def generate(
         self,
         prompt: str,
@@ -321,8 +343,9 @@ class GeminiAdapter(LLMProvider):
                     )
                 
                 try:
-                    # Parse and normalize JSON data to handle case-insensitivity and synonym matching for Literals
-                    parsed_data = json.loads(content)
+                    # Clean and parse JSON data to handle case-insensitivity, markdown wrappers, and synonym matching
+                    cleaned_content = self._extract_json(content)
+                    parsed_data = json.loads(cleaned_content)
                     normalized_data = self._normalize_json_data(parsed_data, schema)
                     return schema.model_validate(normalized_data)
                 except Exception as ve:

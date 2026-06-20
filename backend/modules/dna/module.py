@@ -28,7 +28,8 @@ Your analysis must cover:
 3. Unique Selling Proposition (USP): identify the core moat, IP strategy, or defensible advantages.
 4. Strategic scores (1-100) with detailed rationales for Market Fit, Feasibility, Scalability, Teamability, Unit Economics, and Innovation.
 
-Ensure all output strictly adheres to the requested JSON schema structure, providing extremely detailed, professional, and actionable insights."""
+Limit your lists for speed and precision: generate exactly 2-3 target segments and 3 strategic recommendations.
+Ensure all output strictly adheres to the requested JSON schema structure, providing professional and actionable insights."""
 
     async def run(
         self, 

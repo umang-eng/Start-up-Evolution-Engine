@@ -24,16 +24,16 @@ Development Roadmap Phases: {{ roadmap }}
 Hiring & Org Structure: {{ team }}
 
 Identify:
-1. Core Strengths: proprietary tech, speed to market, founder advantages.
-2. Core Weaknesses: talent gaps, low funding, high initial operation costs.
-3. Market Opportunities: regulatory shifts, under-served segments, channel partnerships.
-4. Active Threats: direct incumbents, fast-followers, platform dependency risks.
+1. Exactly 2 Core Strengths.
+2. Exactly 2 Core Weaknesses.
+3. Exactly 2 Market Opportunities.
+4. Exactly 2 Active Threats.
 
 Formulate Actionable Strategies:
-- Every single identified Threat MUST be mapped to a clear, concrete, and actionable Mitigation strategy.
-- Provide a founder action plan, outlining immediate strategic next steps.
+- Map a clear, concrete, and actionable Mitigation strategy for each of the 2 identified Threats.
+- Provide a concise founder action plan outlining immediate strategic next steps (max 1-2 items).
 
-Ensure the output conforms strictly to the requested JSON schema, ensuring high strategic value."""
+Ensure the output conforms strictly to the requested JSON schema, providing strategic value."""
 
     async def run(
         self, 
