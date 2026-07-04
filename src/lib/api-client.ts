@@ -411,4 +411,18 @@ export const api = {
     deck: (projectId: string) => `${API_BASE_URL}/api/v1/exports/deck/${projectId}?token=${getAccessToken()}`,
     share: (projectId: string) => request(`/api/v1/exports/share-link/${projectId}`, { method: 'POST' }),
   },
+  intake: {
+    start: (rawIdea: string) => request('/api/v1/intake/start', {
+      method: 'POST',
+      body: JSON.stringify({ raw_idea: rawIdea }),
+    }),
+    message: (sessionId: string, questionId: string, answer: string) => request('/api/v1/intake/message', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId, question_id: questionId, answer }),
+    }),
+    finalize: (sessionId: string) => request('/api/v1/intake/finalize', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId }),
+    }),
+  },
 };

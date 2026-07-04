@@ -1,12 +1,16 @@
 import uuid
-from sqlalchemy import Numeric, String, ForeignKey
+from sqlalchemy import Numeric, String, ForeignKey, JSON
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.models.base import Base, UUIDMixin, TimestampMixin
 
 
 class GenerationSession(Base, UUIDMixin, TimestampMixin):
-    """Tracks active pipeline workflow runs, statuses, and steps."""
+    """Tracks active pipeline workflow runs, statuses, and steps.
+
+    Cache metadata fields track which stages were served from cache
+    vs freshly generated, enabling observability into token savings.
+    """
     __tablename__ = "generation_sessions"
 
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -15,6 +19,15 @@ class GenerationSession(Base, UUIDMixin, TimestampMixin):
     current_stage: Mapped[str | None] = mapped_column(String(50), nullable=True)
     progress_percentage: Mapped[float] = mapped_column(Numeric(5, 2), default=0.0, nullable=False)
     error_message: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+
+    # ── Cache observability fields ──────────────────────────────
+    # JSON dict mapping stage name → cache status ("hit" | "miss" | "skipped")
+    # Example: {"dna": "miss", "features": "hit", "roadmap": "hit"}
+    stage_cache_map: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Count of stages served from cache in this session
+    cache_hits: Mapped[int] = mapped_column(Numeric(3, 0), default=0, nullable=False)
+    # Count of stages requiring fresh LLM generation
+    cache_misses: Mapped[int] = mapped_column(Numeric(3, 0), default=0, nullable=False)
 
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="sessions")

@@ -1,10 +1,28 @@
 from typing import Any
 from backend.models.project import Project
 from backend.core.logging import logger
+from backend.utils.checksum import compute_stage_checksum
+
+
+# Maps result relationship attribute names to their stage keys
+_RESULT_ATTR_MAP = {
+    "dna": "dna_result",
+    "features": "feature_result",
+    "roadmap": "roadmap_result",
+    "team": "team_result",
+    "swot": "swot_result",
+    "cost": "cost_result",
+    "legal_compliance": "legal_compliance_result",
+}
 
 
 class ContextManager:
-    """Manages active compilation contexts and token payload compression strategies."""
+    """Manages active compilation contexts and token payload compression strategies.
+
+    Now includes checksum computation: each time a context is assembled for a stage,
+    the manager computes the deterministic input hash so the orchestrator can compare
+    it against the stored hash of the existing result.
+    """
 
     def assemble_context(self, project: Project) -> dict[str, Any]:
         """Gathers database results from all completed stages into a prompt variable context."""
@@ -38,7 +56,44 @@ class ContextManager:
         if project.cost_result and project.cost_result.data:
             context["cost"] = self._sanitize_module_data(project.cost_result.data)
 
+        # Mount Legal & Compliance Context if present
+        if project.legal_compliance_result and project.legal_compliance_result.data:
+            context["legal_compliance"] = self._sanitize_module_data(project.legal_compliance_result.data)
+
         return context
+
+    def compute_input_checksum(
+        self,
+        stage_name: str,
+        project: Project,
+        context: dict[str, Any],
+    ) -> str:
+        """Compute the deterministic input checksum for a specific stage.
+
+        This is the hash that the orchestrator compares against the stored
+        hash_checksum of the existing result to determine cache hit/miss.
+        """
+        return compute_stage_checksum(
+            stage_name=stage_name,
+            project_title=project.title,
+            project_industry=project.industry,
+            project_description=project.description,
+            context=context,
+        )
+
+    def get_stored_checksum(self, project: Project, stage_name: str) -> str | None:
+        """Retrieve the stored hash_checksum for a stage's existing result.
+
+        Returns None if no result exists for this stage.
+        """
+        result_attr = _RESULT_ATTR_MAP.get(stage_name)
+        if not result_attr:
+            return None
+
+        result_obj = getattr(project, result_attr, None)
+        if result_obj and hasattr(result_obj, "hash_checksum"):
+            return result_obj.hash_checksum
+        return None
 
     def compress_context_payload(
         self, 

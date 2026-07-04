@@ -1,30 +1,41 @@
-version: '3.8'
+# ──────────────────────────────────────────────────────────────────
+#  Start-up Evolution Engine — 4-Tier Production Architecture
+# ──────────────────────────────────────────────────────────────────
+#  1. data-infrastructure : PostgreSQL 16 + Redis 7
+#  2. api-gateway         : FastAPI REST server (auth, metadata, proxy)
+#  3. worker-engine       : Dedicated ARQ background task runner
+#  4. frontend-service    : Next.js production build
+# ──────────────────────────────────────────────────────────────────
 
 services:
+
+  # ── Tier 1: Data Infrastructure ────────────────────────────────
   postgres:
     image: postgres:16-alpine
-    container_name: startup-evolution-db
+    container_name: see-postgres
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-startup_evolution}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_EXTERNAL_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - see-net
 
   redis:
     image: redis:7-alpine
-    container_name: startup-evolution-cache
+    container_name: see-redis
     restart: always
     ports:
-      - "6379:6379"
+      - "${REDIS_EXTERNAL_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -32,17 +43,22 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - see-net
 
-  backend:
+  # ── Tier 2: API Gateway ────────────────────────────────────────
+  api-gateway:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: startup-evolution-backend
+      target: api-gateway
+    container_name: see-api-gateway
     restart: always
     ports:
-      - "8000:8000"
+      - "${API_EXTERNAL_PORT:-8000}:8000"
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-production}
+      - SERVICE_ROLE=api-gateway
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_HOST=postgres
@@ -51,30 +67,76 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      # REQUIRED: Override SECRET_KEY with a strong random value in production
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
       - SECRET_KEY=${SECRET_KEY:-39fca85521b7c191a0c4f8263152d24269e8ef81d11ff31ff215443210ef8abc}
-      # CORS origins — restrict to actual frontend domain in production
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - see-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/api/v1/health/liveness').raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
-  frontend:
+  # ── Tier 3: Worker Engine ──────────────────────────────────────
+  worker-engine:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: worker-engine
+    container_name: see-worker-engine
+    restart: always
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - SERVICE_ROLE=worker-engine
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-startup_evolution}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+      - SECRET_KEY=${SECRET_KEY:-39fca85521b7c191a0c4f8263152d24269e8ef81d11ff31ff215443210ef8abc}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - see-net
+
+  # ── Tier 4: Frontend Service ───────────────────────────────────
+  frontend-service:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: startup-evolution-frontend
+      target: runner
+    container_name: see-frontend
     restart: always
     ports:
-      - "3000:3000"
+      - "${FRONTEND_EXTERNAL_PORT:-3000}:3000"
     environment:
-      # In Docker the frontend calls the backend service by container name
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:8000}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://api-gateway:8000}
+      - NEXT_PUBLIC_STREAM_URL=${NEXT_PUBLIC_STREAM_URL:-http://api-gateway:8000}
     depends_on:
-      - backend
+      - api-gateway
+    networks:
+      - see-net
 
+# ── Shared Networks ────────────────────────────────────────────
+networks:
+  see-net:
+    driver: bridge
+
+# ── Persistent Volumes ────────────────────────────────────────
 volumes:
   postgres_data:
   redis_data:

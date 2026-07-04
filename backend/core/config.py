@@ -1,4 +1,3 @@
-import os
 from typing import Literal
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -15,6 +14,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Start-up Evolution Engine"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: Literal["development", "staging", "production"] = "development"
+    SERVICE_ROLE: Literal["api-gateway", "worker-engine"] = "api-gateway"
 
     # CORS — tighten in production via ALLOWED_ORIGINS env var
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     OLLAMA_HOST: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "nemotron-3-super:cloud"
+
+    # Real-Time Search (at least one provider required for live market grounding)
+    TAVILY_API_KEY: str = ""
+    GOOGLE_SEARCH_API_KEY: str = ""
+    GOOGLE_CSE_ID: str = ""
 
     @field_validator("SECRET_KEY")
     @classmethod
