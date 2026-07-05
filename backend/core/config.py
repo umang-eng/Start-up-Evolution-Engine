@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     OLLAMA_HOST: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "nemotron-3-super:cloud"
+    OLLAMA_API_KEY: str = ""
 
     # Real-Time Search (at least one provider required for live market grounding)
     TAVILY_API_KEY: str = ""

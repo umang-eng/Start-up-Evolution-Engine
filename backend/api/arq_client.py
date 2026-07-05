@@ -30,7 +30,6 @@ async def get_arq_pool():
                 database=settings.REDIS_DB,
                 password=settings.REDIS_PASSWORD,
             ),
-            queue_name="see:queue",
         )
     return _pool
 
@@ -45,15 +44,14 @@ async def enqueue_compilation(
 
     Returns the ARQ job ID (can be used for status polling if needed).
     """
-    from backend.worker.tasks import run_compilation_pipeline
-
     pool = await get_arq_pool()
     job_id = await pool.enqueue_job(
-        run_compilation_pipeline,
+        "run_compilation_pipeline",
         str(project_id),
         correlation_id,
         target_stage,
         _job_id=f"compile:{project_id}:{correlation_id}",
+        _queue_name="see:queue",
     )
 
     logger.info(

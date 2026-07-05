@@ -32,6 +32,9 @@ COPY --from=builder /root/.local /root/.local
 # `from backend.app.main import app` resolves correctly with PYTHONPATH=/app
 COPY . /app/backend
 
+# Make entrypoint executable
+RUN chmod +x /app/backend/entrypoint.sh
+
 ENV PATH=/root/.local/bin:$PATH
 ENV PYTHONPATH=/app
 
@@ -42,6 +45,7 @@ ENV SERVICE_ROLE=api-gateway
 
 EXPOSE 8000
 
+ENTRYPOINT ["/app/backend/entrypoint.sh"]
 CMD ["uvicorn", "backend.app.main:app", \
      "--host", "0.0.0.0", \
      "--port", "8000", \
@@ -58,4 +62,5 @@ FROM runtime-base AS worker-engine
 
 ENV SERVICE_ROLE=worker-engine
 
+ENTRYPOINT ["/app/backend/entrypoint.sh"]
 CMD ["python", "-m", "backend.worker.main"]

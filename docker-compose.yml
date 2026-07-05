@@ -2,9 +2,10 @@
 #  Start-up Evolution Engine — 4-Tier Production Architecture
 # ──────────────────────────────────────────────────────────────────
 #  1. data-infrastructure : PostgreSQL 16 + Redis 7
-#  2. api-gateway         : FastAPI REST server (auth, metadata, proxy)
-#  3. worker-engine       : Dedicated ARQ background task runner
-#  4. frontend-service    : Next.js production build
+#  2. ai-infrastructure   : Ollama (local + cloud model proxy)
+#  3. api-gateway         : FastAPI REST server (auth, metadata, proxy)
+#  4. worker-engine       : Dedicated ARQ background task runner
+#  5. frontend-service    : Next.js production build
 # ──────────────────────────────────────────────────────────────────
 
 services:
@@ -46,7 +47,27 @@ services:
     networks:
       - see-net
 
-  # ── Tier 2: API Gateway ────────────────────────────────────────
+  # ── Tier 2: AI Infrastructure ────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: see-ollama
+    restart: always
+    ports:
+      - "${OLLAMA_EXTERNAL_PORT:-11435}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY:-}
+    networks:
+      - see-net
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Tier 3: API Gateway ────────────────────────────────────────
   api-gateway:
     build:
       context: ./backend
@@ -67,6 +88,9 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-nemotron-3-super:cloud}
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY:-}
       - TAVILY_API_KEY=${TAVILY_API_KEY:-}
       - SECRET_KEY=${SECRET_KEY:-39fca85521b7c191a0c4f8263152d24269e8ef81d11ff31ff215443210ef8abc}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
@@ -74,6 +98,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      ollama:
         condition: service_healthy
     networks:
       - see-net
@@ -84,7 +110,7 @@ services:
       retries: 3
       start_period: 15s
 
-  # ── Tier 3: Worker Engine ──────────────────────────────────────
+  # ── Tier 4: Worker Engine ──────────────────────────────────────
   worker-engine:
     build:
       context: ./backend
@@ -103,6 +129,9 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-nemotron-3-super:cloud}
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY:-}
       - TAVILY_API_KEY=${TAVILY_API_KEY:-}
       - SECRET_KEY=${SECRET_KEY:-39fca85521b7c191a0c4f8263152d24269e8ef81d11ff31ff215443210ef8abc}
     depends_on:
@@ -110,10 +139,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      ollama:
+        condition: service_healthy
     networks:
       - see-net
 
-  # ── Tier 4: Frontend Service ───────────────────────────────────
+  # ── Tier 5: Frontend Service ───────────────────────────────────
   frontend-service:
     build:
       context: .
@@ -140,3 +171,4 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  ollama_data:

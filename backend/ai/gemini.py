@@ -298,6 +298,11 @@ class GeminiAdapter(LLMProvider):
         import httpx
         import json
 
+        # Build request headers — cloud models require Authorization header
+        headers = {"Content-Type": "application/json"}
+        if settings.OLLAMA_API_KEY:
+            headers["Authorization"] = f"Bearer {settings.OLLAMA_API_KEY}"
+
         # Force Ollama generation using configured host and model settings
         try:
             logger.info(f"Executing Ollama structured generation workflow via model '{settings.OLLAMA_MODEL}'...")
@@ -325,7 +330,7 @@ class GeminiAdapter(LLMProvider):
             }
             
             async with httpx.AsyncClient(timeout=120.0) as work_client:
-                response = await work_client.post(f"{settings.OLLAMA_HOST}/api/chat", json=payload)
+                response = await work_client.post(f"{settings.OLLAMA_HOST}/api/chat", json=payload, headers=headers)
                 if response.status_code != 200:
                     raise BaseBusinessException(
                         message=f"Ollama API ({settings.OLLAMA_MODEL}) returned status code {response.status_code}: {response.text}",
@@ -368,6 +373,12 @@ class GeminiAdapter(LLMProvider):
     async def generate_text(self, prompt: str, system_instruction: str | None = None) -> str:
         """Generates a plain text response (non-structured) using Ollama model."""
         import httpx
+
+        # Build request headers — cloud models require Authorization header
+        headers = {"Content-Type": "application/json"}
+        if settings.OLLAMA_API_KEY:
+            headers["Authorization"] = f"Bearer {settings.OLLAMA_API_KEY}"
+
         try:
             logger.info(f"Executing Ollama text generation workflow via model '{settings.OLLAMA_MODEL}'...")
             payload = {
@@ -384,7 +395,7 @@ class GeminiAdapter(LLMProvider):
             }
             
             async with httpx.AsyncClient(timeout=60.0) as work_client:
-                response = await work_client.post(f"{settings.OLLAMA_HOST}/api/chat", json=payload)
+                response = await work_client.post(f"{settings.OLLAMA_HOST}/api/chat", json=payload, headers=headers)
                 if response.status_code != 200:
                     raise BaseBusinessException(
                         message=f"Ollama API ({settings.OLLAMA_MODEL}) returned status code {response.status_code}: {response.text}",

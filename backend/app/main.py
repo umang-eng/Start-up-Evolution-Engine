@@ -24,11 +24,10 @@ from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import setup_logging, logger
 from backend.schemas.base import BaseErrorResponse, APIError, APIResponseMetadata
 
-# Ensure all SQLAlchemy models are registered in the mapper registry before
-# any queries run. Without this, string-based relationship() references like
-# "AuditLog" in User can't be resolved when PostgreSQL is used directly.
-import backend.models.audit  # noqa: F401
-import backend.models.analytics  # noqa: F401
+# Import the models package to register ALL ORM models in the mapper registry.
+# This ensures string-based relationship() references (e.g. "AuditLog" in User)
+# resolve correctly before configure_mappers() runs.
+import backend.models  # noqa: F401
 
 
 SERVICE_ROLE = settings.ENVIRONMENT  # overridden by SERVICE_ROLE env var in container
