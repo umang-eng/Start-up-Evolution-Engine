@@ -9,10 +9,14 @@ from backend.core.logging import logger
 from backend.models.project import Project
 from backend.models.blueprint import Blueprint
 from backend.modules.blueprint.schemas import (
-    BlueprintOutput, 
-    ExecutiveSummary, 
-    StartupHealthIndicators, 
-    ConflictResolutionLogItem
+    BlueprintOutput,
+    ExecutiveSummary,
+    StartupHealthIndicators,
+    ConflictResolutionLogItem,
+    LegalComplianceDoc,
+    FundingSourceRef,
+    RegistrationRequirementRef,
+    ComplianceDirectoryRef,
 )
 from backend.orchestrator.engine import BaseModule
 
@@ -96,6 +100,9 @@ Ensure the output conforms strictly to the requested JSON schema, providing stra
             system_instruction=system_instruction
         )
 
+        # 4. Build Legal Compliance Doc from context (populated by LegalComplianceModule if it ran)
+        legal_compliance_doc = self._build_legal_compliance_doc(context)
+
         # 5. Compile final Output Payload
         blueprint_data = BlueprintOutput(
             executive_summary=summary_output,
@@ -106,7 +113,8 @@ Ensure the output conforms strictly to the requested JSON schema, providing stra
             swot_analysis=swot,
             financial_plan=resolved_cost,
             health_indicators=health_indicators,
-            conflict_resolution_log=conflict_logs
+            conflict_resolution_log=conflict_logs,
+            legal_compliance=legal_compliance_doc,
         )
 
         output_dict = blueprint_data.model_dump()
@@ -132,6 +140,60 @@ Ensure the output conforms strictly to the requested JSON schema, providing stra
 
         logger.info(f"Blueprint Composer completed successfully for project: {project.id}")
         return output_dict
+
+    def _build_legal_compliance_doc(self, context: dict[str, Any]) -> LegalComplianceDoc:
+        """Extract and normalize Legal & Compliance data from pipeline context.
+
+        If the LegalComplianceModule has run and populated context['legal_compliance'],
+        we pull the structured data and build compact reference tables for the Blueprint.
+        Otherwise, returns an empty doc.
+        """
+        legal_ctx = context.get("legal_compliance")
+        if not legal_ctx:
+            return LegalComplianceDoc()
+
+        funding_sources = [
+            FundingSourceRef(
+                scheme_name=f.get("scheme_name", ""),
+                scheme_type=f.get("scheme_type", ""),
+                amount_range=f.get("amount_range", ""),
+                application_url=f.get("application_url", ""),
+                relevance_score=f.get("relevance_score", 0.0),
+            )
+            for f in legal_ctx.get("funding_sources", [])
+        ]
+
+        registration_requirements = [
+            RegistrationRequirementRef(
+                requirement_name=r.get("requirement_name", ""),
+                authority=r.get("authority", ""),
+                category=r.get("category", ""),
+                is_mandatory=r.get("is_mandatory", False),
+                estimated_cost=r.get("estimated_cost", ""),
+                priority=r.get("priority", "MEDIUM"),
+                reference_url=r.get("reference_url", ""),
+            )
+            for r in legal_ctx.get("registration_requirements", [])
+        ]
+
+        compliance_directories = [
+            ComplianceDirectoryRef(
+                agency_name=d.get("agency_name", ""),
+                jurisdiction=d.get("jurisdiction", ""),
+                contact_url=d.get("contact_url", ""),
+                relevant_for=d.get("relevant_for", []),
+            )
+            for d in legal_ctx.get("compliance_directories", [])
+        ]
+
+        return LegalComplianceDoc(
+            funding_sources=funding_sources,
+            registration_requirements=registration_requirements,
+            compliance_directories=compliance_directories,
+            data_protection_requirements=legal_ctx.get("data_protection_requirements", []),
+            summary=legal_ctx.get("summary", ""),
+            estimated_compliance_budget_usd=legal_ctx.get("estimated_compliance_budget_usd", 0.0),
+        )
 
     def _resolve_conflicts(
         self, 

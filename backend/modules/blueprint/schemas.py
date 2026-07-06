@@ -33,6 +33,48 @@ class ConflictResolutionLogItem(BaseModel):
     log_message: str
 
 
+class FundingSourceRef(BaseModel):
+    """Compact reference to a funding source from the Legal & Compliance module."""
+    scheme_name: str
+    scheme_type: str
+    amount_range: str
+    application_url: str = ""
+    relevance_score: float = 0.0
+
+
+class RegistrationRequirementRef(BaseModel):
+    """Compact reference to a registration requirement from the Legal & Compliance module."""
+    requirement_name: str
+    authority: str
+    category: str
+    is_mandatory: bool
+    estimated_cost: str = ""
+    priority: str = "MEDIUM"
+    reference_url: str = ""
+
+
+class ComplianceDirectoryRef(BaseModel):
+    """Compact reference to a regulatory agency from the Legal & Compliance module."""
+    agency_name: str
+    jurisdiction: str
+    contact_url: str = ""
+    relevant_for: list[str] = Field(default_factory=list)
+
+
+class LegalComplianceDoc(BaseModel):
+    """Structural tables for legal & compliance documentation embedded in the Blueprint.
+
+    Contains active grant URLs, filing requirements checklists, and local agency
+    compliance directories — all grounded in real-time web search results.
+    """
+    funding_sources: list[FundingSourceRef] = Field(default_factory=list)
+    registration_requirements: list[RegistrationRequirementRef] = Field(default_factory=list)
+    compliance_directories: list[ComplianceDirectoryRef] = Field(default_factory=list)
+    data_protection_requirements: list[str] = Field(default_factory=list)
+    summary: str = Field(default="", max_length=1500)
+    estimated_compliance_budget_usd: float = Field(ge=0.0, default=0.0)
+
+
 class BlueprintOutput(BaseModel):
     """Structured output returned by the Blueprint Composer Module."""
     executive_summary: ExecutiveSummary
@@ -44,3 +86,7 @@ class BlueprintOutput(BaseModel):
     financial_plan: dict[str, Any] = Field(description="Normalized Projections and operational tools budget")
     health_indicators: StartupHealthIndicators
     conflict_resolution_log: list[ConflictResolutionLogItem] = Field(default_factory=list)
+    legal_compliance: LegalComplianceDoc = Field(
+        default_factory=LegalComplianceDoc,
+        description="Structural tables for legal compliance, funding schemes, and regulatory directories"
+    )

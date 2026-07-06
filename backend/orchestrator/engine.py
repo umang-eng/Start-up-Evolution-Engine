@@ -1,14 +1,50 @@
+"""
+Workflow Orchestrator — 7-Stage Compilation Pipeline Engine
+
+This module defines the core pipeline orchestration logic:
+- BaseModule: Abstract interface for each pipeline stage
+- WorkflowOrchestrator: Manages stage sequencing, retries, context assembly,
+  conditional cache evaluation, and Redis Pub/Sub event streaming
+
+Cache Strategy:
+  Before running any module, the orchestrator computes a deterministic
+  SHA-256 checksum from the stage's inputs (project base data + all upstream
+  results). It then queries the database for an existing result matching
+  that checksum. On a hit, the LLM call is skipped entirely.
+"""
+
 import json
 import uuid
 from abc import ABC, abstractmethod
 from typing import Any
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.cache.redis import redis_manager
-from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger, workflow_logger
 from backend.models.project import Project
+from backend.models.results import (
+    DNAResult, FeatureResult, RoadmapResult,
+    TeamResult, SWOTResult, CostResult,
+    LegalComplianceResult,
+)
+from backend.models.blueprint import Blueprint
 from backend.models.workflow import GenerationSession, WorkflowEvent
+
+
+# ── Result model lookup table ───────────────────────────────────────
+# Maps stage name → SQLAlchemy model class for cache queries
+
+STAGE_RESULT_MODEL_MAP: dict[str, type] = {
+    "dna":               DNAResult,
+    "features":          FeatureResult,
+    "roadmap":           RoadmapResult,
+    "team":              TeamResult,
+    "swot":              SWOTResult,
+    "cost":              CostResult,
+    "blueprint":         Blueprint,
+    "legal_compliance":  LegalComplianceResult,
+}
 
 
 class BaseModule(ABC):
@@ -30,129 +66,75 @@ class BaseModule(ABC):
     def _compress_prompt_variables(self, variables: dict[str, Any]) -> dict[str, Any]:
         """Recursively compresses context dictionaries specifically for prompt payload reduction."""
         import copy
-        
-        # Deep copy to avoid modifying original business logic/state dictionaries
+
         compressed = copy.deepcopy(variables)
-        
-        # 1. Compress 'dna'
+
         if "dna" in compressed and isinstance(compressed["dna"], dict):
             dna = compressed["dna"]
             keys_to_keep = ["category", "customer_type", "market_type", "business_model", "revenue_streams", "value_proposition", "usp", "target_segments"]
             compressed["dna"] = {k: dna[k] for k in keys_to_keep if k in dna}
 
-        # 2. Compress 'features'
         if "features" in compressed and isinstance(compressed["features"], dict):
             features = compressed["features"]
             if "features" in features and isinstance(features["features"], list):
-                c_feats = []
-                for feat in features["features"]:
-                    if isinstance(feat, dict):
-                        c_feats.append({
-                            "id": feat.get("id"),
-                            "title": feat.get("title"),
-                            "complexity": feat.get("complexity"),
-                            "impact": feat.get("impact")
-                        })
-                    else:
-                        c_feats.append(feat)
-                compressed["features"] = {"features": c_feats[:15]}
+                compressed["features"] = {"features": [
+                    {k: f.get(k) for k in ("id", "title", "complexity", "impact")} if isinstance(f, dict) else f
+                    for f in features["features"]
+                ][:15]}
 
-        # 3. Compress 'roadmap'
         if "roadmap" in compressed and isinstance(compressed["roadmap"], dict):
             roadmap = compressed["roadmap"]
             if "phases" in roadmap and isinstance(roadmap["phases"], list):
                 c_phases = []
                 for phase in roadmap["phases"]:
                     if isinstance(phase, dict):
-                        c_phase = {
-                            "phase_id": phase.get("phase_id"),
-                            "name": phase.get("name"),
-                            "duration_months": phase.get("duration_months"),
-                            "milestones": phase.get("milestones")
-                        }
+                        c_phase = {k: phase.get(k) for k in ("phase_id", "name", "duration_months", "milestones")}
                         tasks = phase.get("tasks", [])
                         if isinstance(tasks, list):
-                            c_tasks = []
-                            for t in tasks:
-                                if isinstance(t, dict):
-                                    c_tasks.append({
-                                        "id": t.get("id"),
-                                        "title": t.get("title"),
-                                        "duration_weeks": t.get("duration_weeks"),
-                                        "assigned_role_id": t.get("assigned_role_id")
-                                    })
-                                else:
-                                    c_tasks.append(t)
-                            c_phase["tasks"] = c_tasks
+                            c_phase["tasks"] = [
+                                {k: t.get(k) for k in ("id", "title", "duration_weeks", "assigned_role_id")} if isinstance(t, dict) else t
+                                for t in tasks
+                            ]
                         c_phases.append(c_phase)
                     else:
                         c_phases.append(phase)
                 compressed["roadmap"] = {"phases": c_phases}
 
-        # 4. Compress 'team'
         if "team" in compressed and isinstance(compressed["team"], dict):
             team = compressed["team"]
             if "org_chart" in team and isinstance(team["org_chart"], list):
-                c_org = []
-                for role in team["org_chart"]:
-                    if isinstance(role, dict):
-                        c_org.append({
-                            "role_id": role.get("role_id"),
-                            "title": role.get("title"),
-                            "department": role.get("department"),
-                            "estimated_salary_usd": role.get("estimated_salary_usd"),
-                            "hiring_stage": role.get("hiring_stage")
-                        })
-                    else:
-                        c_org.append(role)
                 compressed["team"] = {
-                    "org_chart": c_org,
+                    "org_chart": [
+                        {k: r.get(k) for k in ("role_id", "title", "department", "estimated_salary_usd", "hiring_stage")} if isinstance(r, dict) else r
+                        for r in team["org_chart"]
+                    ],
                     "recommended_team_size": team.get("recommended_team_size"),
-                    "hiring_sequence": team.get("hiring_sequence")
+                    "hiring_sequence": team.get("hiring_sequence"),
                 }
 
-        # 5. Compress 'swot'
         if "swot" in compressed and isinstance(compressed["swot"], dict):
             swot = compressed["swot"]
-            c_swot = {}
-            for k in ["strengths", "weaknesses", "opportunities", "threats"]:
-                if k in swot:
-                    c_swot[k] = swot[k]
+            c_swot = {k: swot[k] for k in ("strengths", "weaknesses", "opportunities", "threats") if k in swot}
             if "mitigations" in swot and isinstance(swot["mitigations"], list):
-                c_mit = []
-                for mit in swot["mitigations"]:
-                    if isinstance(mit, dict):
-                        c_mit.append({
-                            "threat_description": mit.get("threat_description"),
-                            "severity": mit.get("severity"),
-                            "mitigation_strategy": mit.get("mitigation_strategy")
-                        })
-                c_swot["mitigations"] = c_mit
+                c_swot["mitigations"] = [
+                    {k: m.get(k) for k in ("threat_description", "severity", "mitigation_strategy")} if isinstance(m, dict) else m
+                    for m in swot["mitigations"]
+                ]
             if "founder_actions" in swot and isinstance(swot["founder_actions"], list):
-                c_act = []
-                for act in swot["founder_actions"]:
-                    if isinstance(act, dict):
-                        c_act.append({
-                            "horizon": act.get("horizon"),
-                            "action": act.get("action"),
-                            "priority": act.get("priority")
-                        })
-                c_swot["founder_actions"] = c_act
+                c_swot["founder_actions"] = [
+                    {k: a.get(k) for k in ("horizon", "action", "priority")} if isinstance(a, dict) else a
+                    for a in swot["founder_actions"]
+                ]
             compressed["swot"] = c_swot
 
-        # 6. Compress 'cost'
         if "cost" in compressed and isinstance(compressed["cost"], dict):
             cost = compressed["cost"]
             c_cost = {}
             if "operational_costs" in cost and isinstance(cost["operational_costs"], list):
-                c_op = []
-                for op in cost["operational_costs"]:
-                    if isinstance(op, dict):
-                        c_op.append({
-                            "category": op.get("category"),
-                            "monthly_usd": op.get("monthly_usd")
-                        })
-                c_cost["operational_costs"] = c_op
+                c_cost["operational_costs"] = [
+                    {k: o.get(k) for k in ("category", "monthly_usd")} if isinstance(o, dict) else o
+                    for o in cost["operational_costs"]
+                ]
             if "funding_requirements" in cost:
                 c_cost["funding_requirements"] = cost["funding_requirements"]
             compressed["cost"] = c_cost
@@ -161,36 +143,62 @@ class BaseModule(ABC):
 
 
 class WorkflowOrchestrator:
-    """Orchestrates the multi-stage startup compilation pipeline."""
+    """Orchestrates the multi-stage startup compilation pipeline.
+
+    Runs exclusively inside the worker-engine process. Publishes real-time
+    progress events to Redis Pub/Sub channels for SSE consumption by the
+    API gateway's streaming endpoint.
+
+    Conditional Execution:
+        Before each stage, computes an input checksum and compares it against
+        the stored checksum of the existing result. On a match (cache hit),
+        the LLM call is skipped entirely and the cached data is used.
+    """
+
+    STAGES_ORDER: list[str] = ["dna", "features", "roadmap", "team", "swot", "cost", "blueprint", "legal_compliance"]
+
+    STAGES_CONFIG: dict[str, tuple[int, bool]] = {
+        "dna":               (1, True),
+        "features":          (2, True),
+        "roadmap":           (3, True),
+        "team":              (4, True),
+        "swot":              (5, False),   # SWOT failure is non-critical
+        "cost":              (6, True),
+        "blueprint":         (7, True),
+        "legal_compliance":  (8, True),    # Post-blueprint legal doc pack
+    }
 
     def __init__(self) -> None:
         self.modules: dict[str, BaseModule] = {}
-        # Pipeline stages mapping name to (stage_num, is_critical)
-        self.stages_config = {
-            "dna": (1, True),
-            "features": (2, True),
-            "roadmap": (3, True),
-            "team": (4, True),
-            "swot": (5, False),  # SWOT failure is non-critical
-            "cost": (6, True),
-            "blueprint": (7, True)
-        }
 
     def register_module(self, name: str, module: BaseModule) -> None:
-        """Register concrete module execution runner."""
+        """Register a concrete pipeline stage runner."""
         self.modules[name] = module
 
     async def execute_run(
-        self, 
-        db: AsyncSession, 
-        project: Project, 
+        self,
+        db: AsyncSession,
+        project: Project,
         correlation_id: str,
-        target_stage: str | None = None
+        target_stage: str | None = None,
     ) -> GenerationSession:
-        """Runs the compilation sequence (full or single stage), updates state, and streams status telemetry."""
-        # Check if there is an existing session
-        from sqlalchemy import select
-        stmt = select(GenerationSession).where(GenerationSession.project_id == project.id).order_by(GenerationSession.created_at.desc())
+        """Execute the compilation pipeline (full sequence or single stage).
+
+        Lifecycle:
+        1. Create or reuse a GenerationSession record
+        2. For each stage: compute checksum → check cache → run or skip
+        3. Publish terminal event (workflow:completed / workflow:failed)
+        4. Return the session for result inspection
+        """
+        from backend.ai.context import context_manager
+        from sqlalchemy.orm import selectinload
+
+        # ── Session initialization ────────────────────────────────
+        stmt = (
+            select(GenerationSession)
+            .where(GenerationSession.project_id == project.id)
+            .order_by(GenerationSession.created_at.desc())
+        )
         existing_session = (await db.execute(stmt)).scalars().first()
 
         if existing_session:
@@ -198,6 +206,9 @@ class WorkflowOrchestrator:
             session.status = "INITIALIZING"
             session.correlation_id = correlation_id
             session.error_message = None
+            session.stage_cache_map = {}
+            session.cache_hits = 0
+            session.cache_misses = 0
             await db.commit()
             await db.refresh(session)
         else:
@@ -206,141 +217,207 @@ class WorkflowOrchestrator:
                 status="INITIALIZING",
                 correlation_id=correlation_id,
                 current_stage="init",
-                progress_percentage=0.0
+                progress_percentage=0.0,
+                stage_cache_map={},
+                cache_hits=0,
+                cache_misses=0,
             )
             db.add(session)
             await db.commit()
             await db.refresh(session)
 
         channel_name = f"project:run:{project.id}:stream"
+
         await self._publish_event(channel_name, {
             "event_type": "workflow:started",
             "project_id": str(project.id),
-            "timestamp": None
+            "session_id": str(session.id),
+            "correlation_id": correlation_id,
         })
 
-        # Stages sequence list in order
-        stages_list = ["dna", "features", "roadmap", "team", "swot", "cost", "blueprint"]
+        # ── Stage sequence resolution ─────────────────────────────
         if target_stage:
-            if target_stage not in self.stages_config:
+            if target_stage not in self.STAGES_CONFIG:
                 raise ValueError(f"Invalid stage name: {target_stage}")
             sequence = [target_stage]
         else:
-            sequence = stages_list
+            sequence = list(self.STAGES_ORDER)
 
-        total_stages = len(stages_list)
+        total_stages = len(self.STAGES_ORDER)
 
         session.status = "RUNNING"
         await db.commit()
 
-        for idx, stage_name in enumerate(sequence):
-            stage_num, is_critical = self.stages_config[stage_name]
-            # Use global index of the stage in the full sequence for correct progress percentage
-            global_idx = stages_list.index(stage_name)
-            progress = round(((global_idx) / total_stages) * 100, 2)
+        # ── Stage execution loop ──────────────────────────────────
+        for stage_name in sequence:
+            stage_num, is_critical = self.STAGES_CONFIG[stage_name]
+            global_idx = self.STAGES_ORDER.index(stage_name)
+            progress = round((global_idx / total_stages) * 100, 2)
 
-            # Update Session DB
+            # Update DB progress
             session.current_stage = stage_name
             session.progress_percentage = progress
             await db.commit()
 
-            # Emit Module Started Event
+            # Emit module:started
             await self._publish_event(channel_name, {
                 "event_type": "module:started",
                 "project_id": str(project.id),
+                "session_id": str(session.id),
                 "module_info": {
                     "module_name": stage_name,
                     "stage": stage_num,
                     "total_stages": total_stages,
-                    "status": "RUNNING"
-                }
+                    "status": "RUNNING",
+                },
             })
 
             # Check module registry
             module_runner = self.modules.get(stage_name)
             if not module_runner:
-                # If during initial setup/testing, we fallback or raise
-                err_msg = f"Execution module {stage_name} is not registered in the orchestrator."
+                err_msg = f"Module '{stage_name}' is not registered in the orchestrator."
                 workflow_logger.error(err_msg)
                 await self._handle_stage_failure(db, session, channel_name, stage_name, is_critical, err_msg)
                 if is_critical:
                     return session
                 continue
 
-            # Ingest predecessor outputs from Context Manager
-            from backend.ai.context import context_manager
-            from sqlalchemy import select
-            from sqlalchemy.orm import selectinload
-            
-            stmt = select(Project).where(Project.id == project.id).options(
-                selectinload(Project.dna_result),
-                selectinload(Project.feature_result),
-                selectinload(Project.roadmap_result),
-                selectinload(Project.team_result),
-                selectinload(Project.swot_result),
-                selectinload(Project.cost_result)
+            # ── Assemble context from predecessor outputs ─────────
+            stmt = (
+                select(Project)
+                .where(Project.id == project.id)
+                .options(
+                    selectinload(Project.dna_result),
+                    selectinload(Project.feature_result),
+                    selectinload(Project.roadmap_result),
+                    selectinload(Project.team_result),
+                    selectinload(Project.swot_result),
+                    selectinload(Project.cost_result),
+                    selectinload(Project.legal_compliance_result),
+                )
             )
             project = (await db.execute(stmt)).scalar_one()
 
             context = context_manager.assemble_context(project)
             context = context_manager.compress_context_payload(context)
 
-            # Set context variables for analytics tracking
-            from backend.core.logging import active_project_id_ctx, active_module_name_ctx
-            project_id_token = active_project_id_ctx.set(str(project.id))
-            module_name_token = active_module_name_ctx.set(stage_name)
+            # ── Semantic Checksum Computation ─────────────────────
+            input_checksum = context_manager.compute_input_checksum(
+                stage_name=stage_name,
+                project=project,
+                context=context,
+            )
 
-            try:
-                # Run with Retry Loop (up to 3 times)
-                retry_count = 3
-                success = False
-                result_data = None
+            # ── Cache Lookup ──────────────────────────────────────
+            stored_checksum = context_manager.get_stored_checksum(project, stage_name)
+            cache_hit = (stored_checksum is not None and stored_checksum == input_checksum)
 
-                for attempt in range(retry_count):
-                    try:
-                        # Execute async module logic
-                        result_data = await module_runner.run(db, project, context)
-                        success = True
-                        break
-                    except Exception as e:
-                        workflow_logger.warning(
-                            f"Module {stage_name} failed execution: attempt {attempt + 1}",
-                            exc_info=e
-                        )
-                        if attempt == retry_count - 1:
-                            await self._handle_stage_failure(db, session, channel_name, stage_name, is_critical, str(e))
-                            if is_critical:
-                                return session
-            finally:
-                active_project_id_ctx.reset(project_id_token)
-                active_module_name_ctx.reset(module_name_token)
-
-            if success and result_data:
-                # Log event mapping
-                event = WorkflowEvent(
-                    session_id=session.id,
-                    event_type="module:completed",
-                    stage=stage_name,
-                    payload=result_data
+            if cache_hit:
+                # ── CACHE HIT: Skip LLM call entirely ─────────────
+                logger.info(
+                    f"[Cache HIT] Stage '{stage_name}' | project={project.id} "
+                    f"checksum={input_checksum[:12]}… — reusing stored result"
                 )
-                db.add(event)
-                await db.commit()
 
-                # Emit Module Completed Event with structured result
-                await self._publish_event(channel_name, {
-                    "event_type": "module:completed",
-                    "project_id": str(project.id),
-                    "module_info": {
-                        "module_name": stage_name,
-                        "stage": stage_num
-                    },
-                    "result_info": result_data
-                })
+                result_data = await self._load_cached_result(db, stage_name, project.id)
+                if result_data is None:
+                    # Edge case: checksum matched but DB row missing (data race)
+                    logger.warning(
+                        f"[Cache MISS] Checksum matched but no DB row for stage '{stage_name}' | "
+                        f"project={project.id} — falling back to fresh generation"
+                    )
+                    cache_hit = False
 
-        # Pipeline finished successfully
+            if not cache_hit:
+                # ── CACHE MISS: Run LLM generation ────────────────
+                if stored_checksum:
+                    logger.info(
+                        f"[Cache MISS] Stage '{stage_name}' | project={project.id} "
+                        f"input={input_checksum[:12]}… stored={stored_checksum[:12]}… — inputs changed"
+                    )
+                else:
+                    logger.info(
+                        f"[Cache MISS] Stage '{stage_name}' | project={project.id} "
+                        f"checksum={input_checksum[:12]}… — no prior result"
+                    )
+
+                # Set analytics context vars
+                from backend.core.logging import active_project_id_ctx, active_module_name_ctx
+                project_id_token = active_project_id_ctx.set(str(project.id))
+                module_name_token = active_module_name_ctx.set(stage_name)
+
+                try:
+                    retry_count = 3
+                    success = False
+                    result_data = None
+
+                    for attempt in range(retry_count):
+                        try:
+                            result_data = await module_runner.run(db, project, context)
+                            success = True
+                            break
+                        except Exception as e:
+                            workflow_logger.warning(
+                                f"Module {stage_name} failed: attempt {attempt + 1}/{retry_count}",
+                                exc_info=e,
+                            )
+                            if attempt == retry_count - 1:
+                                await self._handle_stage_failure(
+                                    db, session, channel_name, stage_name, is_critical, str(e)
+                                )
+                                if is_critical:
+                                    return session
+                finally:
+                    active_project_id_ctx.reset(project_id_token)
+                    active_module_name_ctx.reset(module_name_token)
+
+                if not success:
+                    continue
+
+                # Save the new checksum alongside the result
+                await self._save_checksum(db, stage_name, project.id, input_checksum)
+
+            # ── Stage completion ──────────────────────────────────
+            cache_status = "hit" if cache_hit else "miss"
+            session.cache_hits = int(session.cache_hits) + (1 if cache_hit else 0)
+            session.cache_misses = int(session.cache_misses) + (0 if cache_hit else 1)
+            if session.stage_cache_map is None:
+                session.stage_cache_map = {}
+            session.stage_cache_map[stage_name] = cache_status
+            await db.commit()
+
+            # Persist event log
+            event = WorkflowEvent(
+                session_id=session.id,
+                event_type="module:completed",
+                stage=stage_name,
+                payload={
+                    **(result_data or {}),
+                    "_cache_status": cache_status,
+                    "_checksum": input_checksum,
+                },
+            )
+            db.add(event)
+            await db.commit()
+
+            # Emit module:completed
+            await self._publish_event(channel_name, {
+                "event_type": "module:completed",
+                "project_id": str(project.id),
+                "session_id": str(session.id),
+                "module_info": {
+                    "module_name": stage_name,
+                    "stage": stage_num,
+                },
+                "cache_status": cache_status,
+                "checksum": input_checksum,
+                "result_info": result_data,
+            })
+
+        # ── Pipeline terminal state ───────────────────────────────
         session.status = "COMPLETED"
         if target_stage:
-            global_idx = stages_list.index(target_stage)
+            global_idx = self.STAGES_ORDER.index(target_stage)
             session.progress_percentage = round(((global_idx + 1) / total_stages) * 100, 2)
         else:
             session.progress_percentage = 100.0
@@ -349,35 +426,77 @@ class WorkflowOrchestrator:
         await self._publish_event(channel_name, {
             "event_type": "workflow:completed",
             "project_id": str(project.id),
-            "timestamp": None
+            "session_id": str(session.id),
+            "cache_summary": {
+                "hits": int(session.cache_hits),
+                "misses": int(session.cache_misses),
+                "stage_map": session.stage_cache_map,
+            },
         })
 
         return session
 
-    async def _handle_stage_failure(
-        self, 
-        db: AsyncSession, 
-        session: GenerationSession, 
-        channel_name: str,
-        stage_name: str, 
-        is_critical: bool,
-        error_msg: str
+    # ── Cache Helpers ──────────────────────────────────────────────
+
+    async def _load_cached_result(
+        self,
+        db: AsyncSession,
+        stage_name: str,
+        project_id: uuid.UUID,
+    ) -> dict[str, Any] | None:
+        """Load the stored result data for a given stage from the database."""
+        model_class = STAGE_RESULT_MODEL_MAP.get(stage_name)
+        if not model_class:
+            return None
+
+        stmt = select(model_class).where(model_class.project_id == project_id)
+        record = (await db.execute(stmt)).scalars().first()
+        if record and record.data:
+            return record.data
+        return None
+
+    async def _save_checksum(
+        self,
+        db: AsyncSession,
+        stage_name: str,
+        project_id: uuid.UUID,
+        checksum: str,
     ) -> None:
-        """Processes execution errors, determines if execution halts, and streams errors."""
+        """Update the hash_checksum on the existing result record for a stage."""
+        model_class = STAGE_RESULT_MODEL_MAP.get(stage_name)
+        if not model_class:
+            return
+
+        stmt = select(model_class).where(model_class.project_id == project_id)
+        record = (await db.execute(stmt)).scalars().first()
+        if record:
+            record.hash_checksum = checksum
+            await db.commit()
+
+    # ── Failure Handling ───────────────────────────────────────────
+
+    async def _handle_stage_failure(
+        self,
+        db: AsyncSession,
+        session: GenerationSession,
+        channel_name: str,
+        stage_name: str,
+        is_critical: bool,
+        error_msg: str,
+    ) -> None:
+        """Handle stage failure: update DB, publish failure events."""
         session.error_message = error_msg
-        
-        # Publish module:failed event
+
         await self._publish_event(channel_name, {
             "event_type": "module:failed",
             "project_id": str(session.project_id),
-            "module_info": {
-                "module_name": stage_name
-            },
+            "session_id": str(session.id),
+            "module_info": {"module_name": stage_name},
             "error_info": {
                 "error_code": "STAGE_EXECUTION_FAILURE",
                 "error_message": error_msg,
-                "is_fatal": is_critical
-            }
+                "is_fatal": is_critical,
+            },
         })
 
         if is_critical:
@@ -386,27 +505,25 @@ class WorkflowOrchestrator:
             await self._publish_event(channel_name, {
                 "event_type": "workflow:failed",
                 "project_id": str(session.project_id),
+                "session_id": str(session.id),
                 "error_info": {
-                    "error_message": f"Critical step {stage_name} failed compilation: {error_msg}"
-                }
+                    "error_message": f"Critical stage '{stage_name}' failed: {error_msg}",
+                },
             })
         else:
-            # Mark partial success status trace and continue
             session.status = "PARTIAL_SUCCESS"
             await db.commit()
 
+    # ── Event Publishing ───────────────────────────────────────────
+
     async def _publish_event(self, channel: str, event_data: dict[str, Any]) -> None:
-        """Deliver JSON event wrapper to the active Redis channel."""
+        """Publish a JSON event envelope to a Redis Pub/Sub channel."""
         try:
-            # Add common timestamp fallback
-            event_payload = event_data.copy()
-            if not event_payload.get("timestamp"):
+            payload = event_data.copy()
+            if not payload.get("timestamp"):
                 from datetime import datetime, timezone
-                event_payload["timestamp"] = datetime.now(timezone.utc).isoformat()
-            
-            await redis_manager.publish(channel, json.dumps(event_payload))
+                payload["timestamp"] = datetime.now(timezone.utc).isoformat()
+
+            await redis_manager.publish(channel, json.dumps(payload))
         except Exception as e:
-            logger.error(f"Failed to publish streaming event payload to channel {channel}", exc_info=e)
-
-
-orchestrator = WorkflowOrchestrator()
+            logger.error(f"Failed to publish event to channel {channel}", exc_info=e)

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import ForeignKey
+from sqlalchemy import String, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.models.base import Base, UUIDMixin, TimestampMixin
@@ -11,6 +11,8 @@ class DNAResult(Base, UUIDMixin, TimestampMixin):
 
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    # Nullable: set by orchestrator after module completes (cache checksum)
+    hash_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="dna_result")
@@ -22,6 +24,7 @@ class FeatureResult(Base, UUIDMixin, TimestampMixin):
 
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    hash_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="feature_result")
@@ -33,6 +36,7 @@ class RoadmapResult(Base, UUIDMixin, TimestampMixin):
 
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    hash_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="roadmap_result")
@@ -44,6 +48,7 @@ class TeamResult(Base, UUIDMixin, TimestampMixin):
 
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    hash_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="team_result")
@@ -55,6 +60,7 @@ class SWOTResult(Base, UUIDMixin, TimestampMixin):
 
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    hash_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="swot_result")
@@ -66,9 +72,22 @@ class CostResult(Base, UUIDMixin, TimestampMixin):
 
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    hash_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="cost_result")
+
+
+class LegalComplianceResult(Base, UUIDMixin, TimestampMixin):
+    """Stores structured JSON output from the Legal & Compliance Doc Generator."""
+    __tablename__ = "legal_compliance_results"
+
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    hash_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+
+    # Relationships
+    project: Mapped["Project"] = relationship("Project", back_populates="legal_compliance_result")
 
 
 from typing import TYPE_CHECKING
