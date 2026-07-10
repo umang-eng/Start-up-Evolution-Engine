@@ -33,7 +33,7 @@ export default function SignupPage() {
     try {
       await signup(email, password);
     } catch (err) {
-      console.error('Signup error:', err);
+      // Error is handled by AuthProvider and displayed in the UI
     } finally {
       setIsSubmitting(false);
     }

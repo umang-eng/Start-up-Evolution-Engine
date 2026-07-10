@@ -22,7 +22,7 @@ export default function LoginPage() {
     try {
       await login(email, password);
     } catch (err) {
-      console.error('Login error:', err);
+      // Error is handled by AuthProvider and displayed in the UI
     } finally {
       setIsSubmitting(false);
     }
