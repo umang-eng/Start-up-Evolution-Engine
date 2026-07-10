@@ -69,8 +69,8 @@ export function Sidebar() {
       {/* Header */}
       <div className="h-14 flex items-center justify-between px-3 border-b border-white/[0.04]">
         {sidebarOpen && (
-          <span className="font-sans font-semibold text-base tracking-tight text-foreground flex items-center gap-2.5">
-            <img src="/logo.png" alt="Evolution Engine Logo" className="h-6 w-6 object-contain rounded-md" />
+          <span className="font-sans font-semibold text-sm tracking-tight text-foreground flex items-center gap-2.5">
+            <img src="/logo.png" alt="Evolution Engine Logo" className="h-5 w-5 object-contain rounded-md" />
             <span className="gradient-text font-bold">Evolution</span>
           </span>
         )}
@@ -80,7 +80,7 @@ export function Sidebar() {
           onClick={toggleSidebar}
           className="h-8 w-8 text-muted-foreground hover:text-foreground"
         >
-          {sidebarOpen ? <ChevronLeft className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          {sidebarOpen ? <ChevronLeft className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
       </div>
 
@@ -94,8 +94,8 @@ export function Sidebar() {
             sidebarOpen ? "px-4 h-9" : "p-2 h-9 w-9"
           )}
         >
-          <Plus className="h-6 w-6 text-cyan-400" />
-          {sidebarOpen && <span className="text-base font-medium text-foreground">New Startup</span>}
+          <Plus className="h-5 w-5 text-cyan-400" />
+          {sidebarOpen && <span className="text-sm font-medium text-foreground">New Startup</span>}
         </Button>
       </div>
 
@@ -103,7 +103,7 @@ export function Sidebar() {
       <div className="flex-1 overflow-y-auto px-2 scrollbar-thin">
         <div className="py-2">
           {sidebarOpen && (
-            <span className="text-base font-semibold tracking-widest text-muted-foreground/90 uppercase px-2 block mb-2">
+            <span className="text-sm font-semibold tracking-widest text-muted-foreground/90 uppercase px-2 block mb-2">
               Recent Projects
             </span>
           )}
@@ -115,24 +115,24 @@ export function Sidebar() {
                   key={proj.id}
                   onClick={() => setActiveProject(proj.id)}
                   className={cn(
-                    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all duration-200 text-base group cursor-pointer border border-transparent",
+                    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all duration-200 text-sm group cursor-pointer border border-transparent",
                     isActive
                       ? "bg-white/[0.06] border-cyan-500/15 text-foreground font-medium"
                       : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
                   )}
                 >
                   <div className={cn(
-                    "h-6 w-6 rounded-md flex items-center justify-center shrink-0",
+                    "h-5 w-5 rounded-md flex items-center justify-center shrink-0",
                     isActive ? "bg-cyan-500/15" : "bg-white/[0.04]"
                   )}>
-                    <Activity className={cn("h-6 w-6", isActive ? "text-cyan-400" : "text-muted-foreground/90")} />
+                    <Activity className={cn("h-5 w-5", isActive ? "text-cyan-400" : "text-muted-foreground/90")} />
                   </div>
                   {sidebarOpen && <span className="truncate flex-1">{proj.name}</span>}
                 </button>
               );
             })}
             {projects.length === 0 && sidebarOpen && (
-              <span className="text-base text-muted-foreground/80 italic px-2.5 block py-4 text-center">
+              <span className="text-sm text-muted-foreground/80 italic px-2.5 block py-4 text-center">
                 No active projects.
               </span>
             )}
@@ -145,35 +145,35 @@ export function Sidebar() {
         <DialogContent className="sm:max-w-[420px] bg-card/95 backdrop-blur-xl border border-white/[0.08] shadow-lvl-3 rounded-xl p-0 overflow-hidden">
           <form onSubmit={handleCreateProject}>
             <DialogHeader className="p-6 pb-2">
-              <DialogTitle className="text-base font-bold tracking-tight text-foreground flex items-center gap-2">
-                <Sparkles className="h-6 w-6 text-cyan-400" />
+              <DialogTitle className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-cyan-400" />
                 <span>Initialize Startup Concept</span>
               </DialogTitle>
-              <DialogDescription className="text-base text-muted-foreground">
+              <DialogDescription className="text-sm text-muted-foreground">
                 Set up a new venture workspace. The engine will compile strategic blueprints step-by-step.
               </DialogDescription>
             </DialogHeader>
 
             <div className="px-6 py-3 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-base font-semibold text-muted-foreground uppercase tracking-wider">Startup Name</label>
+                <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Startup Name</label>
                 <Input
                   required
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                   placeholder="e.g. Solarify Maintenance"
-                  className="h-9 text-base bg-white/[0.03] border-white/[0.06]"
+                  className="h-9 text-sm bg-white/[0.03] border-white/[0.06]"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-base font-semibold text-muted-foreground uppercase tracking-wider">Core Vision / Concept</label>
+                <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Core Vision / Concept</label>
                 <Textarea
                   required
                   value={projectPrompt}
                   onChange={(e) => setProjectPrompt(e.target.value)}
                   placeholder="Describe your startup concept, target audience, pricing model, and competitive edge..."
-                  className="text-base min-h-[90px] bg-white/[0.03] border-white/[0.06]"
+                  className="text-sm min-h-[90px] bg-white/[0.03] border-white/[0.06]"
                 />
               </div>
             </div>
@@ -183,14 +183,14 @@ export function Sidebar() {
                 type="button"
                 variant="outline"
                 onClick={() => setNewProjectOpen(false)}
-                className="text-base h-8 px-4 border-white/[0.06]"
+                className="text-sm h-8 px-4 border-white/[0.06]"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={isCreating || !projectName.trim() || !projectPrompt.trim()}
-                className="text-base h-8 px-4"
+                className="text-sm h-8 px-4"
               >
                 {isCreating ? 'Creating Workspace...' : 'Launch Workspace'}
               </Button>

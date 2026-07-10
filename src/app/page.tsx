@@ -114,7 +114,7 @@ function ScoreRing({ score, size = 80, label }: { score: number; size?: number; 
         />
       </svg>
       <span className="text-lg font-bold text-foreground">{score}</span>
-      {label && <span className="text-base text-muted-foreground uppercase tracking-wider">{label}</span>}
+      {label && <span className="text-sm text-muted-foreground uppercase tracking-wider">{label}</span>}
     </div>
   );
 }
@@ -334,9 +334,9 @@ export default function WorkspacePage() {
       <div className="h-screen w-screen flex items-center justify-center bg-mesh-dark">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-cyan-500/10 flex items-center justify-center glow-cyan">
-            <RefreshCw className="h-6 w-6 text-cyan-400 animate-spin" />
+            <RefreshCw className="h-5 w-5 text-cyan-400 animate-spin" />
           </div>
-          <span className="text-base text-muted-foreground">Authenticating session...</span>
+          <span className="text-sm text-muted-foreground">Authenticating session...</span>
         </div>
       </div>
     );
@@ -369,7 +369,7 @@ export default function WorkspacePage() {
                     <span className="gradient-text">Co-Author</span>
                     <span className="text-foreground"> Your Next Venture.</span>
                   </h1>
-                  <p className="text-base text-muted-foreground max-w-lg mx-auto leading-relaxed">
+                  <p className="text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
                     Describe a startup concept. Our AI engine will analyze market viability, structure product requirements, map timelines, and forecast runway costs.
                   </p>
                 </div>
@@ -381,7 +381,7 @@ export default function WorkspacePage() {
                       value={inputVal}
                       onChange={(e) => setInputVal(e.target.value)}
                       placeholder="Describe your startup idea in detail..."
-                      className="w-full h-32 px-5 py-4 bg-transparent text-base resize-none outline-none text-foreground placeholder-muted-foreground/40"
+                      className="w-full h-32 px-5 py-4 bg-transparent text-sm resize-none outline-none text-foreground placeholder-muted-foreground/40"
                     />
                     <div className="flex items-center justify-between px-4 py-3 border-t border-white/[0.05]">
                       <Button
@@ -389,7 +389,7 @@ export default function WorkspacePage() {
                         variant="ghost"
                         onClick={handleEnhance}
                         disabled={isEnhancing || !inputVal}
-                        className="h-8 text-base gap-1.5 text-muted-foreground hover:text-cyan-400"
+                        className="h-8 text-sm gap-1.5 text-muted-foreground hover:text-cyan-400"
                       >
                         <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
                         <span>{isEnhancing ? 'Enhancing...' : 'Enhance Idea'}</span>
@@ -397,7 +397,7 @@ export default function WorkspacePage() {
                       <Button
                         type="submit"
                         disabled={!inputVal.trim() || isPending}
-                        className="h-9 text-base gap-1.5 rounded-lg px-5"
+                        className="h-9 text-sm gap-1.5 rounded-lg px-5"
                       >
                         <span>Evolve Idea</span>
                         <ArrowRight className="h-3.5 w-3.5" />
@@ -408,7 +408,7 @@ export default function WorkspacePage() {
 
                 {/* Starter Templates */}
                 <div className="space-y-3">
-                  <span className="text-base font-semibold text-muted-foreground uppercase tracking-widest block text-center">
+                  <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest block text-center">
                     Starter Templates
                   </span>
                   <div className="flex flex-wrap gap-2 justify-center">
@@ -420,7 +420,7 @@ export default function WorkspacePage() {
                       <button
                         key={i}
                         onClick={() => insertPrompt(tpl)}
-                        className="px-3.5 py-2 rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-cyan-500/20 text-base text-muted-foreground text-left transition-all max-w-[340px] truncate cursor-pointer"
+                        className="px-3.5 py-2 rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-cyan-500/20 text-sm text-muted-foreground text-left transition-all max-w-[340px] truncate cursor-pointer"
                       >
                         {tpl}
                       </button>
@@ -430,7 +430,7 @@ export default function WorkspacePage() {
 
                 {/* Pipeline Preview */}
                 <div className="pt-6 border-t border-white/[0.04]">
-                  <span className="text-base font-semibold text-muted-foreground uppercase tracking-widest block text-center mb-5">
+                  <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest block text-center mb-5">
                     AI Architecture Pipeline
                   </span>
                   <div className="flex items-center justify-center gap-2">
@@ -440,11 +440,11 @@ export default function WorkspacePage() {
                         <React.Fragment key={stage.name}>
                           <div className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border border-white/[0.06] bg-white/[0.02] min-w-[120px]">
                             <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", stage.bgAccent)}>
-                              <Icon className={cn("h-6 w-6", stage.color)} />
+                              <Icon className={cn("h-5 w-5", stage.color)} />
                             </div>
-                            <span className="text-base font-medium text-muted-foreground">{stage.shortLabel}</span>
+                            <span className="text-sm font-medium text-muted-foreground">{stage.shortLabel}</span>
                           </div>
-                          {i < 3 && <ChevronRight className="h-6 w-6 text-white/10 shrink-0" />}
+                          {i < 3 && <ChevronRight className="h-5 w-5 text-white/10 shrink-0" />}
                         </React.Fragment>
                       );
                     })}
@@ -470,7 +470,7 @@ export default function WorkspacePage() {
                           disabled={status === 'locked'}
                           onClick={() => setActiveStage(stage.name)}
                           className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-lg text-base font-medium transition-all duration-200 cursor-pointer border border-transparent",
+                            "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer border border-transparent",
                             isActive && "bg-white/[0.06] border-cyan-500/20",
                             status === 'completed' && !isActive && "text-emerald-400/80 hover:bg-white/[0.04]",
                             status === 'pending' && !isActive && "text-muted-foreground hover:bg-white/[0.04]",
@@ -479,11 +479,11 @@ export default function WorkspacePage() {
                           )}
                         >
                           {status === 'completed' ? (
-                            <Check className="h-6 w-6 text-emerald-400" />
+                            <Check className="h-5 w-5 text-emerald-400" />
                           ) : status === 'locked' ? (
-                            <Lock className="h-6 w-6" />
+                            <Lock className="h-5 w-5" />
                           ) : (
-                            <Icon className={cn("h-6 w-6", isActive ? stage.color : "")} />
+                            <Icon className={cn("h-5 w-5", isActive ? stage.color : "")} />
                           )}
                           <span className="hidden lg:inline">{stage.shortLabel}</span>
                         </button>
@@ -508,16 +508,16 @@ export default function WorkspacePage() {
                     {activeProject.status === 'error' && (
                       <div className="p-5 rounded-xl border border-rose-500/20 bg-rose-500/5 backdrop-blur-sm space-y-3">
                         <div className="flex items-center gap-2 text-rose-400">
-                          <AlertTriangle className="h-6 w-6" />
-                          <span className="text-base font-semibold">Generation Failed</span>
+                          <AlertTriangle className="h-5 w-5" />
+                          <span className="text-sm font-semibold">Generation Failed</span>
                         </div>
-                        <p className="text-base text-rose-300/70 leading-relaxed">
+                        <p className="text-sm text-rose-300/70 leading-relaxed">
                           The AI pipeline encountered an error. Wait 1-2 minutes and retry — the system will automatically try backup models.
                         </p>
                         <div className="flex gap-2">
                           <Button
                             onClick={() => handleStartGeneration(activeProject.id, getBackendStageName(activeStage))}
-                            className="h-8 text-base gap-1.5"
+                            className="h-8 text-sm gap-1.5"
                           >
                             <RefreshCw className="h-3.5 w-3.5" />
                             <span>Retry Generation</span>
@@ -525,7 +525,7 @@ export default function WorkspacePage() {
                           <Button
                             variant="outline"
                             onClick={() => loadBlueprint(activeProject.id)}
-                            className="h-8 text-base gap-1.5"
+                            className="h-8 text-sm gap-1.5"
                           >
                             <span>Load Partial Results</span>
                           </Button>
@@ -538,14 +538,14 @@ export default function WorkspacePage() {
                       <div className="p-6 rounded-xl border border-white/[0.06] bg-card/60 backdrop-blur-sm space-y-5">
                         <div className="flex items-center gap-3">
                           <div className="h-2.5 w-2.5 rounded-full bg-cyan-400 animate-pulse" />
-                          <span className="text-base font-semibold text-foreground">Architecting Venture Blueprint...</span>
+                          <span className="text-sm font-semibold text-foreground">Architecting Venture Blueprint...</span>
                         </div>
                         <div className="space-y-3">
                           <div className="h-4 skeleton-dark w-3/4" />
                           <div className="h-4 skeleton-dark w-1/2" />
                           <div className="h-32 skeleton-dark w-full" />
                         </div>
-                        <p className="text-base text-muted-foreground">
+                        <p className="text-sm text-muted-foreground">
                           AI models are working through each stage. Check the AI Feed →
                         </p>
                       </div>
@@ -559,14 +559,14 @@ export default function WorkspacePage() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-xl bg-cyan-500/10 flex items-center justify-center glow-cyan">
-                              <Dna className="h-6 w-6 text-cyan-400" />
+                              <Dna className="h-5 w-5 text-cyan-400" />
                             </div>
                             <div>
                               <h2 className="text-xl font-bold text-foreground">Business DNA Report</h2>
-                              <span className="text-base text-muted-foreground">Market viability and strategic analysis</span>
+                              <span className="text-sm text-muted-foreground">Market viability and strategic analysis</span>
                             </div>
                           </div>
-                          <span className="badge-active text-base font-semibold px-2.5 py-1 rounded-full">
+                          <span className="badge-active text-sm font-semibold px-2.5 py-1 rounded-full">
                             {activeProject.dna.confidence}% Confidence
                           </span>
                         </div>
@@ -579,8 +579,8 @@ export default function WorkspacePage() {
                             { label: 'Target Market', value: activeProject.dna.targetMarket },
                           ].map((item) => (
                             <div key={item.label} className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02]">
-                              <span className="text-base text-muted-foreground uppercase tracking-wider block mb-1">{item.label}</span>
-                              <span className="text-base font-semibold text-foreground">{item.value}</span>
+                              <span className="text-sm text-muted-foreground uppercase tracking-wider block mb-1">{item.label}</span>
+                              <span className="text-sm font-semibold text-foreground">{item.value}</span>
                             </div>
                           ))}
                         </div>
@@ -588,11 +588,11 @@ export default function WorkspacePage() {
                         {/* Score Metrics + Ring */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-3">
-                            <span className="text-base font-semibold text-muted-foreground uppercase tracking-widest block">
+                            <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest block">
                               Strategic Score Vectors
                             </span>
                             {Object.entries(activeProject.dna.scores).map(([key, val]: any) => (
-                              <div key={key} className="flex justify-between items-center text-base border-b border-white/[0.04] pb-2">
+                              <div key={key} className="flex justify-between items-center text-sm border-b border-white/[0.04] pb-2">
                                 <span className="capitalize text-muted-foreground">{key.replace('_', ' ')}</span>
                                 <div className="flex items-center gap-2">
                                   <div className="w-24 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
@@ -621,24 +621,24 @@ export default function WorkspacePage() {
                         {/* Tabbed Content */}
                         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
                           <TabsList className="bg-white/[0.03] border border-white/[0.06]">
-                            <TabsTrigger value="model" className="text-base">Value Proposition</TabsTrigger>
-                            <TabsTrigger value="target" className="text-base">USP Differentiators</TabsTrigger>
-                            <TabsTrigger value="usp" className="text-base">Strategic Context</TabsTrigger>
+                            <TabsTrigger value="model" className="text-sm">Value Proposition</TabsTrigger>
+                            <TabsTrigger value="target" className="text-sm">USP Differentiators</TabsTrigger>
+                            <TabsTrigger value="usp" className="text-sm">Strategic Context</TabsTrigger>
                           </TabsList>
-                          <TabsContent value="model" className="p-4 mt-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-base leading-relaxed text-muted-foreground">
+                          <TabsContent value="model" className="p-4 mt-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-sm leading-relaxed text-muted-foreground">
                             {activeProject.dna.valueProposition}
                           </TabsContent>
-                          <TabsContent value="target" className="p-4 mt-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-base leading-relaxed text-muted-foreground">
+                          <TabsContent value="target" className="p-4 mt-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-sm leading-relaxed text-muted-foreground">
                             {activeProject.dna.usp}
                           </TabsContent>
-                          <TabsContent value="usp" className="p-4 mt-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-base leading-relaxed text-muted-foreground">
+                          <TabsContent value="usp" className="p-4 mt-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-sm leading-relaxed text-muted-foreground">
                             {activeProject.dna.summary}
                           </TabsContent>
                         </Tabs>
 
                         {/* Handoff */}
                         <div className="pt-4 border-t border-white/[0.04] flex justify-end">
-                          <Button onClick={() => setActiveStage('feature-extractor')} className="h-9 text-base gap-1.5">
+                          <Button onClick={() => setActiveStage('feature-extractor')} className="h-9 text-sm gap-1.5">
                             <span>Proceed to Feature Extraction</span>
                             <ArrowRight className="h-3.5 w-3.5" />
                           </Button>
@@ -654,12 +654,12 @@ export default function WorkspacePage() {
                         </div>
                         <div className="space-y-2 max-w-md">
                           <h3 className="text-lg font-bold text-foreground">Business DNA Analyzer</h3>
-                          <p className="text-base text-muted-foreground leading-relaxed">
+                          <p className="text-sm text-muted-foreground leading-relaxed">
                             Evaluate market viability, validate user demographics, map value propositions, and outline key competitive advantages.
                           </p>
                         </div>
-                        <Button onClick={() => handleStartGeneration(activeProject.id, 'dna')} className="h-10 text-base gap-2 px-6">
-                          <Sparkles className="h-6 w-6" />
+                        <Button onClick={() => handleStartGeneration(activeProject.id, 'dna')} className="h-10 text-sm gap-2 px-6">
+                          <Sparkles className="h-5 w-5" />
                           <span>Analyze Concept DNA</span>
                         </Button>
                       </div>
@@ -670,25 +670,25 @@ export default function WorkspacePage() {
                       <div className="space-y-5">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-xl bg-violet-500/10 flex items-center justify-center glow-violet">
-                            <GitBranch className="h-6 w-6 text-violet-400" />
+                            <GitBranch className="h-5 w-5 text-violet-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-bold text-foreground">Feature Architecture Spec</h2>
-                            <span className="text-base text-muted-foreground">Product requirement document</span>
+                            <span className="text-sm text-muted-foreground">Product requirement document</span>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-3 gap-3">
                           <div className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] text-center">
-                            <span className="text-base text-muted-foreground block mb-1">Total Features</span>
+                            <span className="text-sm text-muted-foreground block mb-1">Total Features</span>
                             <span className="text-xl font-bold text-foreground">{activeProject.features.totalFeatures}</span>
                           </div>
                           <div className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] text-center">
-                            <span className="text-base text-muted-foreground block mb-1">MVP Selected</span>
+                            <span className="text-sm text-muted-foreground block mb-1">MVP Selected</span>
                             <span className="text-xl font-bold text-cyan-400">{activeProject.features.mvpFeatureIds.length}</span>
                           </div>
                           <div className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] text-center">
-                            <span className="text-base text-muted-foreground block mb-1">Complexity</span>
+                            <span className="text-sm text-muted-foreground block mb-1">Complexity</span>
                             <span className="text-xl font-bold text-foreground capitalize">{activeProject.features.complexityScore}</span>
                           </div>
                         </div>
@@ -697,11 +697,11 @@ export default function WorkspacePage() {
                           {activeProject.features.features.map((feature: any) => (
                             <div key={feature.id} className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] flex items-center justify-between hover:border-cyan-500/15 transition-all group">
                               <div>
-                                <span className="text-base font-semibold text-foreground block">{feature.name}</span>
-                                <span className="text-base text-muted-foreground leading-relaxed">{feature.description}</span>
+                                <span className="text-sm font-semibold text-foreground block">{feature.name}</span>
+                                <span className="text-sm text-muted-foreground leading-relaxed">{feature.description}</span>
                               </div>
                               <span className={cn(
-                                "text-base font-semibold uppercase px-2.5 py-1 rounded-full shrink-0 ml-3",
+                                "text-sm font-semibold uppercase px-2.5 py-1 rounded-full shrink-0 ml-3",
                                 feature.priority === 'critical' ? 'badge-active' : 
                                 feature.priority === 'high' ? 'badge-pending' : 'badge-locked'
                               )}>
@@ -712,7 +712,7 @@ export default function WorkspacePage() {
                         </div>
 
                         <div className="pt-4 border-t border-white/[0.04] flex justify-end">
-                          <Button onClick={() => setActiveStage('roadmap')} className="h-9 text-base gap-1.5">
+                          <Button onClick={() => setActiveStage('roadmap')} className="h-9 text-sm gap-1.5">
                             <span>Generate Timeline Roadmap</span>
                             <ArrowRight className="h-3.5 w-3.5" />
                           </Button>
@@ -728,12 +728,12 @@ export default function WorkspacePage() {
                         </div>
                         <div className="space-y-2 max-w-md">
                           <h3 className="text-lg font-bold text-foreground">Technical Feature Extractor</h3>
-                          <p className="text-base text-muted-foreground leading-relaxed">
+                          <p className="text-sm text-muted-foreground leading-relaxed">
                             Convert your business DNA into a structured Product Requirement Document (PRD), feature lists, and MVP scoped items.
                           </p>
                         </div>
-                        <Button onClick={() => handleStartGeneration(activeProject.id, 'features')} className="h-10 text-base gap-2 px-6">
-                          <Sparkles className="h-6 w-6" />
+                        <Button onClick={() => handleStartGeneration(activeProject.id, 'features')} className="h-10 text-sm gap-2 px-6">
+                          <Sparkles className="h-5 w-5" />
                           <span>Extract MVP Features</span>
                         </Button>
                       </div>
@@ -744,11 +744,11 @@ export default function WorkspacePage() {
                       <div className="space-y-5">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center glow-emerald">
-                            <LineChart className="h-6 w-6 text-emerald-400" />
+                            <LineChart className="h-5 w-5 text-emerald-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-bold text-foreground">Timeline Execution Roadmap</h2>
-                            <span className="text-base text-muted-foreground">{activeProject.roadmap.totalDurationWeeks} weeks total</span>
+                            <span className="text-sm text-muted-foreground">{activeProject.roadmap.totalDurationWeeks} weeks total</span>
                           </div>
                         </div>
 
@@ -757,14 +757,14 @@ export default function WorkspacePage() {
                             <div key={phase.id} className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] space-y-3">
                               <div className="flex justify-between items-center">
                                 <div className="flex items-center gap-2">
-                                  <span className="h-6 w-6 rounded-full bg-emerald-500/15 text-emerald-400 text-base font-bold flex items-center justify-center">{idx + 1}</span>
-                                  <span className="text-base font-semibold text-foreground">{phase.name}</span>
+                                  <span className="h-5 w-5 rounded-full bg-emerald-500/15 text-emerald-400 text-sm font-bold flex items-center justify-center">{idx + 1}</span>
+                                  <span className="text-sm font-semibold text-foreground">{phase.name}</span>
                                 </div>
-                                <span className="badge-completed text-base font-medium px-2 py-0.5 rounded-full">
+                                <span className="badge-completed text-sm font-medium px-2 py-0.5 rounded-full">
                                   Weeks {phase.startWeek}–{phase.endWeek}
                                 </span>
                               </div>
-                              <div className="space-y-1.5 pl-4 border-l-2 border-emerald-500/20 text-base">
+                              <div className="space-y-1.5 pl-4 border-l-2 border-emerald-500/20 text-sm">
                                 {phase.tasks.map((task: any) => (
                                   <div key={task.id} className="text-muted-foreground flex items-center gap-2">
                                     <Circle className="h-1.5 w-1.5 text-emerald-500/50 fill-current" />
@@ -778,7 +778,7 @@ export default function WorkspacePage() {
                         </div>
 
                         <div className="pt-4 border-t border-white/[0.04] flex justify-end">
-                          <Button onClick={() => setActiveStage('team-structure')} className="h-9 text-base gap-1.5">
+                          <Button onClick={() => setActiveStage('team-structure')} className="h-9 text-sm gap-1.5">
                             <span>Define Team Hires</span>
                             <ArrowRight className="h-3.5 w-3.5" />
                           </Button>
@@ -794,12 +794,12 @@ export default function WorkspacePage() {
                         </div>
                         <div className="space-y-2 max-w-md">
                           <h3 className="text-lg font-bold text-foreground">Execution Roadmap Compiler</h3>
-                          <p className="text-base text-muted-foreground leading-relaxed">
+                          <p className="text-sm text-muted-foreground leading-relaxed">
                             Translate your feature spec into a multi-phase, week-by-week development roadmap with task durations.
                           </p>
                         </div>
-                        <Button onClick={() => handleStartGeneration(activeProject.id, 'roadmap')} className="h-10 text-base gap-2 px-6">
-                          <Sparkles className="h-6 w-6" />
+                        <Button onClick={() => handleStartGeneration(activeProject.id, 'roadmap')} className="h-10 text-sm gap-2 px-6">
+                          <Sparkles className="h-5 w-5" />
                           <span>Generate Timeline Roadmap</span>
                         </Button>
                       </div>
@@ -810,11 +810,11 @@ export default function WorkspacePage() {
                       <div className="space-y-5">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center glow-amber">
-                            <Network className="h-6 w-6 text-amber-400" />
+                            <Network className="h-5 w-5 text-amber-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-bold text-foreground">Resource Org Structure</h2>
-                            <span className="text-base text-muted-foreground">{activeProject.team.recommendedTeamSize} recommended roles</span>
+                            <span className="text-sm text-muted-foreground">{activeProject.team.recommendedTeamSize} recommended roles</span>
                           </div>
                         </div>
 
@@ -822,10 +822,10 @@ export default function WorkspacePage() {
                           {activeProject.team.roles.map((role: any) => (
                             <div key={role.id} className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] flex items-center justify-between hover:border-amber-500/15 transition-all">
                               <div>
-                                <span className="text-base font-semibold text-foreground block">{role.name}</span>
-                                <span className="text-base text-muted-foreground capitalize">{role.department.replace('_', ' ')} • Stage: {role.hiringStage}</span>
+                                <span className="text-sm font-semibold text-foreground block">{role.name}</span>
+                                <span className="text-sm text-muted-foreground capitalize">{role.department.replace('_', ' ')} • Stage: {role.hiringStage}</span>
                               </div>
-                              <span className="text-base font-bold text-amber-400">
+                              <span className="text-sm font-bold text-amber-400">
                                 {formatCost(role.monthlyCost)}/mo
                               </span>
                             </div>
@@ -833,7 +833,7 @@ export default function WorkspacePage() {
                         </div>
 
                         <div className="pt-4 border-t border-white/[0.04] flex justify-end">
-                          <Button onClick={() => setActiveStage('swot')} className="h-9 text-base gap-1.5">
+                          <Button onClick={() => setActiveStage('swot')} className="h-9 text-sm gap-1.5">
                             <span>Assess Strategic Risks</span>
                             <ArrowRight className="h-3.5 w-3.5" />
                           </Button>
@@ -849,12 +849,12 @@ export default function WorkspacePage() {
                         </div>
                         <div className="space-y-2 max-w-md">
                           <h3 className="text-lg font-bold text-foreground">Resource & Team Allocator</h3>
-                          <p className="text-base text-muted-foreground leading-relaxed">
+                          <p className="text-sm text-muted-foreground leading-relaxed">
                             Forecast hiring requirements, define team roles, allocate departments, and calculate monthly salaries.
                           </p>
                         </div>
-                        <Button onClick={() => handleStartGeneration(activeProject.id, 'team')} className="h-10 text-base gap-2 px-6">
-                          <Sparkles className="h-6 w-6" />
+                        <Button onClick={() => handleStartGeneration(activeProject.id, 'team')} className="h-10 text-sm gap-2 px-6">
+                          <Sparkles className="h-5 w-5" />
                           <span>Plan Team Hires</span>
                         </Button>
                       </div>
@@ -865,11 +865,11 @@ export default function WorkspacePage() {
                       <div className="space-y-5">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-xl bg-rose-500/10 flex items-center justify-center glow-rose">
-                            <Shield className="h-6 w-6 text-rose-400" />
+                            <Shield className="h-5 w-5 text-rose-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-bold text-foreground">Strategic SWOT Board</h2>
-                            <span className="text-base text-muted-foreground">Competitive intelligence matrix</span>
+                            <span className="text-sm text-muted-foreground">Competitive intelligence matrix</span>
                           </div>
                         </div>
 
@@ -881,8 +881,8 @@ export default function WorkspacePage() {
                             { label: 'T — Threats', type: 'threat', color: 'amber' }
                           ].map(({ label, type, color }) => (
                             <div key={type} className={cn("p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] space-y-2")}>
-                              <span className={cn("text-base font-bold block", `text-${color}-400`)}>{label}</span>
-                              <div className="space-y-1.5 text-base text-muted-foreground max-h-[130px] overflow-y-auto scrollbar-thin">
+                              <span className={cn("text-sm font-bold block", `text-${color}-400`)}>{label}</span>
+                              <div className="space-y-1.5 text-sm text-muted-foreground max-h-[130px] overflow-y-auto scrollbar-thin">
                                 {activeProject.swot.items.filter((i: any) => i.type === type).map((item: any) => (
                                   <div key={item.id} className="flex gap-2">
                                     <Circle className={cn("h-1.5 w-1.5 mt-1.5 shrink-0 fill-current", `text-${color}-500/50`)} />
@@ -895,7 +895,7 @@ export default function WorkspacePage() {
                         </div>
 
                         <div className="pt-4 border-t border-white/[0.04] flex justify-end">
-                          <Button onClick={() => setActiveStage('cost-estimator')} className="h-9 text-base gap-1.5">
+                          <Button onClick={() => setActiveStage('cost-estimator')} className="h-9 text-sm gap-1.5">
                             <span>Calculate Runway Costs</span>
                             <ArrowRight className="h-3.5 w-3.5" />
                           </Button>
@@ -911,12 +911,12 @@ export default function WorkspacePage() {
                         </div>
                         <div className="space-y-2 max-w-md">
                           <h3 className="text-lg font-bold text-foreground">Strategic SWOT Board</h3>
-                          <p className="text-base text-muted-foreground leading-relaxed">
+                          <p className="text-sm text-muted-foreground leading-relaxed">
                             Compile strategic Strengths, Weaknesses, Opportunities, and Threats from market positioning.
                           </p>
                         </div>
-                        <Button onClick={() => handleStartGeneration(activeProject.id, 'swot')} className="h-10 text-base gap-2 px-6">
-                          <Sparkles className="h-6 w-6" />
+                        <Button onClick={() => handleStartGeneration(activeProject.id, 'swot')} className="h-10 text-sm gap-2 px-6">
+                          <Sparkles className="h-5 w-5" />
                           <span>Conduct SWOT Analysis</span>
                         </Button>
                       </div>
@@ -927,31 +927,31 @@ export default function WorkspacePage() {
                       <div className="space-y-5">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-xl bg-cyan-500/10 flex items-center justify-center glow-cyan">
-                            <DollarSign className="h-6 w-6 text-cyan-400" />
+                            <DollarSign className="h-5 w-5 text-cyan-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-bold text-foreground">Startup Financial Projections</h2>
-                            <span className="text-base text-muted-foreground">Burn rate & runway analysis</span>
+                            <span className="text-sm text-muted-foreground">Burn rate & runway analysis</span>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-3 gap-3">
                           <div className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] text-center">
-                            <span className="text-base text-muted-foreground block mb-1">MVP Cost</span>
+                            <span className="text-sm text-muted-foreground block mb-1">MVP Cost</span>
                             <span className="text-xl font-bold text-foreground">{formatCost(activeProject.cost.mvpCost)}</span>
                           </div>
                           <div className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] text-center">
-                            <span className="text-base text-muted-foreground block mb-1">Year 1 Projection</span>
+                            <span className="text-sm text-muted-foreground block mb-1">Year 1 Projection</span>
                             <span className="text-xl font-bold text-foreground">{formatCost(activeProject.cost.year1Cost)}</span>
                           </div>
                           <div className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] text-center">
-                            <span className="text-base text-muted-foreground block mb-1">Funding Required</span>
+                            <span className="text-sm text-muted-foreground block mb-1">Funding Required</span>
                             <span className="text-xl font-bold text-cyan-400">{formatCost(activeProject.cost.fundingRequirement)}</span>
                           </div>
                         </div>
 
                         <div className="space-y-3">
-                          <span className="text-base font-semibold text-muted-foreground uppercase tracking-widest block">
+                          <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest block">
                             Budget Scenarios
                           </span>
                           <div className="grid grid-cols-3 gap-3">
@@ -966,16 +966,16 @@ export default function WorkspacePage() {
                                     : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1]"
                                 )}
                               >
-                                <span className="text-base font-bold text-foreground block uppercase">{scen.name}</span>
+                                <span className="text-sm font-bold text-foreground block uppercase">{scen.name}</span>
                                 <span className="text-lg font-bold text-cyan-400 block">{formatCost(scen.mvpCost)} MVP</span>
-                                <span className="text-base text-muted-foreground leading-relaxed block">{scen.description}</span>
+                                <span className="text-sm text-muted-foreground leading-relaxed block">{scen.description}</span>
                               </button>
                             ))}
                           </div>
                         </div>
 
                         <div className="pt-4 border-t border-white/[0.04] flex justify-end">
-                          <Button onClick={() => setActiveStage('final-blueprint')} className="h-9 text-base gap-1.5">
+                          <Button onClick={() => setActiveStage('final-blueprint')} className="h-9 text-sm gap-1.5">
                             <span>Reveal Final Blueprint</span>
                             <ArrowRight className="h-3.5 w-3.5" />
                           </Button>
@@ -991,12 +991,12 @@ export default function WorkspacePage() {
                         </div>
                         <div className="space-y-2 max-w-md">
                           <h3 className="text-lg font-bold text-foreground">Financial Plan & Cost Estimator</h3>
-                          <p className="text-base text-muted-foreground leading-relaxed">
+                          <p className="text-sm text-muted-foreground leading-relaxed">
                             Model MVP costs, burn rates, runway forecasts, and funding requirements for lean, balanced, and aggressive scenarios.
                           </p>
                         </div>
-                        <Button onClick={() => handleStartGeneration(activeProject.id, 'cost')} className="h-10 text-base gap-2 px-6">
-                          <Sparkles className="h-6 w-6" />
+                        <Button onClick={() => handleStartGeneration(activeProject.id, 'cost')} className="h-10 text-sm gap-2 px-6">
+                          <Sparkles className="h-5 w-5" />
                           <span>Calculate Runway Costs</span>
                         </Button>
                       </div>
@@ -1007,11 +1007,11 @@ export default function WorkspacePage() {
                       <div className="space-y-5">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-xl bg-violet-500/10 flex items-center justify-center glow-violet">
-                            <FileText className="h-6 w-6 text-violet-400" />
+                            <FileText className="h-5 w-5 text-violet-400" />
                           </div>
                           <div>
                             <h2 className="text-xl font-bold text-foreground">Compiled Startup Blueprint</h2>
-                            <span className="text-base text-muted-foreground">Investor-ready operating document</span>
+                            <span className="text-sm text-muted-foreground">Investor-ready operating document</span>
                           </div>
                         </div>
 
@@ -1021,12 +1021,12 @@ export default function WorkspacePage() {
                           </div>
                           <div className="space-y-2">
                             <span className="text-lg font-bold text-foreground block">Your Operating Blueprint is Complete</span>
-                            <span className="text-base text-muted-foreground">The compiled strategy plan has been generated. Ready for export.</span>
+                            <span className="text-sm text-muted-foreground">The compiled strategy plan has been generated. Ready for export.</span>
                           </div>
                           <div className="flex gap-3">
                             <Button
                               onClick={() => window.open(api.exports.pdf(activeProject.id), '_blank')}
-                              className="h-9 text-base gap-1.5 px-5"
+                              className="h-9 text-sm gap-1.5 px-5"
                             >
                               Download PDF Package
                             </Button>
@@ -1034,15 +1034,14 @@ export default function WorkspacePage() {
                               onClick={async () => {
                                 try {
                                   const payload = await api.exports.share(activeProject.id);
-                                  const url = `${window.location.origin}/shared/${payload.token}`;
+                                  const url = `${window.location.origin}/shared/${payload.share_token}`;
                                   setStreamLog(prev => [`Generated shareable link: ${url}`, ...prev]);
                                   alert(`Investor link created: ${url}`);
                                 } catch (err: any) {
                                   alert(`Failed to share: ${err.message}`);
                                 }
                               }}
-                              variant="outline"
-                              className="h-9 text-base gap-1.5 px-5"
+                              className="glass-btn border-border h-9 text-sm gap-1.5 px-5 text-foreground"
                             >
                               Share Secure Web View
                             </Button>
@@ -1059,12 +1058,12 @@ export default function WorkspacePage() {
                         </div>
                         <div className="space-y-2 max-w-md">
                           <h3 className="text-lg font-bold text-foreground">Startup Blueprint Compiler</h3>
-                          <p className="text-base text-muted-foreground leading-relaxed">
+                          <p className="text-sm text-muted-foreground leading-relaxed">
                             Assemble all modules into an investor-ready, comprehensive operating blueprint with secure sharing and PDF export.
                           </p>
                         </div>
-                        <Button onClick={() => handleStartGeneration(activeProject.id, 'blueprint')} className="h-10 text-base gap-2 px-6">
-                          <Sparkles className="h-6 w-6" />
+                        <Button onClick={() => handleStartGeneration(activeProject.id, 'blueprint')} className="h-10 text-sm gap-2 px-6">
+                          <Sparkles className="h-5 w-5" />
                           <span>Compile Final Blueprint</span>
                         </Button>
                       </div>
@@ -1075,18 +1074,18 @@ export default function WorkspacePage() {
                 {/* Right Column: AI Reasoning Feed */}
                 <div className="w-[320px] shrink-0 border-l border-white/[0.04] bg-card/30 backdrop-blur-sm flex flex-col">
                   <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2">
-                    <Sparkles className="h-6 w-6 text-cyan-400 animate-pulse" />
-                    <span className="text-base font-semibold text-foreground">AI Reasoning Feed</span>
+                    <Sparkles className="h-5 w-5 text-cyan-400 animate-pulse" />
+                    <span className="text-sm font-semibold text-foreground">AI Reasoning Feed</span>
                   </div>
                   <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin">
                     {streamLog.map((log, i) => (
                       <div key={i} className="flex gap-2 p-2 rounded-lg bg-white/[0.02] border border-white/[0.03]">
                         <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 shrink-0 mt-1.5" />
-                        <span className="text-base leading-relaxed text-muted-foreground">{log}</span>
+                        <span className="text-sm leading-relaxed text-muted-foreground">{log}</span>
                       </div>
                     ))}
                     {streamLog.length === 0 && (
-                      <span className="text-muted-foreground/80 italic text-center block pt-24 text-base">
+                      <span className="text-muted-foreground/80 italic text-center block pt-24 text-sm">
                         Ready to co-author.
                       </span>
                     )}
@@ -1118,7 +1117,7 @@ export default function WorkspacePage() {
                       >
                         <div className="relative">
                           <Icon className={cn(
-                            "h-6 w-6",
+                            "h-5 w-5",
                             isActive ? stage.color : 
                             status === 'completed' ? 'text-emerald-400' : 
                             status === 'locked' ? 'text-muted-foreground/80' : 'text-muted-foreground'
@@ -1130,7 +1129,7 @@ export default function WorkspacePage() {
                           )}
                         </div>
                         <span className={cn(
-                          "text-base font-medium",
+                          "text-sm font-medium",
                           isActive ? 'text-cyan-400' : 
                           status === 'completed' ? 'text-emerald-400/80' :
                           status === 'locked' ? 'text-muted-foreground/80' : 'text-muted-foreground'

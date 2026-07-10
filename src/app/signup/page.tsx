@@ -52,66 +52,66 @@ export default function SignupPage() {
               <img src="/logo.png" alt="Evolution Engine Logo" className="h-full w-full object-cover" />
             </div>
             <CardTitle className="text-2xl font-bold tracking-tight text-foreground">Create Account</CardTitle>
-            <CardDescription className="text-base text-muted-foreground">
+            <CardDescription className="text-sm text-muted-foreground">
               Sign up to generate co-founder startup intelligence blueprints
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {error && (
-              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-base flex items-center gap-2">
-                <AlertCircle className="h-6 w-6 shrink-0" />
+              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-base font-semibold text-muted-foreground uppercase tracking-wider">
+                <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-6 w-6 text-muted-foreground/80" />
+                  <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground/80" />
                   <Input
                     type="email"
                     placeholder="name@company.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="pl-9 h-10 text-base bg-white/[0.03] border-white/[0.06] text-foreground placeholder-muted-foreground/30"
+                    className="pl-9 h-10 text-sm bg-white/[0.03] border-white/[0.06] text-foreground placeholder-muted-foreground/30"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-base font-semibold text-muted-foreground uppercase tracking-wider">
+                <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                   Password
                 </label>
                 <div className="relative">
-                  <KeyRound className="absolute left-3 top-3 h-6 w-6 text-muted-foreground/80" />
+                  <KeyRound className="absolute left-3 top-3 h-5 w-5 text-muted-foreground/80" />
                   <Input
                     type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="pl-9 h-10 text-base bg-white/[0.03] border-white/[0.06] text-foreground placeholder-muted-foreground/30"
+                    className="pl-9 h-10 text-sm bg-white/[0.03] border-white/[0.06] text-foreground placeholder-muted-foreground/30"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-base font-semibold text-muted-foreground uppercase tracking-wider">
+                <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                   Confirm Password
                 </label>
                 <div className="relative">
-                  <KeyRound className="absolute left-3 top-3 h-6 w-6 text-muted-foreground/80" />
+                  <KeyRound className="absolute left-3 top-3 h-5 w-5 text-muted-foreground/80" />
                   <Input
                     type="password"
                     placeholder="••••••••"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    className="pl-9 h-10 text-base bg-white/[0.03] border-white/[0.06] text-foreground placeholder-muted-foreground/30"
+                    className="pl-9 h-10 text-sm bg-white/[0.03] border-white/[0.06] text-foreground placeholder-muted-foreground/30"
                   />
                 </div>
               </div>
@@ -119,15 +119,15 @@ export default function SignupPage() {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full h-10 mt-2 text-base font-medium flex items-center justify-center gap-1.5"
+                className="w-full h-10 mt-2 text-sm font-medium flex items-center justify-center gap-1.5"
               >
                 <span>{isSubmitting ? 'Registering...' : 'Get Started'}</span>
-                {!isSubmitting && <ArrowRight className="h-6 w-6" />}
+                {!isSubmitting && <ArrowRight className="h-5 w-5" />}
               </Button>
             </form>
 
             <div className="text-center pt-4 border-t border-white/[0.04]">
-              <span className="text-base text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 Already have an account?{' '}
                 <Link
                   href="/login"

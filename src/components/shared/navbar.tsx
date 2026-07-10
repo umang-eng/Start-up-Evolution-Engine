@@ -258,14 +258,14 @@ export function Navbar() {
       <header className="h-14 w-full flex items-center justify-between px-5 bg-card/40 backdrop-blur-xl border-b border-white/[0.04] z-20">
         {/* Left Workspace Switcher */}
         <div className="flex items-center gap-3">
-          <div className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-base font-bold" style={{ background: 'linear-gradient(135deg, hsl(192 91% 54%), hsl(262 83% 68%))' }}>
+          <div className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-sm font-bold" style={{ background: 'linear-gradient(135deg, hsl(192 91% 54%), hsl(262 83% 68%))' }}>
             SE
           </div>
           <div className="flex items-center gap-1.5 cursor-pointer hover:bg-white/[0.04] px-2 py-1 rounded-md transition-all">
-            <span className="text-base font-semibold text-foreground">
+            <span className="text-sm font-semibold text-foreground">
               {activeProject ? activeProject.name : 'Personal Workspace'}
             </span>
-            <ChevronDown className="h-6 w-6 text-muted-foreground" />
+            <ChevronDown className="h-5 w-5 text-muted-foreground" />
           </div>
         </div>
 
@@ -276,8 +276,8 @@ export function Navbar() {
             className="relative flex items-center w-full h-8 px-3 rounded-lg border border-white/[0.06] bg-white/[0.02] text-muted-foreground hover:border-white/[0.1] cursor-pointer transition-all"
           >
             <Search className="h-3.5 w-3.5 mr-2" />
-            <span className="text-base flex-1 text-left">Search blueprint features, costs...</span>
-            <kbd className="h-5 px-1.5 rounded bg-white/[0.04] border border-white/[0.06] text-base font-mono flex items-center text-muted-foreground/90">
+            <span className="text-sm flex-1 text-left">Search blueprint features, costs...</span>
+            <kbd className="h-5 px-1.5 rounded bg-white/[0.04] border border-white/[0.06] text-sm font-mono flex items-center text-muted-foreground/90">
               ⌘K
             </kbd>
           </div>
@@ -292,7 +292,7 @@ export function Navbar() {
                 size="sm"
                 onClick={handleShare}
                 disabled={shareStatus === 'loading'}
-                className="h-8 text-base gap-1.5 text-muted-foreground hover:text-foreground"
+                className="h-8 text-sm gap-1.5 text-muted-foreground hover:text-foreground"
               >
                 {shareStatus === 'loading' ? (
                   <span className="h-3.5 w-3.5 rounded-full border border-cyan-400 border-t-transparent animate-spin" />
@@ -310,7 +310,7 @@ export function Navbar() {
                 size="sm"
                 onClick={handleExport}
                 disabled={exportStatus === 'loading'}
-                className="h-8 text-base gap-1.5 text-muted-foreground hover:text-foreground"
+                className="h-8 text-sm gap-1.5 text-muted-foreground hover:text-foreground"
               >
                 {exportStatus === 'loading' ? (
                   <span className="h-3.5 w-3.5 rounded-full border border-muted-foreground border-t-transparent animate-spin" />
@@ -332,7 +332,7 @@ export function Navbar() {
               onClick={() => setNotificationsOpen(!notificationsOpen)}
               className="h-8 w-8 text-muted-foreground hover:text-foreground relative"
             >
-              <Bell className="h-6 w-6" />
+              <Bell className="h-5 w-5" />
               {notifications.length > 0 && (
                 <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
               )}
@@ -340,7 +340,7 @@ export function Navbar() {
 
             {notificationsOpen && (
               <div className="absolute right-0 mt-2 w-80 bg-card/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-lvl-3 py-2 z-30 animate-in fade-in slide-in-from-top-2 duration-150">
-                <span className="text-base font-bold text-muted-foreground/90 uppercase px-4 pb-2 border-b border-white/[0.04] block tracking-widest">
+                <span className="text-sm font-bold text-muted-foreground/90 uppercase px-4 pb-2 border-b border-white/[0.04] block tracking-widest">
                   Activity Logs
                 </span>
                 <div className="max-h-60 overflow-y-auto mt-2 scrollbar-thin">
@@ -353,12 +353,12 @@ export function Navbar() {
                       }}
                       className="px-4 py-2.5 hover:bg-white/[0.04] cursor-pointer transition-colors border-b border-white/[0.03] last:border-0"
                     >
-                      <span className="text-base text-foreground block font-medium">{n.text}</span>
-                      <span className="text-base text-muted-foreground/90 block mt-0.5">{n.time}</span>
+                      <span className="text-sm text-foreground block font-medium">{n.text}</span>
+                      <span className="text-sm text-muted-foreground/90 block mt-0.5">{n.time}</span>
                     </div>
                   ))}
                   {notifications.length === 0 && (
-                    <span className="text-base text-muted-foreground/80 italic text-center block py-8">
+                    <span className="text-sm text-muted-foreground/80 italic text-center block py-8">
                       No startup components evolved yet.
                     </span>
                   )}
@@ -383,8 +383,8 @@ export function Navbar() {
             {profileOpen && (
               <div className="absolute right-0 mt-2 w-56 bg-card/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-lvl-3 py-2 z-30 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-4 py-2.5 border-b border-white/[0.04]">
-                  <span className="text-base font-semibold text-foreground block truncate">{settings.founderName}</span>
-                  <span className="text-base text-muted-foreground/90 block truncate">{settings.founderTitle}</span>
+                  <span className="text-sm font-semibold text-foreground block truncate">{settings.founderName}</span>
+                  <span className="text-sm text-muted-foreground/90 block truncate">{settings.founderTitle}</span>
                 </div>
                 <div className="py-1">
                   <button
@@ -392,7 +392,7 @@ export function Navbar() {
                       setProfileOpen(false);
                       setSettingsOpen(true);
                     }}
-                    className="w-full text-left px-4 py-2 text-base text-muted-foreground hover:bg-white/[0.04] hover:text-foreground flex items-center gap-2 transition-colors border-0 cursor-pointer"
+                    className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:bg-white/[0.04] hover:text-foreground flex items-center gap-2 transition-colors border-0 cursor-pointer"
                   >
                     <Settings className="h-3.5 w-3.5" />
                     <span>Settings</span>
@@ -402,7 +402,7 @@ export function Navbar() {
                       logout();
                       setProfileOpen(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-base text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition-colors border-0 cursor-pointer"
+                    className="w-full text-left px-4 py-2 text-sm text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition-colors border-0 cursor-pointer"
                   >
                     <LogOut className="h-3.5 w-3.5" />
                     <span>Log Out</span>
@@ -426,16 +426,16 @@ export function Navbar() {
           >
             {/* Search Input */}
             <div className="flex items-center px-4 border-b border-white/[0.04]">
-              <Search className="h-6 w-6 text-muted-foreground mr-3" />
+              <Search className="h-5 w-5 text-muted-foreground mr-3" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search projects by title, prompt, or internal topic keywords..."
                 autoFocus
-                className="w-full h-12 bg-transparent text-base outline-none text-foreground placeholder-muted-foreground/40 border-0"
+                className="w-full h-12 bg-transparent text-sm outline-none text-foreground placeholder-muted-foreground/40 border-0"
               />
-              <span className="text-base text-muted-foreground/80 border border-white/[0.06] px-1.5 py-0.5 rounded bg-white/[0.03] select-none">
+              <span className="text-sm text-muted-foreground/80 border border-white/[0.06] px-1.5 py-0.5 rounded bg-white/[0.03] select-none">
                 ESC
               </span>
             </div>
@@ -462,23 +462,23 @@ export function Navbar() {
                     {res.type === 'dna' && <TrendingUp className="h-3.5 w-3.5" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-base font-semibold text-foreground block truncate text-left">{res.title}</span>
-                    <span className="text-base text-muted-foreground/90 block truncate mt-0.5 text-left">{res.subtitle}</span>
+                    <span className="text-sm font-semibold text-foreground block truncate text-left">{res.title}</span>
+                    <span className="text-sm text-muted-foreground/90 block truncate mt-0.5 text-left">{res.subtitle}</span>
                   </div>
-                  <span className="text-base uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] text-muted-foreground/90 select-none shrink-0">
+                  <span className="text-sm uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] text-muted-foreground/90 select-none shrink-0">
                     {res.matchLabel || res.stage.replace('-', ' ')}
                   </span>
                 </div>
               ))}
 
               {searchQuery && searchResults.length === 0 && (
-                <span className="text-base text-muted-foreground/80 italic text-center block py-12">
+                <span className="text-sm text-muted-foreground/80 italic text-center block py-12">
                   No matching workspace records found.
                 </span>
               )}
 
               {!searchQuery && (
-                <div className="py-8 text-center text-base text-muted-foreground space-y-3">
+                <div className="py-8 text-center text-sm text-muted-foreground space-y-3">
                   <span className="block font-medium text-foreground/60">Quick Navigation</span>
                   <div className="flex flex-wrap gap-2 justify-center px-4">
                     {[
@@ -496,7 +496,7 @@ export function Navbar() {
                           setActiveStage(stg.stage as StageName);
                           setSearchOpen(false);
                         }}
-                        className="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-base font-semibold text-muted-foreground hover:text-foreground transition-all cursor-pointer border border-white/[0.04] hover:border-white/[0.08]"
+                        className="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-semibold text-muted-foreground hover:text-foreground transition-all cursor-pointer border border-white/[0.04] hover:border-white/[0.08]"
                       >
                         {stg.name}
                       </button>

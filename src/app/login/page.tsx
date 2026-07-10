@@ -41,57 +41,57 @@ export default function LoginPage() {
               <img src="/logo.png" alt="Evolution Engine Logo" className="h-full w-full object-cover" />
             </div>
             <CardTitle className="text-2xl font-bold tracking-tight text-foreground">Welcome Back</CardTitle>
-            <CardDescription className="text-base text-muted-foreground">
+            <CardDescription className="text-sm text-muted-foreground">
               Sign in to manage your startup blueprints and pipeline
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {error && (
-              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-base flex items-center gap-2">
-                <AlertCircle className="h-6 w-6 shrink-0" />
+              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-base font-semibold text-muted-foreground uppercase tracking-wider">
+                <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-6 w-6 text-muted-foreground/80" />
+                  <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground/80" />
                   <Input
                     type="email"
                     placeholder="name@company.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="pl-9 h-10 text-base bg-white/[0.03] border-white/[0.06] text-foreground placeholder-muted-foreground/30"
+                    className="pl-9 h-10 text-sm bg-white/[0.03] border-white/[0.06] text-foreground placeholder-muted-foreground/30"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-base font-semibold text-muted-foreground uppercase tracking-wider">
+                  <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                     Password
                   </label>
                   <Link
                     href="/forgot-password"
-                    className="text-base text-cyan-400 hover:underline font-medium"
+                    className="text-sm text-cyan-400 hover:underline font-medium"
                   >
                     Forgot password?
                   </Link>
                 </div>
                 <div className="relative">
-                  <KeyRound className="absolute left-3 top-3 h-6 w-6 text-muted-foreground/80" />
+                  <KeyRound className="absolute left-3 top-3 h-5 w-5 text-muted-foreground/80" />
                   <Input
                     type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="pl-9 h-10 text-base bg-white/[0.03] border-white/[0.06] text-foreground placeholder-muted-foreground/30"
+                    className="pl-9 h-10 text-sm bg-white/[0.03] border-white/[0.06] text-foreground placeholder-muted-foreground/30"
                   />
                 </div>
               </div>
@@ -99,15 +99,15 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full h-10 mt-2 text-base font-medium flex items-center justify-center gap-1.5"
+                className="w-full h-10 mt-2 text-sm font-medium flex items-center justify-center gap-1.5"
               >
                 <span>{isSubmitting ? 'Signing in...' : 'Sign In'}</span>
-                {!isSubmitting && <ArrowRight className="h-6 w-6" />}
+                {!isSubmitting && <ArrowRight className="h-5 w-5" />}
               </Button>
             </form>
 
             <div className="text-center pt-4 border-t border-white/[0.04]">
-              <span className="text-base text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 Don&apos;t have an account?{' '}
                 <Link
                   href="/signup"
