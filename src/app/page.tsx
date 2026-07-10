@@ -571,18 +571,20 @@ export default function WorkspacePage() {
                           </span>
                         </div>
 
-                        {/* Overview Grid */}
-                        <div className="grid grid-cols-3 gap-3">
-                          {[
-                            { label: 'Category', value: activeProject.dna.category },
-                            { label: 'Business Model', value: activeProject.dna.businessModel },
-                            { label: 'Target Market', value: activeProject.dna.targetMarket },
-                          ].map((item) => (
-                            <div key={item.label} className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02]">
-                              <span className="text-sm text-muted-foreground uppercase tracking-wider block mb-1">{item.label}</span>
-                              <span className="text-sm font-semibold text-foreground">{item.value}</span>
-                            </div>
-                          ))}
+                        {/* Bento Overview Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                          <div className="lg:col-span-1 p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] shadow-sm">
+                            <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest block mb-2">Category</span>
+                            <span className="text-sm font-medium text-foreground">{activeProject.dna.category}</span>
+                          </div>
+                          <div className="lg:col-span-2 p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] shadow-sm max-h-[160px] overflow-y-auto scrollbar-thin">
+                            <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest block mb-2">Target Market</span>
+                            <p className="text-sm text-muted-foreground/90 leading-relaxed whitespace-pre-wrap">{activeProject.dna.targetMarket}</p>
+                          </div>
+                          <div className="lg:col-span-3 p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] shadow-sm max-h-[250px] overflow-y-auto scrollbar-thin">
+                            <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest block mb-3">Business Model</span>
+                            <p className="text-sm text-muted-foreground/90 leading-relaxed whitespace-pre-wrap">{activeProject.dna.businessModel}</p>
+                          </div>
                         </div>
 
                         {/* Score Metrics + Ring */}
@@ -693,20 +695,22 @@ export default function WorkspacePage() {
                           </div>
                         </div>
 
-                        <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin">
+                        <div className="grid grid-cols-1 gap-4 max-h-[450px] overflow-y-auto pr-2 scrollbar-thin">
                           {activeProject.features.features.map((feature: any) => (
-                            <div key={feature.id} className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] flex items-center justify-between hover:border-cyan-500/15 transition-all group">
-                              <div>
-                                <span className="text-sm font-semibold text-foreground block">{feature.name}</span>
-                                <span className="text-sm text-muted-foreground leading-relaxed">{feature.description}</span>
+                            <div key={feature.id} className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-sm hover:border-violet-500/30 transition-all flex flex-col gap-3">
+                              <div className="flex items-start justify-between gap-4">
+                                <span className="text-base font-bold text-foreground">{feature.name}</span>
+                                <span className={cn(
+                                  "text-[10px] font-bold uppercase px-2.5 py-1 rounded-full shrink-0",
+                                  feature.priority === 'critical' ? 'badge-active' : 
+                                  feature.priority === 'high' ? 'badge-pending' : 'badge-locked'
+                                )}>
+                                  {feature.priority}
+                                </span>
                               </div>
-                              <span className={cn(
-                                "text-sm font-semibold uppercase px-2.5 py-1 rounded-full shrink-0 ml-3",
-                                feature.priority === 'critical' ? 'badge-active' : 
-                                feature.priority === 'high' ? 'badge-pending' : 'badge-locked'
-                              )}>
-                                {feature.priority}
-                              </span>
+                              <div className="pt-3 border-t border-white/[0.04]">
+                                <p className="text-sm text-muted-foreground/90 leading-relaxed whitespace-pre-wrap">{feature.description}</p>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -748,28 +752,54 @@ export default function WorkspacePage() {
                           </div>
                           <div>
                             <h2 className="text-xl font-bold text-foreground">Timeline Execution Roadmap</h2>
-                            <span className="text-sm text-muted-foreground">{activeProject.roadmap.totalDurationWeeks} weeks total</span>
+                            <span className="text-sm text-muted-foreground">Comprehensive multi-phase execution strategy</span>
                           </div>
                         </div>
 
-                        <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 scrollbar-thin">
+                        <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
                           {activeProject.roadmap.phases.map((phase: any, idx: number) => (
-                            <div key={phase.id} className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] space-y-3">
-                              <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                  <span className="h-5 w-5 rounded-full bg-emerald-500/15 text-emerald-400 text-sm font-bold flex items-center justify-center">{idx + 1}</span>
-                                  <span className="text-sm font-semibold text-foreground">{phase.name}</span>
+                            <div key={phase.phase_id} className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-sm space-y-4">
+                              <div className="flex justify-between items-center border-b border-white/[0.04] pb-3">
+                                <div className="flex items-center gap-3">
+                                  <span className="h-6 w-6 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-bold flex items-center justify-center">{idx + 1}</span>
+                                  <span className="text-base font-bold text-foreground">{phase.name}</span>
                                 </div>
-                                <span className="badge-completed text-sm font-medium px-2 py-0.5 rounded-full">
-                                  Weeks {phase.startWeek}–{phase.endWeek}
+                                <span className="badge-completed text-xs font-bold px-3 py-1 rounded-full">
+                                  {phase.duration_months} Months
                                 </span>
                               </div>
-                              <div className="space-y-1.5 pl-4 border-l-2 border-emerald-500/20 text-sm">
-                                {phase.tasks.map((task: any) => (
-                                  <div key={task.id} className="text-muted-foreground flex items-center gap-2">
-                                    <Circle className="h-1.5 w-1.5 text-emerald-500/50 fill-current" />
-                                    <span>{task.name}</span>
-                                    <span className="text-muted-foreground/80">({task.durationWeeks}w)</span>
+                              
+                              {phase.milestones && phase.milestones.length > 0 && (
+                                <div className="bg-emerald-500/5 rounded-lg p-3 border border-emerald-500/10">
+                                  <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest block mb-2">Key Milestones</span>
+                                  <ul className="space-y-1">
+                                    {phase.milestones.map((ms: string, i: number) => (
+                                      <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                                        <Check className="h-4 w-4 text-emerald-500/70 shrink-0 mt-0.5" />
+                                        <span>{ms}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              <div className="space-y-3 pl-2 border-l-2 border-emerald-500/20">
+                                {phase.tasks && phase.tasks.map((task: any) => (
+                                  <div key={task.id} className="p-4 bg-white/[0.01] rounded-lg border border-white/[0.03] space-y-2 relative ml-3 transition-all hover:bg-white/[0.03]">
+                                    <div className="absolute -left-[1.4rem] top-5 h-2.5 w-2.5 rounded-full bg-emerald-500 glow-emerald" />
+                                    <div className="flex justify-between items-start gap-4">
+                                      <span className="text-sm font-bold text-foreground">{task.title}</span>
+                                      <span className="text-[10px] font-medium text-muted-foreground bg-white/[0.06] px-2 py-1 rounded shrink-0">{task.duration_weeks}w</span>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground/80 leading-relaxed whitespace-pre-wrap">{task.description}</p>
+                                    <div className="pt-2 flex flex-wrap gap-2">
+                                      {task.assigned_role_id && (
+                                        <span className="text-[10px] text-cyan-400 bg-cyan-400/10 px-2 py-1 rounded border border-cyan-400/20">{task.assigned_role_id}</span>
+                                      )}
+                                      {task.dependencies && task.dependencies.length > 0 && (
+                                        <span className="text-[10px] text-amber-400 bg-amber-400/10 px-2 py-1 rounded border border-amber-400/20">Depends on: {task.dependencies.join(', ')}</span>
+                                      )}
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -818,16 +848,41 @@ export default function WorkspacePage() {
                           </div>
                         </div>
 
-                        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1 scrollbar-thin">
-                          {activeProject.team.roles.map((role: any) => (
-                            <div key={role.id} className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] flex items-center justify-between hover:border-amber-500/15 transition-all">
-                              <div>
-                                <span className="text-sm font-semibold text-foreground block">{role.name}</span>
-                                <span className="text-sm text-muted-foreground capitalize">{role.department.replace('_', ' ')} • Stage: {role.hiringStage}</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
+                          {activeProject.team.orgChart?.map((role: any) => (
+                            <div key={role.roleId} className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-sm flex flex-col gap-4 hover:border-amber-500/30 transition-all">
+                              <div className="flex justify-between items-start gap-4">
+                                <div>
+                                  <span className="text-base font-bold text-foreground block">{role.title}</span>
+                                  <span className="text-xs text-muted-foreground uppercase tracking-widest">{role.department.replace('_', ' ')}</span>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="text-sm font-bold text-amber-400 block">${role.estimatedSalaryUsd?.toLocaleString()}/yr</span>
+                                  <span className="text-[10px] bg-amber-400/10 text-amber-400 px-2 py-0.5 rounded border border-amber-400/20">{role.hiringStage}</span>
+                                </div>
                               </div>
-                              <span className="text-sm font-bold text-amber-400">
-                                {formatCost(role.monthlyCost)}/mo
-                              </span>
+                              
+                              <div className="space-y-3 pt-3 border-t border-white/[0.04] flex-1">
+                                <div>
+                                  <span className="text-xs font-semibold text-foreground block mb-1">Responsibilities</span>
+                                  <ul className="space-y-1">
+                                    {role.responsibilities?.map((resp: string, i: number) => (
+                                      <li key={i} className="text-xs text-muted-foreground leading-relaxed flex gap-2">
+                                        <span className="text-amber-500/50 mt-0.5">•</span>
+                                        <span>{resp}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                                <div>
+                                  <span className="text-xs font-semibold text-foreground block mb-1">Required Skills</span>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {role.requiredSkills?.map((skill: string, i: number) => (
+                                      <span key={i} className="text-[10px] text-muted-foreground bg-white/[0.04] px-1.5 py-0.5 rounded">{skill}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -873,25 +928,58 @@ export default function WorkspacePage() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          {[
-                            { label: 'S — Strengths', type: 'strength', color: 'emerald' },
-                            { label: 'W — Weaknesses', type: 'weakness', color: 'rose' },
-                            { label: 'O — Opportunities', type: 'opportunity', color: 'cyan' },
-                            { label: 'T — Threats', type: 'threat', color: 'amber' }
-                          ].map(({ label, type, color }) => (
-                            <div key={type} className={cn("p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] space-y-2")}>
-                              <span className={cn("text-sm font-bold block", `text-${color}-400`)}>{label}</span>
-                              <div className="space-y-1.5 text-sm text-muted-foreground max-h-[130px] overflow-y-auto scrollbar-thin">
-                                {activeProject.swot.items.filter((i: any) => i.type === type).map((item: any) => (
-                                  <div key={item.id} className="flex gap-2">
-                                    <Circle className={cn("h-1.5 w-1.5 mt-1.5 shrink-0 fill-current", `text-${color}-500/50`)} />
-                                    <span>{item.content}</span>
+                        <div className="space-y-4 max-h-[550px] overflow-y-auto pr-2 scrollbar-thin">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {[
+                              { label: 'S — Strengths', data: activeProject.swot.strengths, textClass: 'text-emerald-400', bgClass: 'bg-emerald-500/50' },
+                              { label: 'W — Weaknesses', data: activeProject.swot.weaknesses, textClass: 'text-rose-400', bgClass: 'bg-rose-500/50' },
+                              { label: 'O — Opportunities', data: activeProject.swot.opportunities, textClass: 'text-cyan-400', bgClass: 'bg-cyan-500/50' },
+                              { label: 'T — Threats', data: activeProject.swot.threats, textClass: 'text-amber-400', bgClass: 'bg-amber-500/50' }
+                            ].map(({ label, data, textClass, bgClass }) => (
+                              <div key={label} className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-sm flex flex-col gap-3 h-[250px]">
+                                <span className={cn("text-sm font-bold tracking-widest block uppercase", textClass)}>{label}</span>
+                                <div className="space-y-2 overflow-y-auto scrollbar-thin pr-1 flex-1">
+                                  {data?.map((item: string, i: number) => (
+                                    <div key={i} className="flex items-start gap-2">
+                                      <div className={cn("h-1.5 w-1.5 rounded-full mt-2.5 shrink-0", bgClass)} />
+                                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{item}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {activeProject.swot.mitigations && activeProject.swot.mitigations.length > 0 && (
+                            <div className="p-5 rounded-xl border border-rose-500/20 bg-rose-500/[0.02] shadow-sm space-y-4">
+                              <span className="text-sm font-bold text-rose-400 uppercase tracking-widest block">Threat Mitigations</span>
+                              <div className="grid grid-cols-1 gap-3">
+                                {activeProject.swot.mitigations.map((mit: any, i: number) => (
+                                  <div key={i} className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                                    <div className="flex justify-between gap-4 mb-2">
+                                      <span className="text-sm font-semibold text-foreground">{mit.threatDescription}</span>
+                                      <span className="text-[10px] bg-rose-500/10 text-rose-400 px-2 py-0.5 rounded shrink-0">Sev {mit.severity}</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground/90 leading-relaxed whitespace-pre-wrap">{mit.mitigationStrategy}</p>
                                   </div>
                                 ))}
                               </div>
                             </div>
-                          ))}
+                          )}
+
+                          {activeProject.swot.founderActions && activeProject.swot.founderActions.length > 0 && (
+                            <div className="p-5 rounded-xl border border-violet-500/20 bg-violet-500/[0.02] shadow-sm space-y-4">
+                              <span className="text-sm font-bold text-violet-400 uppercase tracking-widest block">Founder Actions Timeline</span>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {activeProject.swot.founderActions.map((action: any, i: number) => (
+                                  <div key={i} className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">{action.horizon.replace(/_/g, ' ')}</span>
+                                    <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">{action.action}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <div className="pt-4 border-t border-white/[0.04] flex justify-end">
@@ -935,42 +1023,57 @@ export default function WorkspacePage() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] text-center">
-                            <span className="text-sm text-muted-foreground block mb-1">MVP Cost</span>
-                            <span className="text-xl font-bold text-foreground">{formatCost(activeProject.cost.mvpCost)}</span>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] text-center shadow-sm">
+                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-1">MVP Estimate</span>
+                            <span className="text-2xl font-bold text-foreground">{formatCost(activeProject.cost.mvp_cost_estimate)}</span>
                           </div>
-                          <div className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] text-center">
-                            <span className="text-sm text-muted-foreground block mb-1">Year 1 Projection</span>
-                            <span className="text-xl font-bold text-foreground">{formatCost(activeProject.cost.year1Cost)}</span>
+                          <div className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] text-center shadow-sm">
+                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-1">Year 1 OPEX</span>
+                            <span className="text-2xl font-bold text-foreground">{formatCost(activeProject.cost.year_1_cost_estimate)}</span>
                           </div>
-                          <div className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] text-center">
-                            <span className="text-sm text-muted-foreground block mb-1">Funding Required</span>
-                            <span className="text-xl font-bold text-cyan-400">{formatCost(activeProject.cost.fundingRequirement)}</span>
+                          <div className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] text-center shadow-sm relative overflow-hidden">
+                            <div className="absolute inset-0 bg-cyan-500/5 glow-cyan" />
+                            <div className="relative">
+                              <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest block mb-1">Optimal Funding Target</span>
+                              <span className="text-2xl font-bold text-cyan-400">{formatCost(activeProject.cost.funding_requirements?.optimal_target_usd)}</span>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="space-y-3">
-                          <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest block">
-                            Budget Scenarios
-                          </span>
-                          <div className="grid grid-cols-3 gap-3">
-                            {activeProject.cost.scenarios.map((scen: any) => (
-                              <button
-                                key={scen.id}
-                                onClick={() => setSelectedScenario(scen.id)}
-                                className={cn(
-                                  "p-4 rounded-xl border text-left transition-all space-y-2 cursor-pointer",
-                                  selectedScenario === scen.id
-                                    ? "border-cyan-500/30 bg-cyan-500/5 glow-cyan"
-                                    : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1]"
-                                )}
-                              >
-                                <span className="text-sm font-bold text-foreground block uppercase">{scen.name}</span>
-                                <span className="text-lg font-bold text-cyan-400 block">{formatCost(scen.mvpCost)} MVP</span>
-                                <span className="text-sm text-muted-foreground leading-relaxed block">{scen.description}</span>
-                              </button>
-                            ))}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-3">
+                            <span className="text-sm font-semibold text-foreground uppercase tracking-widest block mb-4">Budget Scenarios</span>
+                            <div className="grid grid-cols-1 gap-3 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin">
+                              {activeProject.cost.budget_scenarios?.map((scen: any, i: number) => (
+                                <div key={i} className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] flex flex-col gap-2 transition-all hover:bg-white/[0.04]">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm font-bold text-foreground block uppercase">{scen.name}</span>
+                                    <span className="text-xs text-muted-foreground bg-white/[0.04] px-2 py-0.5 rounded">{scen.runway_months}m runway</span>
+                                  </div>
+                                  <span className="text-base font-bold text-cyan-400 block">{formatCost(scen.monthly_burn_usd)} / mo</span>
+                                  <p className="text-xs text-muted-foreground/90 leading-relaxed whitespace-pre-wrap">{scen.description}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            <span className="text-sm font-semibold text-foreground uppercase tracking-widest block mb-4">Operational Costs</span>
+                            <div className="grid grid-cols-1 gap-3 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin">
+                              {activeProject.cost.operational_costs?.map((op: any, i: number) => (
+                                <div key={i} className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] flex flex-col gap-2 transition-all hover:bg-white/[0.04]">
+                                  <div className="flex justify-between items-start gap-4">
+                                    <span className="text-sm font-bold text-foreground block">{op.category.replace(/_/g, ' ')}</span>
+                                    <span className="text-sm font-bold text-amber-400 shrink-0">{formatCost(op.monthly_usd)}/mo</span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground/90 leading-relaxed whitespace-pre-wrap">{op.description}</p>
+                                  {op.is_mvp_critical && (
+                                    <span className="text-[10px] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded self-start mt-1">MVP Critical</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         </div>
 
