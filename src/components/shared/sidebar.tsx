@@ -31,7 +31,8 @@ export function Sidebar() {
     sidebarOpen, 
     toggleSidebar, 
     createNewProject,
-    setActiveProject
+    setActiveProject,
+    deleteProject
   } = useBlueprintStore();
 
   const [newProjectOpen, setNewProjectOpen] = useState(false);
@@ -111,24 +112,42 @@ export function Sidebar() {
             {projects.map((proj) => {
               const isActive = activeProjectId === proj.id;
               return (
-                <button
-                  key={proj.id}
-                  onClick={() => setActiveProject(proj.id)}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all duration-200 text-sm group cursor-pointer border border-transparent",
-                    isActive
-                      ? "bg-white/[0.06] border-cyan-500/15 text-foreground font-medium"
-                      : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                <div key={proj.id} className="relative group w-full">
+                  <button
+                    onClick={() => setActiveProject(proj.id)}
+                    className={cn(
+                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all duration-200 text-sm group-hover:pr-8 cursor-pointer border border-transparent",
+                      isActive
+                        ? "bg-white/[0.06] border-cyan-500/15 text-foreground font-medium pr-8"
+                        : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                    )}
+                  >
+                    <div className={cn(
+                      "h-5 w-5 rounded-md flex items-center justify-center shrink-0",
+                      isActive ? "bg-cyan-500/15" : "bg-white/[0.04]"
+                    )}>
+                      <Activity className={cn("h-5 w-5", isActive ? "text-cyan-400" : "text-muted-foreground/90")} />
+                    </div>
+                    {sidebarOpen && <span className="truncate flex-1">{proj.name}</span>}
+                  </button>
+                  {sidebarOpen && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm('Are you sure you want to delete this startup idea?')) {
+                          deleteProject(proj.id);
+                        }
+                      }}
+                      className={cn(
+                        "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors",
+                        isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                      )}
+                      title="Delete project"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   )}
-                >
-                  <div className={cn(
-                    "h-5 w-5 rounded-md flex items-center justify-center shrink-0",
-                    isActive ? "bg-cyan-500/15" : "bg-white/[0.04]"
-                  )}>
-                    <Activity className={cn("h-5 w-5", isActive ? "text-cyan-400" : "text-muted-foreground/90")} />
-                  </div>
-                  {sidebarOpen && <span className="truncate flex-1">{proj.name}</span>}
-                </button>
+                </div>
               );
             })}
             {projects.length === 0 && sidebarOpen && (
