@@ -1,112 +1,149 @@
 # Start-up Evolution Engine 🚀
 
-The **Start-up Evolution Engine** is an AI-powered SaaS platform that transforms startup ideas into investor-ready blueprints. It uses a structured 7-stage compilation pipeline to generate business strategies, product architectures, roadmap milestones, org charts, SWOT analyses, and financial projections.
+Start-up Evolution Engine is an AI-assisted platform for turning early-stage startup ideas into structured, investor-ready business blueprints. The product combines a modern Next.js front end with a FastAPI backend, a Gemini-powered generation workflow, and real-time progress streaming so users can watch the blueprint evolve step by step.
 
----
+## What the platform does
 
-## 🛠️ Technology Stack
+Users can:
+- enter a startup idea or concept
+- enhance the concept with AI assistance
+- generate a multi-stage blueprint across DNA, features, roadmap, team, SWOT, and cost modules
+- review the generated outputs in a guided workspace experience
+- persist projects and later continue from saved work
 
-*   **Frontend:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Zustand, TanStack Query, Motion, Recharts.
-*   **Backend:** Python 3.13+, FastAPI, PostgreSQL (asyncpg), Redis (caching and Pub/Sub), SQLAlchemy 2.0, Alembic, Pydantic V2, jose (JWT).
-*   **AI Engine:** Gemini API (GenAI SDK) with strict Pydantic structured output models.
+## Core technology stack
 
----
+- Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS, Zustand, TanStack Query
+- Backend: Python 3.13+, FastAPI, SQLAlchemy, Pydantic v2, Redis, PostgreSQL
+- AI layer: Google Gemini via the GenAI SDK with structured output handling
+- Dev workflow: Docker Compose for local services, concurrent frontend/backend development scripts
 
-## 📁 Repository Structure
+## Repository structure
 
-```
+```text
 .
-├── backend/                  # FastAPI Application
-│   ├── app/                  # Main server and health routes
-│   ├── api/                  # Versioned routers and middlewares
-│   ├── core/                 # Configs, Security, Loggers, Exceptions
-│   ├── database/             # Async session configurations
-│   ├── models/               # SQLAlchemy ORM models
-│   ├── schemas/              # Pydantic serialization models
-│   ├── repositories/         # Generic CRUD repository pattern
-│   ├── services/             # Domain service layer coordinator
-│   ├── cache/                # Redis connection manager
-│   ├── tests/                # PyTest suite and test databases
-│   └── requirements.txt      # Backend dependencies
-├── src/                      # Next.js Application
-│   ├── app/                  # App routes and stylesheets
-│   ├── components/           # UI elements and layout panels
-│   ├── lib/                  # Diagnostic generators and utils
-│   ├── store/                # Zustand global state slices
-│   └── types/                # TypeScript schema structures
-├── package.json              # Workspace script executor
+├── backend/                 # FastAPI application and business logic
+│   ├── ai/                  # AI provider and prompt/context helpers
+│   ├── api/                 # API routers, middleware, and versioned endpoints
+│   ├── app/                 # Application bootstrap and health endpoints
+│   ├── cache/               # Redis integration
+│   ├── core/                # Config, exceptions, security, logging
+│   ├── database/            # Database session and connectivity helpers
+│   ├── models/              # SQLAlchemy models
+│   ├── modules/             # Blueprint generation modules
+│   ├── orchestrator/        # Workflow orchestration logic
+│   ├── schemas/             # Pydantic schemas
+│   ├── services/            # Service layer
+│   └── tests/               # Backend test suite
+├── public/                  # Static assets
+├── src/                     # Next.js app source
+│   ├── app/                 # Routes and pages
+│   ├── components/          # Shared UI and layout components
+│   ├── lib/                 # API client and helpers
+│   ├── store/               # Zustand stores
+│   └── types/               # Shared TypeScript types
+├── docker-compose.yml       # Local PostgreSQL, Redis, backend, and frontend services
+├── package.json             # Frontend scripts and dependencies
+├── backend/requirements.txt # Backend dependencies
 └── README.md
 ```
 
----
+## Prerequisites
 
-## ⚙️ Setup & Installation
+Make sure the following tools are available:
+- Node.js 18+ or newer
+- Python 3.13+
+- Docker and Docker Compose (recommended for local services)
+- PostgreSQL and Redis if you want to run services outside containers
 
-### 1. Prerequisites
-Make sure you have the following installed:
-*   [Node.js](https://nodejs.org/) (v18.0.0 or higher)
-*   [Python](https://www.python.org/) (v3.13.0 or higher)
-*   [PostgreSQL](https://www.postgresql.org/) (running locally or remotely)
-*   [Redis](https://redis.io/) (running locally or remotely)
+## Environment variables
 
-### 2. Environment Variables Configuration
-Create a `.env` file in the `backend/` directory or set the variables in your shell:
+Create a local environment file for the backend or export the variables in your shell.
+
 ```env
-# Server Env
 ENVIRONMENT=development
-SECRET_KEY=generate_a_secure_jwt_random_key_here
-
-# PostgreSQL
+SECRET_KEY=change-this-to-a-long-random-secret
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_DB=startup_evolution
-
-# Redis
 REDIS_HOST=localhost
 REDIS_PORT=6379
-
-# Gemini AI API Key
 GEMINI_API_KEY=your_gemini_api_key_here
+ALLOWED_ORIGINS=http://localhost:3000
 ```
 
-### 3. Install Backend Dependencies
-Navigate to the `backend` directory, create a virtual environment, and install package dependencies:
+## Running locally
+
+### Option 1: Docker Compose (recommended)
+
+Start the full stack with:
+
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+docker compose up --build
 ```
 
-### 4. Install Frontend Dependencies
-Run the package installation command at the workspace root:
+This will expose:
+- frontend: http://localhost:3000
+- backend: http://localhost:8000
+- PostgreSQL: localhost:5432
+- Redis: localhost:6379
+
+### Option 2: Local development without Docker
+
+Install frontend dependencies:
+
 ```bash
 npm install
 ```
 
----
+Set up the backend environment:
 
-## 🚀 Running the Platform
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-To run both the **Next.js Frontend** and **FastAPI Backend** concurrently using a single command, execute the following at the workspace root:
+Start both services from the project root:
 
 ```bash
 npm run dev
 ```
 
-*   **Next.js Workspace UI:** Access at [http://localhost:3000](http://localhost:3000)
-*   **FastAPI Backend Server:** Running at [http://localhost:8000](http://localhost:8000)
-*   **Swagger API Docs:** Accessible at [http://localhost:8000/docs](http://localhost:8000/docs)
+The frontend will run on http://localhost:3000 and the backend API on http://localhost:8000.
 
----
+## API documentation
 
-## 🧪 Testing the Backend
+Once the backend is running, the FastAPI docs are available at:
+- http://localhost:8000/docs
+- http://localhost:8000/redoc
 
-The backend includes a unit testing foundation configured to run database queries inside an isolated in-memory SQLite database. To run unit tests:
+## Testing
+
+Run backend tests with:
 
 ```bash
 cd backend
 pytest -v
 ```
+
+## Useful scripts
+
+From the project root:
+
+```bash
+npm run dev            # start frontend and backend together
+npm run dev:frontend   # start only the Next.js app
+npm run dev:backend    # start only the FastAPI backend
+npm run build          # build the frontend for production
+npm run lint           # lint the frontend code
+```
+
+## Notes
+
+- The app expects a valid Gemini API key for AI generation features.
+- In production, replace the default secret values and restrict CORS origins carefully.
+- The backend is designed to work with PostgreSQL and Redis, but it can also fall back gracefully during local development if those services are unavailable.
