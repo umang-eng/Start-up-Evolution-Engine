@@ -139,6 +139,7 @@ export default function WorkspacePage() {
 
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [inputVal, setInputVal] = useState('');
+  const [startupName, setStartupName] = useState('');
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [streamLog, setStreamLog] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'model' | 'target' | 'usp'>('model');
@@ -301,8 +302,9 @@ export default function WorkspacePage() {
 
     startTransition(async () => {
       try {
-        const p = await createNewProject("Evolved Startup Idea", inputVal);
+        const p = await createNewProject(startupName.trim() || "Evolved Startup Idea", inputVal);
         setInputVal('');
+        setStartupName('');
         handleStartGeneration(p.id, 'dna');
       } catch (err) {
         console.error('Failed to evolve startup idea:', err);
@@ -377,6 +379,12 @@ export default function WorkspacePage() {
                 {/* Prompt Input Box */}
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="relative rounded-xl border border-white/[0.08] bg-card/80 backdrop-blur-xl shadow-lvl-2 focus-within:border-cyan-500/30 focus-within:glow-cyan transition-all duration-300">
+                    <input
+                      value={startupName}
+                      onChange={(e) => setStartupName(e.target.value)}
+                      placeholder="Name of your startup (optional)"
+                      className="w-full h-12 px-5 py-3 bg-transparent text-sm border-b border-white/[0.05] outline-none text-foreground font-semibold placeholder-muted-foreground/40"
+                    />
                     <textarea
                       value={inputVal}
                       onChange={(e) => setInputVal(e.target.value)}

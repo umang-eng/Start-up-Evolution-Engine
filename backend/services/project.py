@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.exceptions import EntityNotFoundError, AuthorizationError
 from backend.models.project import Project
 from backend.repositories.project import project_repository, ProjectRepository
-from backend.schemas.project import ProjectCreate
+from backend.schemas.project import ProjectCreate, ProjectUpdate
 from backend.services.base import BaseService
 
 
@@ -41,6 +41,13 @@ class ProjectService(BaseService[Project, ProjectRepository]):
     ) -> list[Project]:
         """List project workspaces belonging to the active user."""
         return await self.repository.get_multi_by_user(db, user_id=user_id, offset=offset, limit=limit)
+
+    async def update_user_project(
+        self, db: AsyncSession, *, project_id: uuid.UUID, user_id: uuid.UUID, obj_in: ProjectUpdate
+    ) -> Project:
+        """Update a specific project workspace."""
+        project = await self.get_user_project(db, project_id=project_id, user_id=user_id)
+        return await self.repository.update(db, db_obj=project, obj_in=obj_in.model_dump(exclude_unset=True))
 
     async def delete_user_project(
         self, db: AsyncSession, *, project_id: uuid.UUID, user_id: uuid.UUID

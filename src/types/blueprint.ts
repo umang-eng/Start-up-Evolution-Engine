@@ -92,10 +92,11 @@ export interface TeamRole {
 
 export interface OrgStructure {
   recommendedTeamSize: number;
+  orgChart: any[];
   roles: TeamRole[];
-  raciMatrix: Record<string, Record<string, 'R' | 'A' | 'C' | 'I'>>; // Role ID -> Task -> RACI Tag
-  riskAnalysis: string[];
-  recommendations: string[];
+  raciMatrix?: Record<string, Record<string, 'R' | 'A' | 'C' | 'I'>>; // Role ID -> Task -> RACI Tag
+  riskAnalysis?: string[];
+  recommendations?: string[];
 }
 
 export interface SWOTItem {
@@ -107,27 +108,12 @@ export interface SWOTItem {
 }
 
 export interface SWOTAnalysis {
-  healthScore: number;
-  growthPotential: number;
-  items: SWOTItem[];
-  riskMatrix: {
-    threatId: string;
-    probability: 'high' | 'medium' | 'low';
-    impact: 'high' | 'medium' | 'low';
-    mitigation: string;
-  }[];
-  opportunityMatrix: {
-    opportunityId: string;
-    impact: 'high' | 'medium' | 'low';
-    easeOfExecution: 'high' | 'medium' | 'low';
-  }[];
-  recommendations: string[];
-  actionPlan: {
-    immediate: string[];
-    days30: string[];
-    days60: string[];
-    days90: string[];
-  };
+  strengths: string[];
+  weaknesses: string[];
+  opportunities: string[];
+  threats: string[];
+  mitigations: { risk: string; mitigation: string }[];
+  founderActions?: { timeline: string; tasks: string[] }[];
 }
 
 export interface CostItem {
@@ -157,6 +143,14 @@ export interface CostEstimation {
   costItems: CostItem[];
   scenarios: BudgetScenario[];
   recommendations: string[];
+}
+
+export interface CostEstimation {
+  mvp_cost_estimate: number;
+  year_1_cost_estimate: number;
+  funding_requirements: any;
+  budget_scenarios: any[];
+  operational_costs: any;
 }
 
 export interface StartupProject {

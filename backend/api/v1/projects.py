@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.dependencies import get_token_payload
 from backend.database.session import get_db
 from backend.schemas.base import BaseResponse, APIResponseMetadata
-from backend.schemas.project import ProjectCreate, ProjectResponse
+from backend.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
 from backend.services.project import project_service
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
@@ -54,6 +54,23 @@ async def get_project(
     """Fetch metadata for a specific project workspace."""
     user_id = uuid.UUID(claims["sub"])
     project = await project_service.get_user_project(db, project_id=project_id, user_id=user_id)
+    return {
+        "success": True,
+        "data": ProjectResponse.model_validate(project),
+        "metadata": APIResponseMetadata()
+    }
+
+
+@router.patch("/{project_id}", response_model=BaseResponse[ProjectResponse])
+async def update_project(
+    project_id: uuid.UUID,
+    payload: ProjectUpdate,
+    db: AsyncSession = Depends(get_db),
+    claims: dict[str, Any] = Depends(get_token_payload)
+) -> dict[str, Any]:
+    """Update a specific project workspace."""
+    user_id = uuid.UUID(claims["sub"])
+    project = await project_service.update_user_project(db, project_id=project_id, user_id=user_id, obj_in=payload)
     return {
         "success": True,
         "data": ProjectResponse.model_validate(project),

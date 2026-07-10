@@ -393,6 +393,7 @@ export const api = {
     list: () => request('/api/v1/projects'),
     create: (payload: any) => request('/api/v1/projects', { method: 'POST', body: JSON.stringify(payload) }),
     get: (id: string) => request(`/api/v1/projects/${id}`),
+    update: (id: string, payload: any) => request(`/api/v1/projects/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
     delete: (id: string) => request(`/api/v1/projects/${id}`, { method: 'DELETE' }),
   },
   generator: {

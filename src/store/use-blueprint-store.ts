@@ -25,6 +25,7 @@ interface BlueprintState {
   setActiveProject: (id: string) => void;
   loadProjects: () => Promise<void>;
   createNewProject: (name: string, prompt: string) => Promise<StartupProject>;
+  renameProject: (id: string, newName: string) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   updateProjectStatus: (id: string, status: StartupProject['status']) => void;
   updateProjectStage: (id: string, stage: StageName) => void;
@@ -110,6 +111,19 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
     }
   },
 
+  renameProject: async (id, newName) => {
+    try {
+      await api.projects.update(id, { title: newName });
+      set((state) => ({
+        projects: state.projects.map((p) =>
+          p.id === id ? { ...p, name: newName } : p
+        ),
+      }));
+    } catch (err: any) {
+      console.error('Failed to rename project', err);
+    }
+  },
+  
   deleteProject: async (id) => {
     set({ isLoading: true, error: null });
     try {

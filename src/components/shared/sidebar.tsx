@@ -10,7 +10,8 @@ import {
   ChevronLeft, 
   Sparkles,
   Trash2,
-  Circle
+  Circle,
+  Pencil
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,13 +33,18 @@ export function Sidebar() {
     toggleSidebar, 
     createNewProject,
     setActiveProject,
-    deleteProject
+    deleteProject,
+    renameProject
   } = useBlueprintStore();
 
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [projectName, setProjectName] = useState('');
   const [projectPrompt, setProjectPrompt] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null);
+  const [newProjectName, setNewProjectName] = useState('');
 
   const handleNewProject = () => {
     setProjectName('');
@@ -58,6 +64,20 @@ export function Sidebar() {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleRenameSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!renamingProjectId || !newProjectName.trim()) return;
+    await renameProject(renamingProjectId, newProjectName.trim());
+    setRenameDialogOpen(false);
+  };
+
+  const openRenameDialog = (e: React.MouseEvent, proj: any) => {
+    e.stopPropagation();
+    setRenamingProjectId(proj.id);
+    setNewProjectName(proj.name);
+    setRenameDialogOpen(true);
   };
 
   return (
@@ -116,9 +136,9 @@ export function Sidebar() {
                   <button
                     onClick={() => setActiveProject(proj.id)}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all duration-200 text-sm group-hover:pr-8 cursor-pointer border border-transparent",
+                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all duration-200 text-sm group-hover:pr-16 cursor-pointer border border-transparent",
                       isActive
-                        ? "bg-white/[0.06] border-cyan-500/15 text-foreground font-medium pr-8"
+                        ? "bg-white/[0.06] border-cyan-500/15 text-foreground font-medium"
                         : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
                     )}
                   >
@@ -131,21 +151,30 @@ export function Sidebar() {
                     {sidebarOpen && <span className="truncate flex-1">{proj.name}</span>}
                   </button>
                   {sidebarOpen && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (window.confirm('Are you sure you want to delete this startup idea?')) {
-                          deleteProject(proj.id);
-                        }
-                      }}
-                      className={cn(
-                        "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors",
-                        isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                      )}
-                      title="Delete project"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className={cn(
+                      "absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity",
+                      isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                    )}>
+                      <button
+                        onClick={(e) => openRenameDialog(e, proj)}
+                        className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-white/[0.05] rounded-md transition-colors"
+                        title="Rename Project"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm('Are you sure you want to delete this startup idea?')) {
+                            deleteProject(proj.id);
+                          }
+                        }}
+                        className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                        title="Delete project"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -212,6 +241,51 @@ export function Sidebar() {
                 className="text-sm h-8 px-4"
               >
                 {isCreating ? 'Creating Workspace...' : 'Launch Workspace'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Dialog */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent className="sm:max-w-[420px] bg-card/95 backdrop-blur-xl border border-white/[0.08] shadow-lvl-3 rounded-xl p-0 overflow-hidden">
+          <form onSubmit={handleRenameSubmit}>
+            <DialogHeader className="p-6 pb-2">
+              <DialogTitle className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                <Pencil className="h-5 w-5 text-cyan-400" />
+                <span>Rename Workspace</span>
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="px-6 py-3 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">New Name</label>
+                <Input
+                  required
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="Workspace Name"
+                  className="h-9 text-sm bg-white/[0.03] border-white/[0.06]"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="mt-4 border-t border-white/[0.04] p-4 bg-white/[0.02] flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRenameDialogOpen(false)}
+                className="text-sm h-8 px-4 border-white/[0.06]"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={!newProjectName.trim()}
+                className="text-sm h-8 px-4"
+              >
+                Save
               </Button>
             </DialogFooter>
           </form>
