@@ -52,90 +52,73 @@
   --ease-overlay: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* =============================================
+   DARK-FIRST CINEMATIC COMMAND CENTER PALETTE
+   ============================================= */
 :root {
-  /* HSL-Based Light Mode Canvas */
-  --background: hsl(220 20% 98%);
-  --foreground: hsl(0 0% 7%);
-  
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(0 0% 7%);
-  
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(0 0% 7%);
-  
-  --primary: hsl(211 100% 50%);
-  --primary-foreground: hsl(0 0% 100%);
-  
-  --secondary: hsl(0 0% 98%);
-  --secondary-foreground: hsl(0 0% 7%);
-  
-  --muted: hsl(0 0% 98%);
-  --muted-foreground: hsl(0 0% 33%);
-  
-  --accent: hsl(0 0% 98%);
-  --accent-foreground: hsl(211 100% 50%);
-  
-  --destructive: hsl(2 100% 60%);
-  --destructive-foreground: hsl(0 0% 100%);
-  
-  --border: hsl(220 13% 91%);
-  --input: hsl(220 9% 84%);
-  --ring: hsl(211 100% 50%);
+  /* Deep Navy Obsidian Base */
+  --background: hsl(222 47% 6%);
+  --foreground: hsl(210 40% 96%);
 
-  --chart-1: hsl(211 100% 50%);
-  --chart-2: hsl(199 94% 67%);
+  --card: hsl(222 40% 9%);
+  --card-foreground: hsl(210 40% 96%);
+
+  --popover: hsl(222 40% 10%);
+  --popover-foreground: hsl(210 40% 96%);
+
+  /* Primary = Cyan Accent */
+  --primary: hsl(192 91% 54%);
+  --primary-foreground: hsl(222 47% 6%);
+
+  --secondary: hsl(222 30% 14%);
+  --secondary-foreground: hsl(210 30% 80%);
+
+  --muted: hsl(222 30% 12%);
+  --muted-foreground: hsl(215 20% 55%);
+
+  --accent: hsl(222 30% 14%);
+  --accent-foreground: hsl(192 91% 54%);
+
+  --destructive: hsl(0 84% 60%);
+  --destructive-foreground: hsl(0 0% 100%);
+
+  --border: hsl(222 20% 18%);
+  --input: hsl(222 20% 22%);
+  --ring: hsl(192 91% 54%);
+
+  /* Chart Palette — Vibrant Neon Spectrum */
+  --chart-1: hsl(192 91% 54%);
+  --chart-2: hsl(262 83% 68%);
   --chart-3: hsl(142 76% 49%);
-  --chart-4: hsl(35 100% 50%);
-  --chart-5: hsl(2 100% 60%);
+  --chart-4: hsl(38 92% 60%);
+  --chart-5: hsl(350 89% 60%);
 
   --radius: 16px;
 
-  /* Sidebar styling mappings */
-  --sidebar: hsl(0 0% 100% / 0.68);
-  --sidebar-foreground: hsl(0 0% 7%);
-  --sidebar-primary: hsl(211 100% 50%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(0 0% 100% / 0.8);
-  --sidebar-accent-foreground: hsl(211 100% 50%);
-  --sidebar-border: hsl(220 13% 91%);
-  --sidebar-ring: hsl(211 100% 50%);
+  /* Sidebar — Deep Glass Panel */
+  --sidebar: hsl(222 40% 8%);
+  --sidebar-foreground: hsl(210 40% 96%);
+  --sidebar-primary: hsl(192 91% 54%);
+  --sidebar-primary-foreground: hsl(222 47% 6%);
+  --sidebar-accent: hsl(222 30% 14%);
+  --sidebar-accent-foreground: hsl(192 91% 54%);
+  --sidebar-border: hsl(222 20% 16%);
+  --sidebar-ring: hsl(192 91% 54%);
 
-  /* Apple-quality shadow elevations */
-  --shadow-level-1: 0 1px 2px rgba(0, 0, 0, 0.02), 0 2px 4px rgba(0, 0, 0, 0.02);
-  --shadow-level-2: 0 4px 12px rgba(0, 0, 0, 0.03), 0 2px 6px rgba(0, 0, 0, 0.02);
-  --shadow-level-3: 0 12px 24px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.02);
-  --shadow-level-4: 0 24px 48px rgba(0, 0, 0, 0.06), 0 8px 20px rgba(0, 0, 0, 0.03);
-}
+  /* Cinematic Shadow Elevations */
+  --shadow-level-1: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-level-2: 0 4px 14px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow-level-3: 0 12px 28px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-level-4: 0 24px 48px rgba(0, 0, 0, 0.5), 0 8px 20px rgba(0, 0, 0, 0.35);
 
-.dark {
-  /* Fallback dark settings mapped cleanly */
-  --background: hsl(0 0% 7%);
-  --foreground: hsl(0 0% 98%);
-  
-  --card: hsl(0 0% 12%);
-  --card-foreground: hsl(0 0% 98%);
-  
-  --popover: hsl(0 0% 12%);
-  --popover-foreground: hsl(0 0% 98%);
-  
-  --primary: hsl(211 100% 50%);
-  --primary-foreground: hsl(0 0% 100%);
-  
-  --secondary: hsl(0 0% 15%);
-  --secondary-foreground: hsl(0 0% 98%);
-  
-  --muted: hsl(0 0% 15%);
-  --muted-foreground: hsl(0 0% 70%);
-  
-  --accent: hsl(0 0% 15%);
-  --accent-foreground: hsl(211 100% 50%);
-  
-  --destructive: hsl(2 100% 60%);
-  --destructive-foreground: hsl(0 0% 100%);
-  
-  --border: hsl(0 0% 20%);
-  --input: hsl(0 0% 25%);
-  --ring: hsl(211 100% 50%);
+  /* Accent Gradient Tokens */
+  --accent-gradient: linear-gradient(135deg, hsl(192 91% 54%) 0%, hsl(262 83% 68%) 100%);
+  --accent-gradient-subtle: linear-gradient(135deg, hsla(192, 91%, 54%, 0.15) 0%, hsla(262, 83%, 68%, 0.15) 100%);
+  --accent-cyan: hsl(192 91% 54%);
+  --accent-violet: hsl(262 83% 68%);
+  --accent-emerald: hsl(142 76% 49%);
+  --accent-amber: hsl(38 92% 60%);
+  --accent-rose: hsl(350 89% 60%);
 }
 
 @layer base {
@@ -150,266 +133,262 @@
   }
 }
 
-/* Glassmorphic Utility Classes */
+/* =============================================
+   GLASSMORPHIC UTILITY CLASSES
+   ============================================= */
 .liquid-glass {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(20px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .liquid-glass-menu {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(16px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .liquid-glass-overlay {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(32px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(32px) saturate(180%);
 }
 
-/* Shadow utilities mapping standard variables */
-.shadow-lvl-1 {
-  box-shadow: var(--shadow-level-1);
+/* =============================================
+   SHADOW ELEVATION UTILITIES
+   ============================================= */
+.shadow-lvl-1 { box-shadow: var(--shadow-level-1); }
+.shadow-lvl-2 { box-shadow: var(--shadow-level-2); }
+.shadow-lvl-3 { box-shadow: var(--shadow-level-3); }
+.shadow-lvl-4 { box-shadow: var(--shadow-level-4); }
+
+/* =============================================
+   ANIMATED GRADIENT BORDER
+   ============================================= */
+.glow-border {
+  position: relative;
+  overflow: hidden;
+}
+.glow-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: var(--accent-gradient);
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0.5;
+  transition: opacity 0.4s ease;
+}
+.glow-border::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: var(--card);
+  border-radius: inherit;
+  z-index: -1;
+}
+.glow-border:hover::before {
+  opacity: 0.8;
 }
 
-.shadow-lvl-2 {
-  box-shadow: var(--shadow-level-2);
+.glow-border-active::before {
+  animation: glow-pulse 2.5s ease-in-out infinite;
 }
 
-.shadow-lvl-3 {
-  box-shadow: var(--shadow-level-3);
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.9; }
 }
 
-.shadow-lvl-4 {
-  box-shadow: var(--shadow-level-4);
+/* =============================================
+   MESH GRADIENT BACKGROUNDS
+   ============================================= */
+.bg-mesh-dark {
+  background:
+    radial-gradient(ellipse at 10% 20%, hsla(192, 91%, 54%, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, hsla(262, 83%, 68%, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, hsla(222, 47%, 6%, 1) 0%, hsla(222, 47%, 4%, 1) 100%);
 }
 
-/* ==========================================
-   Liquid Glass / Water Theme Buttons
-   ========================================== */
+.bg-mesh-hero {
+  background:
+    radial-gradient(ellipse at 20% 50%, hsla(192, 91%, 54%, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 30%, hsla(262, 83%, 68%, 0.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 50% 90%, hsla(142, 76%, 49%, 0.05) 0%, transparent 50%),
+    hsl(222 47% 6%);
+}
 
-/* Base class for all buttons */
+/* =============================================
+   GLOW HALO EFFECTS
+   ============================================= */
+.glow-cyan { box-shadow: 0 0 20px -4px hsla(192, 91%, 54%, 0.3), 0 0 8px -2px hsla(192, 91%, 54%, 0.15); }
+.glow-violet { box-shadow: 0 0 20px -4px hsla(262, 83%, 68%, 0.3), 0 0 8px -2px hsla(262, 83%, 68%, 0.15); }
+.glow-emerald { box-shadow: 0 0 20px -4px hsla(142, 76%, 49%, 0.3), 0 0 8px -2px hsla(142, 76%, 49%, 0.15); }
+.glow-amber { box-shadow: 0 0 20px -4px hsla(38, 92%, 60%, 0.3), 0 0 8px -2px hsla(38, 92%, 60%, 0.15); }
+.glow-rose { box-shadow: 0 0 20px -4px hsla(350, 89%, 60%, 0.3), 0 0 8px -2px hsla(350, 89%, 60%, 0.15); }
+
+/* =============================================
+   CUSTOM SCROLLBAR (Dark Theme)
+   ============================================= */
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: hsla(215, 20%, 55%, 0.3); border-radius: 9999px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsla(215, 20%, 55%, 0.5); }
+
+/* =============================================
+   ANIMATED GRADIENT TEXT
+   ============================================= */
+.gradient-text {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* =============================================
+   STATUS BADGE UTILITIES
+   ============================================= */
+.badge-completed { background: hsla(142, 76%, 49%, 0.15); color: hsl(142 76% 55%); border: 1px solid hsla(142, 76%, 49%, 0.25); }
+.badge-active { background: hsla(192, 91%, 54%, 0.15); color: hsl(192 91% 60%); border: 1px solid hsla(192, 91%, 54%, 0.25); }
+.badge-locked { background: hsla(215, 20%, 55%, 0.1); color: hsl(215 20% 45%); border: 1px solid hsla(215, 20%, 55%, 0.15); }
+.badge-pending { background: hsla(38, 92%, 60%, 0.12); color: hsl(38 92% 60%); border: 1px solid hsla(38, 92%, 60%, 0.2); }
+
+/* =============================================
+   SCORE RING ANIMATIONS
+   ============================================= */
+@keyframes score-fill {
+  from { stroke-dashoffset: 283; }
+}
+.score-ring { transform: rotate(-90deg); transform-origin: center; }
+.score-ring circle { fill: none; stroke-width: 6; stroke-linecap: round; }
+.score-ring .track { stroke: hsla(222, 30%, 18%, 0.6); }
+.score-ring .fill { stroke: url(#score-gradient); animation: score-fill 1.5s var(--ease-spring) forwards; }
+
+/* =============================================
+   DOCK CARD ANIMATIONS
+   ============================================= */
+.dock-card { transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1); }
+.dock-card:hover { transform: translateY(-4px) scale(1.02); }
+.dock-card:active { transform: translateY(-1px) scale(0.99); }
+
+/* =============================================
+   LIQUID GLASS BUTTONS (DARK THEME)
+   ============================================= */
 .glass-btn {
   position: relative;
   overflow: hidden;
   backdrop-filter: blur(14px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.4) !important;
-  box-shadow: 
-    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.5),
-    inset 0 -1.5px 2px rgba(0, 0, 0, 0.1),
-    inset 0 8px 12px rgba(255, 255, 255, 0.12),
-    0 4px 12px rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow:
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.08),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.2) !important;
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  text-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.1);
   font-weight: 550 !important;
 }
 
-/* Elegant, premium water-ripple / fluid pattern background */
 .glass-btn::before {
   content: '';
   position: absolute;
   inset: 0;
-  opacity: 0.12;
-  background-image: 
-    radial-gradient(circle at 50% 120%, rgba(255, 255, 255, 0.25), transparent 70%),
-    radial-gradient(circle at 15% 25%, rgba(255, 255, 255, 0.25) 1.5px, transparent 1.5px),
-    radial-gradient(circle at 85% 35%, rgba(255, 255, 255, 0.25) 1.5px, transparent 1.5px),
-    radial-gradient(circle at 35% 75%, rgba(255, 255, 255, 0.25) 1.5px, transparent 1.5px),
-    radial-gradient(circle at 70% 80%, rgba(255, 255, 255, 0.25) 1.5px, transparent 1.5px),
-    repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(255, 255, 255, 0.06) 8px, rgba(255, 255, 255, 0.06) 9px),
-    repeating-linear-gradient(-45deg, transparent, transparent 8px, rgba(255, 255, 255, 0.06) 8px, rgba(255, 255, 255, 0.06) 9px);
-  background-size: 100% 100%, 24px 24px, 32px 32px, 28px 28px, 36px 36px, 16px 16px, 16px 16px;
+  opacity: 0.08;
+  background-image:
+    radial-gradient(circle at 50% 120%, rgba(255, 255, 255, 0.15), transparent 70%),
+    radial-gradient(circle at 15% 25%, rgba(255, 255, 255, 0.15) 1.5px, transparent 1.5px),
+    radial-gradient(circle at 85% 35%, rgba(255, 255, 255, 0.15) 1.5px, transparent 1.5px);
   pointer-events: none;
-  transition: opacity 0.3s ease, transform 0.5s ease;
+  transition: opacity 0.3s ease;
   z-index: 0;
 }
 
-/* Water/Liquid Gloss 3D Dome Highlight */
 .glass-btn::after {
   content: '';
   position: absolute;
   inset: 1px;
-  background: 
-    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.1) 45%, transparent 80%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, transparent 100%);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.15) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 100%);
   pointer-events: none;
   border-radius: inherit;
   z-index: 1;
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Ensure contents (text, icons) render above pseudo-elements */
-.glass-btn > * {
-  position: relative;
-  z-index: 2;
-}
+.glass-btn > * { position: relative; z-index: 2; }
 
-/* Hover and Active State Animations */
 .glass-btn:hover {
   transform: translateY(-1.5px) scale(1.015);
-  border-color: rgba(255, 255, 255, 0.55) !important;
-  box-shadow: 
-    inset 0 2px 1px rgba(255, 255, 255, 0.65),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.12),
-    inset 0 8px 16px rgba(255, 255, 255, 0.2),
-    0 8px 20px rgba(0, 0, 0, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  box-shadow:
+    inset 0 2px 1px rgba(255, 255, 255, 0.12),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.3),
+    0 8px 20px rgba(0, 0, 0, 0.25) !important;
 }
-
-.glass-btn:hover::before {
-  opacity: 0.18;
-  transform: scale(1.05);
-}
-
+.glass-btn:hover::before { opacity: 0.12; }
 .glass-btn:hover::after {
-  opacity: 1;
-  background: 
-    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.15) 45%, transparent 80%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, transparent 100%);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.22) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
 }
 
 .glass-btn:active {
   transform: translateY(0.5px) scale(0.99);
-  box-shadow: 
-    inset 0 1px 1px rgba(255, 255, 255, 0.3),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.15),
-    0 2px 6px rgba(0, 0, 0, 0.02) !important;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.05),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.4),
+    0 2px 6px rgba(0, 0, 0, 0.15) !important;
 }
 
-/* VARIANT OVERRIDES */
-
-/* 1. Default (Vibrant Liquid Blue Primary) */
+/* Primary — Cyan Gradient Glass */
 .glass-btn:not(.hover\:bg-muted):not(.bg-secondary):not(.bg-destructive\/10):not(.hover\:bg-primary\/80) {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.85) 0%, rgba(2, 132, 199, 0.95) 100%) !important;
+  background: linear-gradient(135deg, hsla(192, 91%, 54%, 0.85) 0%, hsla(210, 90%, 50%, 0.92) 100%) !important;
   color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.45) !important;
-  box-shadow: 
-    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.55),
-    inset 0 -1.5px 2px rgba(0, 0, 0, 0.15),
-    inset 0 8px 12px rgba(255, 255, 255, 0.2),
-    0 6px 16px -4px rgba(2, 132, 199, 0.4) !important;
+  border-color: rgba(6, 182, 212, 0.4) !important;
+  box-shadow:
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.15),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.25),
+    0 6px 18px -4px rgba(6, 182, 212, 0.35) !important;
 }
 .glass-btn:not(.hover\:bg-muted):not(.bg-secondary):not(.bg-destructive\/10):not(.hover\:bg-primary\/80):hover {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.92) 0%, rgba(2, 132, 199, 0.98) 100%) !important;
-  box-shadow: 
-    inset 0 2px 1px rgba(255, 255, 255, 0.65),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.18),
-    inset 0 8px 16px rgba(255, 255, 255, 0.25),
-    0 10px 24px -5px rgba(2, 132, 199, 0.55) !important;
+  background: linear-gradient(135deg, hsla(192, 91%, 54%, 0.95) 0%, hsla(210, 90%, 50%, 0.98) 100%) !important;
+  box-shadow:
+    inset 0 2px 1px rgba(255, 255, 255, 0.2),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.3),
+    0 10px 28px -5px rgba(6, 182, 212, 0.5) !important;
 }
 
-/* Dark Mode Primary Override */
-.dark .glass-btn:not(.hover\:bg-muted):not(.bg-secondary):not(.bg-destructive\/10):not(.hover\:bg-primary\/80) {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.82) 0%, rgba(14, 165, 233, 0.92) 100%) !important;
-  border-color: rgba(255, 255, 255, 0.55) !important;
-  box-shadow: 
-    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.65),
-    inset 0 -1.5px 2px rgba(0, 0, 0, 0.2),
-    inset 0 8px 12px rgba(255, 255, 255, 0.25),
-    0 8px 20px -4px rgba(14, 165, 233, 0.5) !important;
-}
-.dark .glass-btn:not(.hover\:bg-muted):not(.bg-secondary):not(.bg-destructive\/10):not(.hover\:bg-primary\/80):hover {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.92) 0%, rgba(14, 165, 233, 0.98) 100%) !important;
-  box-shadow: 
-    inset 0 2px 1px rgba(255, 255, 255, 0.75),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.25),
-    inset 0 8px 16px rgba(255, 255, 255, 0.35),
-    0 12px 28px -5px rgba(14, 165, 233, 0.65) !important;
-}
-
-/* 2. Secondary (Muted light ice / obsidian glass) */
+/* Secondary — Obsidian Glass */
 .glass-btn.bg-secondary {
-  background: rgba(255, 255, 255, 0.45) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
   color: var(--color-foreground) !important;
-  border-color: rgba(255, 255, 255, 0.6) !important;
-  box-shadow: 
-    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.6),
-    inset 0 -1.5px 2px rgba(0, 0, 0, 0.06),
-    0 4px 12px rgba(0, 0, 0, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
 }
 .glass-btn.bg-secondary:hover {
-  background: rgba(255, 255, 255, 0.65) !important;
-  box-shadow: 
-    inset 0 2px 1px rgba(255, 255, 255, 0.7),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.06),
-    0 8px 20px rgba(0, 0, 0, 0.05) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
 }
 
-.dark .glass-btn.bg-secondary {
-  background: rgba(255, 255, 255, 0.06) !important;
-  border-color: rgba(255, 255, 255, 0.18) !important;
-  color: var(--color-foreground) !important;
-  box-shadow: 
-    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.15),
-    inset 0 -1.5px 2px rgba(0, 0, 0, 0.35),
-    0 4px 12px rgba(0, 0, 0, 0.15) !important;
-}
-.dark .glass-btn.bg-secondary:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
-  border-color: rgba(255, 255, 255, 0.28) !important;
-  box-shadow: 
-    inset 0 2px 1px rgba(255, 255, 255, 0.25),
-    inset 0 -1.5px 2px rgba(0, 0, 0, 0.35),
-    0 8px 20px rgba(0, 0, 0, 0.2) !important;
-}
-
-/* 3. Outline (Semi-transparent background border) */
+/* Outline */
 .glass-btn.border-border {
-  background: rgba(255, 255, 255, 0.25) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
   color: var(--color-foreground) !important;
-  border-color: rgba(255, 255, 255, 0.5) !important;
-  box-shadow: 
-    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.4),
-    inset 0 -1.5px 2px rgba(0, 0, 0, 0.03),
-    0 4px 12px rgba(0, 0, 0, 0.02) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
 }
 .glass-btn.border-border:hover {
-  background: rgba(255, 255, 255, 0.45) !important;
-  border-color: rgba(255, 255, 255, 0.6) !important;
-  box-shadow: 
-    inset 0 2px 1px rgba(255, 255, 255, 0.5),
-    inset 0 -2px 3px rgba(0, 0, 0, 0.03),
-    0 8px 20px rgba(0, 0, 0, 0.04) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
 }
 
-.dark .glass-btn.border-border {
-  background: rgba(255, 255, 255, 0.03) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  color: var(--color-foreground) !important;
-}
-.dark .glass-btn.border-border:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border-color: rgba(255, 255, 255, 0.22) !important;
-}
-
-/* 4. Destructive (Ruby Liquid Glass) */
+/* Destructive — Ruby Glass */
 .glass-btn.bg-destructive\/10 {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(220, 38, 38, 0.35) 100%) !important;
-  color: hsl(2 100% 60%) !important;
-  border-color: rgba(239, 68, 68, 0.35) !important;
-  box-shadow: 
-    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.25),
-    inset 0 -1.5px 2px rgba(0, 0, 0, 0.12),
-    0 4px 12px rgba(239, 68, 68, 0.1) !important;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18) 0%, rgba(220, 38, 38, 0.28) 100%) !important;
+  color: hsl(0 84% 65%) !important;
+  border-color: rgba(239, 68, 68, 0.25) !important;
 }
 .glass-btn.bg-destructive\/10:hover {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.35) 0%, rgba(220, 38, 38, 0.45) 100%) !important;
-  box-shadow: 
-    inset 0 2px 1px rgba(255, 255, 255, 0.35),
-    inset 0 -1.5px 2px rgba(0, 0, 0, 0.15),
-    0 8px 20px rgba(239, 68, 68, 0.2) !important;
-}
-
-.dark .glass-btn.bg-destructive\/10 {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18) 0%, rgba(220, 38, 38, 0.28) 100%) !important;
-  border-color: rgba(239, 68, 68, 0.28) !important;
-}
-.dark .glass-btn.bg-destructive\/10:hover {
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.28) 0%, rgba(220, 38, 38, 0.38) 100%) !important;
 }
 
-/* 5. Ghost / Link variants (Disable patterns & gradients for text links) */
+/* Ghost — Transparent */
 .glass-btn.hover\:bg-muted:not(.border-border) {
   backdrop-filter: none !important;
   border-color: transparent !important;
@@ -417,17 +396,14 @@
   box-shadow: none !important;
 }
 .glass-btn.hover\:bg-muted:not(.border-border):hover {
-  background: rgba(0, 0, 0, 0.05) !important;
-}
-.dark .glass-btn.hover\:bg-muted:not(.border-border):hover {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
 }
 .glass-btn.hover\:bg-muted:not(.border-border)::before,
 .glass-btn.hover\:bg-muted:not(.border-border)::after {
   display: none !important;
 }
 
-/* Disable for Link variants */
+/* Link variants */
 .glass-btn.text-primary.underline-offset-4 {
   background: transparent !important;
   border-color: transparent !important;
@@ -436,4 +412,44 @@
 .glass-btn.text-primary.underline-offset-4::before,
 .glass-btn.text-primary.underline-offset-4::after {
   display: none !important;
+}
+
+/* =============================================
+   PIPELINE TRACK CONNECTOR
+   ============================================= */
+.pipeline-connector {
+  height: 2px;
+  background: linear-gradient(90deg, hsla(222, 20%, 18%, 0.8) 0%, hsla(222, 20%, 18%, 0.4) 100%);
+}
+.pipeline-connector.completed {
+  background: var(--accent-gradient);
+  box-shadow: 0 0 8px hsla(192, 91%, 54%, 0.3);
+}
+
+/* =============================================
+   FLOATING ORB ANIMATION (Hero)
+   ============================================= */
+@keyframes float-orb {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-12px) scale(1.03); }
+}
+.float-orb { animation: float-orb 4s ease-in-out infinite; }
+
+@keyframes float-orb-delayed {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-8px) scale(1.02); }
+}
+.float-orb-delayed { animation: float-orb-delayed 5s ease-in-out 1s infinite; }
+
+/* =============================================
+   SKELETON PULSE (Dark Theme)
+   ============================================= */
+@keyframes dark-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.15; }
+}
+.skeleton-dark {
+  background: hsla(222, 30%, 18%, 0.6);
+  animation: dark-pulse 2s ease-in-out infinite;
+  border-radius: 8px;
 }

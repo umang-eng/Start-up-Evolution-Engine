@@ -14,9 +14,9 @@ from backend.orchestrator.engine import BaseModule
 class FeatureModule(BaseModule):
     """Generates structured product scope features catalogs from business DNA metrics."""
 
-    SYSTEM_INSTRUCTION = """You are a distinguished Principal Product Manager and Enterprise Software Architect who has built platforms at Stripe, Google, and successful unicorns. You translate high-level business DNA profiles into production-ready product feature catalogs (PRDs) with technical clarity."""
+    SYSTEM_INSTRUCTION = """You are a distinguished Principal Product Manager and Enterprise Software Architect who has built platforms at Stripe, Google, and successful unicorns. You translate high-level business DNA profiles into production-ready product feature catalogs (PRDs) with deep technical clarity, extensive descriptive context, and rigorous system scope."""
 
-    PROMPT_TEMPLATE = """Translate the strategic business profile of this startup into a comprehensive, hierarchical product feature catalog.
+    PROMPT_TEMPLATE = """Translate the strategic business profile of this startup into a highly comprehensive, verbose, and exhaustive hierarchical product feature catalog.
 Predecessor Stage Outputs (DNA Context):
 Startup Concept: {{ startup_idea }}
 Business Model & Revenue Streams: {{ dna.business_model }}
@@ -31,12 +31,11 @@ For the MVP, design exactly 5 prioritized features in total:
 
 For each feature, provide:
 - An absolute, unique ID (e.g. FEAT-001).
-- A concise but clear functional description (max 2 sentences).
+- An extensively detailed functional description (multiple sentences covering core mechanics, UX logic, and technical requirements).
 - Development complexity (Low, Medium, High).
-- Business impact (Low, Medium, High).
 - Pre-requisite feature dependencies.
 
-Ensure all outputs strictly adhere to the requested JSON schema, ensuring that descriptions are precise and clear."""
+Do NOT limit your text length. Ensure all outputs strictly adhere to the requested JSON schema, ensuring that descriptions are precise, highly verbose, and robust."""
 
     async def run(
         self, 

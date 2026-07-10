@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 class CostCategoryItem(BaseModel):
     """Pydantic model representing a single cost line item."""
     category: str = Field(description="Scope: SALARIES, INFRASTRUCTURE, LEGAL_REGISTRATION, MARKETING, SAAS_TOOLS")
-    description: str = Field(max_length=300)
+    description: str = Field(max_length=2000)
     monthly_usd: float = Field(ge=0.0, description="Monthly cost value")
     is_mvp_critical: bool = Field(description="Identifies if the cost is essential for the MVP launch")
 
@@ -15,7 +15,7 @@ class BudgetScenario(BaseModel):
     name: Literal["LEAN", "BALANCED", "AGGRESSIVE"] = Field(description="Scenario target type")
     monthly_burn_usd: float = Field(ge=0.0)
     runway_months: int = Field(ge=1)
-    description: str = Field(max_length=300)
+    description: str = Field(max_length=2000)
 
 
 class FundingRequirement(BaseModel):
@@ -23,7 +23,7 @@ class FundingRequirement(BaseModel):
     minimum_target_usd: float = Field(ge=0.0)
     optimal_target_usd: float = Field(ge=0.0)
     runway_months: int = Field(ge=1)
-    funding_suitability: str = Field(max_length=500, description="Funding eligibility analysis details")
+    funding_suitability: str = Field(max_length=2000, description="Funding eligibility analysis details")
 
 
 class CostOutput(BaseModel):

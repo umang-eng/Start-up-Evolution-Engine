@@ -4,10 +4,10 @@ from pydantic import BaseModel, Field
 
 class ExecutiveSummary(BaseModel):
     """Pydantic model representing synthesized narrative summaries."""
-    business_summary: str = Field(max_length=1500)
-    strategic_summary: str = Field(max_length=1500)
-    execution_summary: str = Field(max_length=1500)
-    financial_summary: str = Field(max_length=1500)
+    business_summary: str = Field(max_length=5000)
+    strategic_summary: str = Field(max_length=5000)
+    execution_summary: str = Field(max_length=5000)
+    financial_summary: str = Field(max_length=5000)
     founder_directives: list[str] = Field(description="Actionable directions list")
 
 

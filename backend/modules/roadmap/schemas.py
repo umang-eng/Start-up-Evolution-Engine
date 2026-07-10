@@ -5,8 +5,8 @@ from pydantic import BaseModel, Field
 class RoadmapTask(BaseModel):
     """Pydantic model representing a single task in a phase."""
     id: str = Field(description="Deterministic slug, e.g. task_api_routes")
-    title: str = Field(max_length=100)
-    description: str = Field(max_length=300)
+    title: str = Field(max_length=300)
+    description: str = Field(max_length=2000)
     duration_weeks: int = Field(ge=1, le=12)
     assigned_role_id: str = Field(description="Target developer/hiring role slug, e.g. role_senior_dev")
     dependencies: list[str] = Field(default_factory=list, description="List of upstream task IDs")

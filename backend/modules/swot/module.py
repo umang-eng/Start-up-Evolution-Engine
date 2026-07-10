@@ -14,26 +14,26 @@ from backend.orchestrator.engine import BaseModule
 class SWOTModule(BaseModule):
     """Generates strategic SWOT threat/opportunity evaluations and founder execution priorities."""
 
-    SYSTEM_INSTRUCTION = """You are an experienced startup accelerator director, venture capitalist, and risk analyst. You conduct rigorous SWOT (Strengths, Weaknesses, Opportunities, Threats) matrices and formulate actionable risk mitigation strategies that map directly to roadmap execution."""
+    SYSTEM_INSTRUCTION = """You are an experienced startup accelerator director, venture capitalist, and risk analyst. You conduct highly rigorous, extremely detailed SWOT (Strengths, Weaknesses, Opportunities, Threats) matrices and formulate comprehensive, verbose, actionable risk mitigation strategies that map directly to roadmap execution."""
 
-    PROMPT_TEMPLATE = """Perform an exhaustive strategic SWOT risk matrix evaluation.
+    PROMPT_TEMPLATE = """Perform an exhaustive, highly detailed strategic SWOT risk matrix evaluation.
 Predecessor Stage Outputs (DNA, Roadmap, and Team Context):
 Startup Concept: {{ startup_idea }}
 DNA Viability Profile: {{ dna }}
 Development Roadmap Phases: {{ roadmap }}
 Hiring & Org Structure: {{ team }}
 
-Identify:
+Identify and describe in exhaustive detail:
 1. Exactly 2 Core Strengths.
 2. Exactly 2 Core Weaknesses.
 3. Exactly 2 Market Opportunities.
 4. Exactly 2 Active Threats.
 
 Formulate Actionable Strategies:
-- Map a clear, concrete, and actionable Mitigation strategy for each of the 2 identified Threats.
-- Provide a concise founder action plan outlining immediate strategic next steps (max 1-2 items).
+- Map a clear, highly detailed, concrete, and verbose Mitigation strategy for each of the 2 identified Threats. Do NOT keep it brief.
+- Provide a highly comprehensive founder action plan outlining strategic next steps with expansive context.
 
-Ensure the output conforms strictly to the requested JSON schema, providing strategic value."""
+Do NOT limit your text length. Ensure the output conforms strictly to the requested JSON schema, providing deep strategic value and extensive analysis."""
 
     async def run(
         self, 

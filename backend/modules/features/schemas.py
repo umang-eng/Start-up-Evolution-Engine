@@ -9,7 +9,7 @@ class FeatureItem(BaseModel):
     category: Literal["CORE", "ADVANCED", "FUTURE", "COMPETITIVE", "GROWTH"] = Field(
         description="Feature category classification"
     )
-    description: str = Field(max_length=500)
+    description: str = Field(max_length=2000)
     priority: Literal["MUST_HAVE", "SHOULD_HAVE", "COULD_HAVE", "WONT_HAVE"] = Field(
         description="MoSCoW priority score"
     )
@@ -25,7 +25,7 @@ class FeatureItem(BaseModel):
 class FeatureExtractorOutput(BaseModel):
     """Structured output schema returned by the Feature Extraction Module."""
     features: list[FeatureItem]
-    mvp_scope_rationale: str = Field(max_length=1000)
+    mvp_scope_rationale: str = Field(max_length=3000)
     core_stack: list[str] = Field(description="Recommended technology choices")
     blockers: list[str] = Field(description="Identified technical risk factors or integration blockers")
 

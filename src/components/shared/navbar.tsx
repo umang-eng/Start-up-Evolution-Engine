@@ -114,7 +114,6 @@ export function Navbar() {
     }> = [];
 
     projects.forEach((proj) => {
-      // 1. Search Project Title / history
       if (proj.name.toLowerCase().includes(q)) {
         results.push({
           id: `${proj.id}-project`,
@@ -137,7 +136,6 @@ export function Navbar() {
         });
       }
 
-      // 2. Search Topics in DNA
       if (proj.dna) {
         if (
           proj.dna.category.toLowerCase().includes(q) ||
@@ -156,7 +154,6 @@ export function Navbar() {
         }
       }
 
-      // 3. Search Topics in Features
       if (proj.features?.features) {
         proj.features.features.forEach((f) => {
           if (f.name.toLowerCase().includes(q) || f.description.toLowerCase().includes(q)) {
@@ -173,7 +170,6 @@ export function Navbar() {
         });
       }
 
-      // 4. Search Topics in Roadmap/Tasks
       if (proj.roadmap?.phases) {
         proj.roadmap.phases.forEach((phase) => {
           phase.tasks.forEach((t) => {
@@ -192,7 +188,6 @@ export function Navbar() {
         });
       }
 
-      // 5. Search Topics in Team structure
       if (proj.team?.roles) {
         proj.team.roles.forEach((r) => {
           if (r.name.toLowerCase().includes(q) || r.department.toLowerCase().includes(q)) {
@@ -209,7 +204,6 @@ export function Navbar() {
         });
       }
 
-      // 6. Search Topics in Costs
       if (proj.cost?.costItems) {
         proj.cost.costItems.forEach((c, idx) => {
           if (c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q)) {
@@ -261,36 +255,36 @@ export function Navbar() {
 
   return (
     <>
-      <header className="h-14 w-full flex items-center justify-between px-6 bg-card/75 backdrop-blur-md border-b border-border shadow-lvl-1 z-20">
+      <header className="h-14 w-full flex items-center justify-between px-5 bg-card/40 backdrop-blur-xl border-b border-white/[0.04] z-20">
         {/* Left Workspace Switcher */}
         <div className="flex items-center gap-3">
-          <div className="h-7 w-7 rounded-md bg-accent-blue flex items-center justify-center text-white text-[11px] font-bold shadow-lvl-1">
+          <div className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-base font-bold" style={{ background: 'linear-gradient(135deg, hsl(192 91% 54%), hsl(262 83% 68%))' }}>
             SE
           </div>
-          <div className="flex items-center gap-1.5 cursor-pointer hover:bg-black/5 px-2 py-1 rounded-md transition-all">
-            <span className="text-xs font-semibold text-primary">
+          <div className="flex items-center gap-1.5 cursor-pointer hover:bg-white/[0.04] px-2 py-1 rounded-md transition-all">
+            <span className="text-base font-semibold text-foreground">
               {activeProject ? activeProject.name : 'Personal Workspace'}
             </span>
-            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            <ChevronDown className="h-6 w-6 text-muted-foreground" />
           </div>
         </div>
 
-        {/* Center Action Pipeline Search */}
+        {/* Center Search */}
         <div className="flex-1 max-w-md mx-6 hidden md:block">
           <div 
             onClick={() => setSearchOpen(true)}
-            className="relative flex items-center w-full h-8 px-3 rounded-md border border-border/80 bg-surface-secondary text-muted-foreground hover:border-standard cursor-pointer transition-all"
+            className="relative flex items-center w-full h-8 px-3 rounded-lg border border-white/[0.06] bg-white/[0.02] text-muted-foreground hover:border-white/[0.1] cursor-pointer transition-all"
           >
             <Search className="h-3.5 w-3.5 mr-2" />
-            <span className="text-xs flex-1 text-left">Search blueprint features, costs...</span>
-            <kbd className="h-5 px-1.5 rounded bg-black/5 border border-border text-[9px] font-sans flex items-center">
+            <span className="text-base flex-1 text-left">Search blueprint features, costs...</span>
+            <kbd className="h-5 px-1.5 rounded bg-white/[0.04] border border-white/[0.06] text-base font-mono flex items-center text-muted-foreground/90">
               ⌘K
             </kbd>
           </div>
         </div>
 
         {/* Right Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {activeProject && (
             <>
               <Button
@@ -298,14 +292,14 @@ export function Navbar() {
                 size="sm"
                 onClick={handleShare}
                 disabled={shareStatus === 'loading'}
-                className="h-8 text-xs gap-1.5 hover:bg-black/5 text-muted-foreground"
+                className="h-8 text-base gap-1.5 text-muted-foreground hover:text-foreground"
               >
                 {shareStatus === 'loading' ? (
-                  <span className="h-3.5 w-3.5 rounded-full border border-accent-blue border-t-transparent animate-spin" />
+                  <span className="h-3.5 w-3.5 rounded-full border border-cyan-400 border-t-transparent animate-spin" />
                 ) : shareStatus === 'success' ? (
-                  <Check className="h-3.5 w-3.5 text-green-500 animate-pulse" />
+                  <Check className="h-3.5 w-3.5 text-emerald-400 animate-pulse" />
                 ) : (
-                  <Share2 className="h-3.5 w-3.5 text-accent-blue" />
+                  <Share2 className="h-3.5 w-3.5 text-cyan-400" />
                 )}
                 <span className="hidden sm:inline">
                   {shareStatus === 'success' ? 'Copied!' : shareStatus === 'error' ? 'Failed' : 'Share'}
@@ -316,7 +310,7 @@ export function Navbar() {
                 size="sm"
                 onClick={handleExport}
                 disabled={exportStatus === 'loading'}
-                className="h-8 text-xs gap-1.5 hover:bg-black/5 text-muted-foreground"
+                className="h-8 text-base gap-1.5 text-muted-foreground hover:text-foreground"
               >
                 {exportStatus === 'loading' ? (
                   <span className="h-3.5 w-3.5 rounded-full border border-muted-foreground border-t-transparent animate-spin" />
@@ -336,20 +330,20 @@ export function Navbar() {
               variant="ghost"
               size="icon"
               onClick={() => setNotificationsOpen(!notificationsOpen)}
-              className="h-8 w-8 hover:bg-black/5 text-muted-foreground relative"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground relative"
             >
-              <Bell className="h-4 w-4" />
+              <Bell className="h-6 w-6" />
               {notifications.length > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-accent-blue animate-pulse" />
+                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
               )}
             </Button>
 
             {notificationsOpen && (
-              <div className="absolute right-0 mt-2 w-80 bg-card border border-border rounded-lg shadow-lvl-3 py-2 z-30 animate-in fade-in slide-in-from-top-2 duration-150">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase px-4 pb-2 border-b border-border/60 block tracking-wider">
+              <div className="absolute right-0 mt-2 w-80 bg-card/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-lvl-3 py-2 z-30 animate-in fade-in slide-in-from-top-2 duration-150">
+                <span className="text-base font-bold text-muted-foreground/90 uppercase px-4 pb-2 border-b border-white/[0.04] block tracking-widest">
                   Activity Logs
                 </span>
-                <div className="max-h-60 overflow-y-auto mt-2">
+                <div className="max-h-60 overflow-y-auto mt-2 scrollbar-thin">
                   {notifications.map(n => (
                     <div 
                       key={n.id}
@@ -357,14 +351,14 @@ export function Navbar() {
                         setActiveStage(n.stage);
                         setNotificationsOpen(false);
                       }}
-                      className="px-4 py-2 hover:bg-black/5 cursor-pointer transition-colors border-b border-border/40 last:border-0"
+                      className="px-4 py-2.5 hover:bg-white/[0.04] cursor-pointer transition-colors border-b border-white/[0.03] last:border-0"
                     >
-                      <span className="text-xs text-primary block font-medium">{n.text}</span>
-                      <span className="text-[10px] text-muted-foreground block mt-0.5">{n.time}</span>
+                      <span className="text-base text-foreground block font-medium">{n.text}</span>
+                      <span className="text-base text-muted-foreground/90 block mt-0.5">{n.time}</span>
                     </div>
                   ))}
                   {notifications.length === 0 && (
-                    <span className="text-xs text-muted-foreground/60 italic text-center block py-8">
+                    <span className="text-base text-muted-foreground/80 italic text-center block py-8">
                       No startup components evolved yet.
                     </span>
                   )}
@@ -377,7 +371,7 @@ export function Navbar() {
           <div className="relative" ref={profileRef}>
             <div 
               onClick={() => setProfileOpen(!profileOpen)}
-              className="h-8 w-8 rounded-full border border-border overflow-hidden cursor-pointer hover:border-standard hover:scale-105 active:scale-95 transition-all"
+              className="h-8 w-8 rounded-full border border-white/[0.08] overflow-hidden cursor-pointer hover:border-cyan-500/30 hover:scale-105 active:scale-95 transition-all"
             >
               <img
                 src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
@@ -387,10 +381,10 @@ export function Navbar() {
             </div>
 
             {profileOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-lvl-3 py-2 z-30 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="px-4 py-2 border-b border-border/60">
-                  <span className="text-xs font-semibold text-primary block truncate">{settings.founderName}</span>
-                  <span className="text-[10px] text-muted-foreground block truncate">{settings.founderTitle}</span>
+              <div className="absolute right-0 mt-2 w-56 bg-card/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-lvl-3 py-2 z-30 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="px-4 py-2.5 border-b border-white/[0.04]">
+                  <span className="text-base font-semibold text-foreground block truncate">{settings.founderName}</span>
+                  <span className="text-base text-muted-foreground/90 block truncate">{settings.founderTitle}</span>
                 </div>
                 <div className="py-1">
                   <button
@@ -398,7 +392,7 @@ export function Navbar() {
                       setProfileOpen(false);
                       setSettingsOpen(true);
                     }}
-                    className="w-full text-left px-4 py-2 text-xs text-muted-foreground hover:bg-black/5 flex items-center gap-2 transition-colors border-0 cursor-pointer"
+                    className="w-full text-left px-4 py-2 text-base text-muted-foreground hover:bg-white/[0.04] hover:text-foreground flex items-center gap-2 transition-colors border-0 cursor-pointer"
                   >
                     <Settings className="h-3.5 w-3.5" />
                     <span>Settings</span>
@@ -408,7 +402,7 @@ export function Navbar() {
                       logout();
                       setProfileOpen(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors border-0 cursor-pointer"
+                    className="w-full text-left px-4 py-2 text-base text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition-colors border-0 cursor-pointer"
                   >
                     <LogOut className="h-3.5 w-3.5" />
                     <span>Log Out</span>
@@ -420,28 +414,28 @@ export function Navbar() {
         </div>
       </header>
 
-      {/* Command Palette Search Overlay Dialog */}
+      {/* Command Palette Search Overlay */}
       {searchOpen && (
         <div 
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-start justify-center pt-24 px-4 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center pt-24 px-4 animate-in fade-in duration-200"
           onClick={() => setSearchOpen(false)}
         >
           <div 
-            className="w-full max-w-lg bg-card border border-border rounded-xl shadow-lvl-3 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-lg bg-card/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-lvl-3 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
             onClick={e => e.stopPropagation()}
           >
             {/* Search Input */}
-            <div className="flex items-center px-4 border-b border-border/60">
-              <Search className="h-4 w-4 text-muted-foreground mr-3" />
+            <div className="flex items-center px-4 border-b border-white/[0.04]">
+              <Search className="h-6 w-6 text-muted-foreground mr-3" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search projects by title, prompt, or internal topic keywords..."
                 autoFocus
-                className="w-full h-12 bg-transparent text-sm outline-none text-primary placeholder-muted-foreground/60 border-0"
+                className="w-full h-12 bg-transparent text-base outline-none text-foreground placeholder-muted-foreground/40 border-0"
               />
-              <span className="text-[10px] text-muted-foreground/50 border border-border/60 px-1.5 py-0.5 rounded bg-black/5 select-none">
+              <span className="text-base text-muted-foreground/80 border border-white/[0.06] px-1.5 py-0.5 rounded bg-white/[0.03] select-none">
                 ESC
               </span>
             </div>
@@ -457,9 +451,9 @@ export function Navbar() {
                     setSearchOpen(false);
                     setSearchQuery('');
                   }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-black/5 cursor-pointer transition-colors"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/[0.04] cursor-pointer transition-colors"
                 >
-                  <div className="h-7 w-7 rounded bg-accent-blue/10 flex items-center justify-center text-accent-blue shrink-0">
+                  <div className="h-7 w-7 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 shrink-0">
                     {res.type === 'project' && <Folder className="h-3.5 w-3.5" />}
                     {res.type === 'feature' && <Cpu className="h-3.5 w-3.5" />}
                     {res.type === 'task' && <Clock className="h-3.5 w-3.5" />}
@@ -468,24 +462,24 @@ export function Navbar() {
                     {res.type === 'dna' && <TrendingUp className="h-3.5 w-3.5" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs font-semibold text-primary block truncate text-left">{res.title}</span>
-                    <span className="text-[10px] text-muted-foreground block truncate mt-0.5 text-left">{res.subtitle}</span>
+                    <span className="text-base font-semibold text-foreground block truncate text-left">{res.title}</span>
+                    <span className="text-base text-muted-foreground/90 block truncate mt-0.5 text-left">{res.subtitle}</span>
                   </div>
-                  <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-black/5 text-muted-foreground select-none shrink-0">
+                  <span className="text-base uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] text-muted-foreground/90 select-none shrink-0">
                     {res.matchLabel || res.stage.replace('-', ' ')}
                   </span>
                 </div>
               ))}
 
               {searchQuery && searchResults.length === 0 && (
-                <span className="text-xs text-muted-foreground/60 italic text-center block py-12">
+                <span className="text-base text-muted-foreground/80 italic text-center block py-12">
                   No matching workspace records found.
                 </span>
               )}
 
               {!searchQuery && (
-                <div className="py-8 text-center text-xs text-muted-foreground space-y-3">
-                  <span className="block font-medium">Quick Navigation</span>
+                <div className="py-8 text-center text-base text-muted-foreground space-y-3">
+                  <span className="block font-medium text-foreground/60">Quick Navigation</span>
                   <div className="flex flex-wrap gap-2 justify-center px-4">
                     {[
                       { name: 'DNA Analyzer', stage: 'dna-analyzer' },
@@ -502,7 +496,7 @@ export function Navbar() {
                           setActiveStage(stg.stage as StageName);
                           setSearchOpen(false);
                         }}
-                        className="px-2.5 py-1 rounded bg-black/5 hover:bg-black/10 text-[10px] font-semibold text-muted-foreground hover:text-primary transition-all cursor-pointer border-0"
+                        className="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-base font-semibold text-muted-foreground hover:text-foreground transition-all cursor-pointer border border-white/[0.04] hover:border-white/[0.08]"
                       >
                         {stg.name}
                       </button>

@@ -14,23 +14,23 @@ from backend.orchestrator.engine import BaseModule
 class RoadmapModule(BaseModule):
     """Generates execution plan timelines and milestone stages from feature architecture mappings."""
 
-    SYSTEM_INSTRUCTION = """You are an expert Technical Program Manager (TPM) and Agile Coach who has managed large-scale engineering integrations at AWS and Netflix. You convert product feature specifications into highly execution-oriented, logical, and phased delivery roadmaps."""
+    SYSTEM_INSTRUCTION = """You are an expert Technical Program Manager (TPM) and Agile Coach who has managed large-scale engineering integrations at AWS and Netflix. You convert product feature specifications into highly execution-oriented, logical, deeply detailed, and phased delivery roadmaps."""
 
-    PROMPT_TEMPLATE = """Design a phased, logical development roadmap for the startup.
+    PROMPT_TEMPLATE = """Design a highly expansive, phased, and logical development roadmap for the startup.
 Predecessor Stage Outputs (DNA Context):
 Startup Concept: {{ startup_idea }}
 DNA Details: {{ dna }}
 
 You must structure the roadmap into chronological execution phases (e.g., Phase 1: MVP Core Launch, Phase 2: Strategic Scale, Phase 3: Future Ecosystem Expansion).
-For each phase, define exactly 2 high-priority action-oriented engineering tasks (total 12 tasks for the entire roadmap). Keep descriptions extremely brief (1 sentence).
+For each phase, define highly detailed, action-oriented engineering tasks. DO NOT keep descriptions brief. Provide exhaustive context for every task.
 For each phase, define:
-1. Specific, action-oriented engineering tasks (e.g. "Configure PostgreSQL database schema", "Integrate Stripe billing API Webhooks").
+1. Specific, verbose, action-oriented engineering tasks (e.g. "Configure PostgreSQL database schema with high-availability replication", "Integrate Stripe billing API Webhooks for robust subscription management").
 2. Exact feature mappings (linking each task back to the specific FEAT-XXX feature IDs).
 3. Timeline estimations (in weeks).
 4. Specific, clear milestones that act as deployment gates.
-5. Critical path risks and mitigations.
+5. Critical path risks and extensive, multi-step mitigations.
 
-Ensure the output conforms strictly to the requested JSON schema, providing professional milestones."""
+Do NOT limit your text length. Ensure the output conforms strictly to the requested JSON schema, providing highly descriptive, professional milestones."""
 
     async def run(
         self, 

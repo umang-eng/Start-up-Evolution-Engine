@@ -57,10 +57,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px] bg-card/95 backdrop-blur-md border border-border shadow-lvl-3 rounded-xl p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[520px] bg-card/95 backdrop-blur-xl border border-white/[0.08] shadow-lvl-3 rounded-xl p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2">
-          <DialogTitle className="text-xl font-bold tracking-tight text-primary flex items-center gap-2">
-            <Sliders className="h-5 w-5 text-primary" />
+          <DialogTitle className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <Sliders className="h-5 w-5 text-cyan-400" />
             <span>Workspace Settings</span>
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
@@ -70,7 +70,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
         <div className="px-6 py-2">
           <Tabs defaultValue="general" className="w-full">
-            <TabsList variant="line" className="w-full justify-start border-b border-border/40 pb-0 mb-4">
+            <TabsList variant="line" className="w-full justify-start border-b border-white/[0.04] pb-0 mb-4">
               <TabsTrigger value="general" className="flex items-center gap-1.5 py-2">
                 <User className="h-3.5 w-3.5" />
                 <span>Founder</span>
@@ -80,7 +80,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 <DollarSign className="h-3.5 w-3.5" />
                 <span>Financials</span>
               </TabsTrigger>
-              <TabsTrigger value="danger" className="flex items-center gap-1.5 py-2 text-red-500 hover:text-red-600 data-active:text-red-500 data-active:after:bg-red-500">
+              <TabsTrigger value="danger" className="flex items-center gap-1.5 py-2 text-rose-400 hover:text-rose-300 data-active:text-rose-400 data-active:after:bg-rose-400">
                 <Trash2 className="h-3.5 w-3.5" />
                 <span>Danger Zone</span>
               </TabsTrigger>

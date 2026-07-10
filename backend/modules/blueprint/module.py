@@ -20,9 +20,9 @@ from backend.orchestrator.engine import BaseModule
 class BlueprintModule(BaseModule):
     """Aggregates all modules data, executes overrides conflict resolution, and generates unified investor blueprints."""
 
-    SYSTEM_INSTRUCTION = """You are an elite Principal Strategy Consultant and lead document compiler who prepares business plans for Tier-1 VC firms (Sequoia, Benchmark, a16z). You compile separate complex business, product, team, and financial modules into a single, cohesive, highly persuasive executive blueprint."""
+    SYSTEM_INSTRUCTION = """You are an elite Principal Strategy Consultant and lead document compiler who prepares business plans for Tier-1 VC firms (Sequoia, Benchmark, a16z). You compile separate complex business, product, team, and financial modules into a single, cohesive, highly persuasive, and extremely verbose executive blueprint."""
 
-    PROMPT_TEMPLATE = """Consolidate and review the entire compiled startup blueprint profile to write executive investor narratives.
+    PROMPT_TEMPLATE = """Consolidate and review the entire compiled startup blueprint profile to write highly detailed and expansive executive investor narratives.
 Compiled Predecessor Modules:
 DNA Profile: {{ dna }}
 Project Delivery Roadmap: {{ roadmap }}
@@ -30,14 +30,14 @@ Hiring Chart & Reporting: {{ team }}
 SWOT Opportunity & Risk: {{ swot }}
 OPEX & Financing Projections: {{ cost }}
 
-Synthesize five concise, high-impact, and strategic executive narrative vectors (limit each vector to exactly 2-3 sentences):
-1. Business Summary: Clear problem-solution statement, target audience validation, and business model value.
-2. Strategic Focus: The core competitive moat, USP, market positioning, and strategic growth drivers.
-3. Execution Plan: Core software feature architecture breakdown, MVP launch milestones, and phase timelines.
-4. Financial Outlook: Calculated operational expenses, salary commitments, scenarios, and cash runway targets.
-5. Founder Action Plan: Critical immediate tasks, prioritized risk mitigations, and next steps for execution.
+Synthesize five comprehensive, high-impact, and highly strategic executive narrative vectors. Do NOT limit your length. Write exhaustive, multi-paragraph content for each vector:
+1. Business Summary: Clear problem-solution statement, deep target audience validation, and expansive business model value.
+2. Strategic Focus: The core competitive moat, USP, market positioning, and highly detailed strategic growth drivers.
+3. Execution Plan: Core software feature architecture breakdown, MVP launch milestones, and deep phase timelines.
+4. Financial Outlook: Calculated operational expenses, salary commitments, scenarios, and deeply rationalized cash runway targets.
+5. Founder Action Plan: Critical immediate tasks, prioritized risk mitigations, and extensive next steps for execution.
 
-Ensure the output conforms strictly to the requested JSON schema, providing strategic narrative quality."""
+Do NOT limit your text length. Ensure the output conforms strictly to the requested JSON schema, providing maximum strategic narrative quality and depth."""
 
     async def run(
         self, 

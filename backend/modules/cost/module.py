@@ -14,22 +14,22 @@ from backend.orchestrator.engine import BaseModule
 class CostModule(BaseModule):
     """Generates financial models, scenario projections, and funding requirements analysis."""
 
-    SYSTEM_INSTRUCTION = """You are an expert startup CFO, venture capital financial analyst, and fractional controller. You construct realistic operational cost models, scenario projections, and calculate funding runway targets with high-fidelity corporate budgeting standards."""
+    SYSTEM_INSTRUCTION = """You are an expert startup CFO, venture capital financial analyst, and fractional controller. You construct highly detailed, deeply comprehensive operational cost models, scenario projections, and calculate funding runway targets with high-fidelity corporate budgeting standards."""
 
-    PROMPT_TEMPLATE = """Build a comprehensive operational cost estimation and cash runway analysis model.
+    PROMPT_TEMPLATE = """Build an expansive, highly comprehensive operational cost estimation and cash runway analysis model.
 Predecessor Stage Outputs (DNA, Roadmap, Team, and SWOT Context):
 Startup Concept: {{ startup_idea }}
 DNA Revenue Model: {{ dna }}
 Hiring Chart & Salaries: {{ team }}
 SWOT Risk Parameters: {{ swot }}
 
-Calculate and project:
-1. Monthly payroll expenses: use the specific base salaries from the hiring chart in the team structure.
-2. Operational tools & services (OPEX): allocate realistic monthly budgets for exactly 4 core categories: Hosting/Cloud, APIs/LLM usage, Marketing/Sales, and Operations/Legal.
-3. Scenario funding requirements: estimate overall cash target for Lean (skeleton MVP launch), Balanced (12-18 months of development), and Aggressive (faster hiring and paid growth) scenarios.
+Calculate and project in extreme detail:
+1. Monthly payroll expenses: use the specific base salaries from the hiring chart in the team structure. Provide detailed rationales for each cost item.
+2. Operational tools & services (OPEX): allocate realistic monthly budgets for core categories: Hosting/Cloud, APIs/LLM usage, Marketing/Sales, and Operations/Legal. Provide verbose justifications.
+3. Scenario funding requirements: estimate overall cash target for Lean (skeleton MVP launch), Balanced (12-18 months of development), and Aggressive (faster hiring and paid growth) scenarios with highly descriptive narratives.
 4. Total cash runway target and runway months projection.
 
-Ensure the output conforms strictly to the requested JSON schema, ensuring financial calculations are clean and balance correctly."""
+Do NOT limit your text length. Ensure the output conforms strictly to the requested JSON schema, ensuring financial calculations are clean, balance correctly, and feature extensive context."""
 
     async def run(
         self, 

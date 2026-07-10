@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 class RoleCard(BaseModel):
     """Pydantic model representing an organizational role card."""
     role_id: str = Field(description="Unique slug, e.g. role_senior_backend_dev")
-    title: str = Field(max_length=100)
+    title: str = Field(max_length=300)
     department: Literal[
         "Leadership",
         "Product",

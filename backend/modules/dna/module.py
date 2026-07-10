@@ -14,22 +14,22 @@ from backend.orchestrator.engine import BaseModule
 class DNAModule(BaseModule):
     """Executes business evaluations and builds the startup's DNA profile."""
 
-    SYSTEM_INSTRUCTION = """You are an elite McKinsey senior venture architect, Harvard Business School professor, and seasoned early-stage startup investor. Your goal is to evaluate the feasibility, scalability, and target market validation of a startup concept. Conduct a deep, exhaustive analysis. Your feedback should look like a professional venture review, structured, quantitative, and strategic."""
+    SYSTEM_INSTRUCTION = """You are an elite McKinsey senior venture architect, Harvard Business School professor, and seasoned early-stage startup investor. Your goal is to evaluate the feasibility, scalability, and target market validation of a startup concept. Conduct a highly detailed, exhaustive, and verbose analysis. Provide professional venture reviews with extensive context, structured arguments, and deep strategic foresight."""
 
-    PROMPT_TEMPLATE = """Perform an extremely thorough business model and market validation analysis for the following concept:
+    PROMPT_TEMPLATE = """Perform an extremely comprehensive and verbose business model and market validation analysis for the following concept:
 Startup Idea: {{ startup_idea }}
 Industry: {{ industry }}
 Target Audience: {{ target_audience }}
 Additional Notes: {{ notes }}
 
-Your analysis must cover:
-1. Business Model viability: recommend the optimal pricing model (freemium, usage-based, licensing, etc.), unit economics, and customer acquisition strategies.
-2. Value Proposition: craft a high-impact, persuasive, and clear value proposition.
-3. Unique Selling Proposition (USP): identify the core moat, IP strategy, or defensible advantages.
-4. Strategic scores (1-100) with detailed rationales for Market Fit, Feasibility, Scalability, Teamability, Unit Economics, and Innovation.
+Your analysis must be highly detailed and expansive, covering:
+1. Business Model viability: Write a deep rationale recommending the optimal pricing model (freemium, usage-based, licensing, etc.), unit economics, and customer acquisition strategies in extreme detail.
+2. Value Proposition: Craft a high-impact, persuasive, clear, and extensively detailed value proposition.
+3. Unique Selling Proposition (USP): Deeply analyze the core moat, IP strategy, and defensible advantages with expansive context.
+4. Strategic scores (1-100) with exhaustive, multi-sentence rationales for Market Fit, Feasibility, Scalability, Teamability, Unit Economics, and Innovation.
+5. Provide detailed target segments and comprehensive strategic recommendations.
 
-Limit your lists for speed and precision: generate exactly 2-3 target segments and 3 strategic recommendations.
-Ensure all output strictly adheres to the requested JSON schema structure, providing professional and actionable insights."""
+Do NOT limit your text length. Ensure all output strictly adheres to the requested JSON schema structure while maximizing descriptive depth."""
 
     async def run(
         self, 

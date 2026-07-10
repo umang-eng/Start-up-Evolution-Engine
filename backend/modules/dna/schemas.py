@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class DNAPayload(BaseModel):
     """Input payload to trigger the Startup DNA Analyzer."""
-    startup_idea: str = Field(min_length=20, max_length=1000)
+    startup_idea: str = Field(min_length=20, max_length=5000)
     industry_hint: str | None = Field(default=None, max_length=100)
     target_audience_hint: str | None = Field(default=None, max_length=100)
     location: str | None = Field(default=None, max_length=100)

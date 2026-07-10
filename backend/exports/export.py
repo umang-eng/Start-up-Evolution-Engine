@@ -219,8 +219,8 @@ class ExportCompiler:
 """
 
         # Append DNA section if present
-        if "dna" in blueprint_data:
-            dna = blueprint_data["dna"]
+        if "startup_dna" in blueprint_data:
+            dna = blueprint_data["startup_dna"]
             html += f"""
     <div class="section page-break">
         <h1>2. Startup DNA & Market Validation</h1>
@@ -239,8 +239,8 @@ class ExportCompiler:
 """
 
         # Append Features section if present
-        if "features" in blueprint_data:
-            feats = blueprint_data["features"].get("features", [])
+        if "product_architecture" in blueprint_data:
+            feats = blueprint_data["product_architecture"].get("features", [])
             html += """
     <div class="section page-break">
         <h1>3. Product MVP Feature Catalog</h1>
@@ -271,8 +271,8 @@ class ExportCompiler:
 """
 
         # Append Team section if present
-        if "team" in blueprint_data:
-            roles = blueprint_data["team"].get("roles", [])
+        if "team_structure" in blueprint_data:
+            roles = blueprint_data["team_structure"].get("roles", [])
             html += """
     <div class="section page-break">
         <h1>4. Organizational Structure & Talent plan</h1>
@@ -303,8 +303,8 @@ class ExportCompiler:
 """
 
         # Append SWOT section if present
-        if "swot" in blueprint_data:
-            swot = blueprint_data["swot"]
+        if "swot_analysis" in blueprint_data:
+            swot = blueprint_data["swot_analysis"]
             html += f"""
     <div class="section page-break">
         <h1>5. SWOT Analysis</h1>
@@ -350,8 +350,8 @@ class ExportCompiler:
 """
 
         # Append Costs and Runway section if present
-        if "cost" in blueprint_data:
-            cost = blueprint_data["cost"]
+        if "financial_plan" in blueprint_data:
+            cost = blueprint_data["financial_plan"]
             html += f"""
     <div class="section page-break">
         <h1>6. Financial Projections & Costs</h1>
