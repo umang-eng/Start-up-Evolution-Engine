@@ -359,7 +359,7 @@ export default function WorkspacePage() {
             /* =============================================
                CINEMATIC HERO — EMPTY STATE
                ============================================= */
-            <div className="h-full flex flex-col items-center justify-center px-6 relative">
+            <div className="min-h-full flex flex-col items-center justify-center py-12 px-6 relative">
               {/* Floating Orbs */}
               <div className="absolute top-[15%] left-[10%] w-64 h-64 rounded-full bg-cyan-500/5 blur-[100px] float-orb pointer-events-none" />
               <div className="absolute bottom-[20%] right-[15%] w-48 h-48 rounded-full bg-violet-500/5 blur-[80px] float-orb-delayed pointer-events-none" />
