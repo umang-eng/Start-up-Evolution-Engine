@@ -704,8 +704,8 @@ export default function WorkspacePage() {
                         </div>
 
                         <div className="grid grid-cols-1 gap-4 max-h-[450px] overflow-y-auto pr-2 scrollbar-thin">
-                          {activeProject.features.features.map((feature: any) => (
-                            <div key={feature.id} className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-sm hover:border-violet-500/30 transition-all flex flex-col gap-3">
+                          {activeProject.features.features.map((feature: any, idx: number) => (
+                            <div key={feature.id || feature.name || idx} className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-sm hover:border-violet-500/30 transition-all flex flex-col gap-3">
                               <div className="flex items-start justify-between gap-4">
                                 <span className="text-base font-bold text-foreground">{feature.name}</span>
                                 <span className={cn(
@@ -766,7 +766,7 @@ export default function WorkspacePage() {
 
                         <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
                           {activeProject.roadmap.phases.map((phase: any, idx: number) => (
-                            <div key={phase.phase_id} className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-sm space-y-4">
+                            <div key={phase.phase_id || phase.id || phase.name || idx} className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-sm space-y-4">
                               <div className="flex justify-between items-center border-b border-white/[0.04] pb-3">
                                 <div className="flex items-center gap-3">
                                   <span className="h-6 w-6 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-bold flex items-center justify-center">{idx + 1}</span>
@@ -792,8 +792,8 @@ export default function WorkspacePage() {
                               )}
 
                               <div className="space-y-3 pl-2 border-l-2 border-emerald-500/20">
-                                {phase.tasks && phase.tasks.map((task: any) => (
-                                  <div key={task.id} className="p-4 bg-white/[0.01] rounded-lg border border-white/[0.03] space-y-2 relative ml-3 transition-all hover:bg-white/[0.03]">
+                                {phase.tasks?.map((task: any, i: number) => (
+                                  <div key={task.id || task.task_id || task.name || i} className="p-4 bg-white/[0.01] rounded-lg border border-white/[0.03] space-y-2 relative ml-3 transition-all hover:bg-white/[0.03]">
                                     <div className="absolute -left-[1.4rem] top-5 h-2.5 w-2.5 rounded-full bg-emerald-500 glow-emerald" />
                                     <div className="flex justify-between items-start gap-4">
                                       <span className="text-sm font-bold text-foreground">{task.title}</span>
@@ -857,8 +857,8 @@ export default function WorkspacePage() {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
-                          {activeProject.team.orgChart?.map((role: any) => (
-                            <div key={role.roleId} className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-sm flex flex-col gap-4 hover:border-amber-500/30 transition-all">
+                          {activeProject.team.orgChart?.map((role: any, idx: number) => (
+                            <div key={role.roleId || role.id || role.role || idx} className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-sm flex flex-col gap-4 hover:border-amber-500/30 transition-all">
                               <div className="flex justify-between items-start gap-4">
                                 <div>
                                   <span className="text-base font-bold text-foreground block">{role.title}</span>
