@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useBlueprintStore } from '@/store/use-blueprint-store';
 import { cn } from '@/lib/utils';
 import { 
@@ -25,6 +25,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
+const MIN_WIDTH = 180;
+const MAX_WIDTH = 400;
+const COLLAPSED_WIDTH = 56;
+
 export function Sidebar() {
   const { 
     projects, 
@@ -45,6 +49,40 @@ export function Sidebar() {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
+
+  const [sidebarWidth, setSidebarWidth] = useState(220);
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX));
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
 
   const handleNewProject = () => {
     setProjectName('');
@@ -82,17 +120,19 @@ export function Sidebar() {
 
   return (
     <aside
+      ref={sidebarRef}
       className={cn(
-        "h-full flex flex-col bg-card/60 backdrop-blur-xl border-r border-white/[0.04] transition-all duration-300 z-30",
-        sidebarOpen ? "w-[220px]" : "w-[56px]"
+        "h-full flex flex-col bg-card/60 backdrop-blur-xl border-r border-white/[0.04] transition-[width] duration-150 z-30 relative shrink-0",
+        !sidebarOpen && "w-[56px]"
       )}
+      style={sidebarOpen ? { width: sidebarWidth } : undefined}
     >
       {/* Header */}
       <div className="h-14 flex items-center justify-between px-3 border-b border-white/[0.04]">
         {sidebarOpen && (
           <span className="font-sans font-semibold text-sm tracking-tight text-foreground flex items-center gap-2.5">
             <img src="/logo.png" alt="Evolution Engine Logo" className="h-5 w-5 object-contain rounded-md" />
-            <span className="gradient-text font-bold">Evolution</span>
+            <span className="gradient-text font-bold">IdeaForgeAI</span>
           </span>
         )}
         <Button
@@ -136,10 +176,10 @@ export function Sidebar() {
                   <button
                     onClick={() => setActiveProject(proj.id)}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all duration-200 text-sm group-hover:pr-16 cursor-pointer border border-transparent",
+                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all duration-200 text-sm cursor-pointer border border-transparent overflow-hidden",
                       isActive
-                        ? "bg-white/[0.06] border-cyan-500/15 text-foreground font-medium"
-                        : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                        ? "bg-white/[0.06] border-cyan-500/15 text-foreground font-medium pr-20"
+                        : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground group-hover:pr-20"
                     )}
                   >
                     <div className={cn(
@@ -291,6 +331,16 @@ export function Sidebar() {
           </form>
         </DialogContent>
       </Dialog>
+      {/* Resize Handle */}
+      {sidebarOpen && (
+        <div
+          onMouseDown={handleMouseDown}
+          className={cn(
+            "absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-cyan-500/30 transition-colors z-50",
+            isResizing && "bg-cyan-500/50"
+          )}
+        />
+      )}
     </aside>
   );
 }

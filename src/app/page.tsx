@@ -76,13 +76,13 @@ const STAGES: {
   glowClass: string;
   bgAccent: string;
 }[] = [
-  { name: 'dna-analyzer', label: 'DNA Analyzer', shortLabel: 'DNA', icon: Dna, color: 'text-cyan-400', glowClass: 'glow-cyan', bgAccent: 'bg-cyan-500/10' },
-  { name: 'feature-extractor', label: 'Feature Extractor', shortLabel: 'Features', icon: GitBranch, color: 'text-violet-400', glowClass: 'glow-violet', bgAccent: 'bg-violet-500/10' },
-  { name: 'roadmap', label: 'Roadmap Generator', shortLabel: 'Roadmap', icon: LineChart, color: 'text-emerald-400', glowClass: 'glow-emerald', bgAccent: 'bg-emerald-500/10' },
-  { name: 'team-structure', label: 'Team Structure', shortLabel: 'Team', icon: Network, color: 'text-amber-400', glowClass: 'glow-amber', bgAccent: 'bg-amber-500/10' },
-  { name: 'swot', label: 'SWOT Analysis', shortLabel: 'SWOT', icon: Shield, color: 'text-rose-400', glowClass: 'glow-rose', bgAccent: 'bg-rose-500/10' },
-  { name: 'cost-estimator', label: 'Cost Estimator', shortLabel: 'Costs', icon: DollarSign, color: 'text-cyan-400', glowClass: 'glow-cyan', bgAccent: 'bg-cyan-500/10' },
-  { name: 'final-blueprint', label: 'Final Blueprint', shortLabel: 'Blueprint', icon: FileText, color: 'text-violet-400', glowClass: 'glow-violet', bgAccent: 'bg-violet-500/10' },
+  { name: 'dna-analyzer', label: 'Startup Blueprint', shortLabel: 'Startup Blueprint', icon: Dna, color: 'text-cyan-400', glowClass: 'glow-cyan', bgAccent: 'bg-cyan-500/10' },
+  { name: 'feature-extractor', label: 'Feature Studio', shortLabel: 'Feature Studio', icon: GitBranch, color: 'text-violet-400', glowClass: 'glow-violet', bgAccent: 'bg-violet-500/10' },
+  { name: 'roadmap', label: 'Launch Roadmap', shortLabel: 'Launch Roadmap', icon: LineChart, color: 'text-emerald-400', glowClass: 'glow-emerald', bgAccent: 'bg-emerald-500/10' },
+  { name: 'team-structure', label: 'Team Builder', shortLabel: 'Team Builder', icon: Network, color: 'text-amber-400', glowClass: 'glow-amber', bgAccent: 'bg-amber-500/10' },
+  { name: 'swot', label: 'Business Insights', shortLabel: 'Business Insights', icon: Shield, color: 'text-rose-400', glowClass: 'glow-rose', bgAccent: 'bg-rose-500/10' },
+  { name: 'cost-estimator', label: 'Budget Planner', shortLabel: 'Budget Planner', icon: DollarSign, color: 'text-cyan-400', glowClass: 'glow-cyan', bgAccent: 'bg-cyan-500/10' },
+  { name: 'final-blueprint', label: 'Final Draft', shortLabel: 'Final Draft', icon: FileText, color: 'text-violet-400', glowClass: 'glow-violet', bgAccent: 'bg-violet-500/10' },
 ];
 
 /* =============================================
@@ -213,7 +213,7 @@ export default function WorkspacePage() {
       });
 
       es.addEventListener('workflow:started', () => {
-        setStreamLog(prev => ["🚀 Pipeline running — evolving startup DNA architecture...", ...prev]);
+        setStreamLog(prev => ["🚀 Pipeline running — generating startup blueprint...", ...prev]);
       });
 
       es.addEventListener('module:started', (e: any) => {
@@ -262,7 +262,7 @@ export default function WorkspacePage() {
       });
 
       es.addEventListener('workflow:completed', () => {
-        const stageLabel = stage === 'blueprint' ? 'Final Blueprint' : `Stage [${stage.toUpperCase()}]`;
+        const stageLabel = stage === 'blueprint' ? 'Final Draft' : `Stage [${stage.toUpperCase()}]`;
         setStreamLog(prev => [`🎉 ${stageLabel} compiled successfully!`, ...prev]);
         es.close();
         loadBlueprint(projId);
@@ -465,48 +465,6 @@ export default function WorkspacePage() {
                ACTIVE BLUEPRINT — COMMAND CENTER
                ============================================= */
             <div className="h-full flex flex-col">
-              {/* Pipeline Progress Track */}
-              <div className="px-6 py-4 border-b border-white/[0.04] bg-card/30 backdrop-blur-sm">
-                <div className="flex items-center gap-1">
-                  {STAGES.map((stage, i) => {
-                    const status = getStageStatus(stage.name);
-                    const Icon = stage.icon;
-                    const isActive = activeStage === stage.name;
-                    return (
-                      <React.Fragment key={stage.name}>
-                        <button
-                          disabled={status === 'locked'}
-                          onClick={() => setActiveStage(stage.name)}
-                          className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer border border-transparent",
-                            isActive && "bg-white/[0.06] border-cyan-500/20",
-                            status === 'completed' && !isActive && "text-emerald-400/80 hover:bg-white/[0.04]",
-                            status === 'pending' && !isActive && "text-muted-foreground hover:bg-white/[0.04]",
-                            status === 'locked' && "text-muted-foreground/80 cursor-not-allowed",
-                            status === 'active' && !isActive && "text-cyan-400 hover:bg-white/[0.04]"
-                          )}
-                        >
-                          {status === 'completed' ? (
-                            <Check className="h-5 w-5 text-emerald-400" />
-                          ) : status === 'locked' ? (
-                            <Lock className="h-5 w-5" />
-                          ) : (
-                            <Icon className={cn("h-5 w-5", isActive ? stage.color : "")} />
-                          )}
-                          <span className="hidden lg:inline">{stage.shortLabel}</span>
-                        </button>
-                        {i < STAGES.length - 1 && (
-                          <div className={cn(
-                            "w-4 h-[2px] rounded-full shrink-0",
-                            status === 'completed' ? "bg-emerald-500/40" : "bg-white/[0.06]"
-                          )} />
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-              </div>
-
               {/* Main Content Grid */}
               <div className="flex-1 flex gap-0 overflow-hidden">
                 {/* Left Column: Stage Content */}
@@ -570,7 +528,7 @@ export default function WorkspacePage() {
                               <Dna className="h-5 w-5 text-cyan-400" />
                             </div>
                             <div>
-                              <h2 className="text-xl font-bold text-foreground">Business DNA Report</h2>
+                              <h2 className="text-xl font-bold text-foreground">Startup Blueprint</h2>
                               <span className="text-sm text-muted-foreground">Market viability and strategic analysis</span>
                             </div>
                           </div>
@@ -663,14 +621,14 @@ export default function WorkspacePage() {
                           <Dna className="h-8 w-8 text-cyan-400" />
                         </div>
                         <div className="space-y-2 max-w-md">
-                          <h3 className="text-lg font-bold text-foreground">Business DNA Analyzer</h3>
+                          <h3 className="text-lg font-bold text-foreground">Startup Blueprint</h3>
                           <p className="text-sm text-muted-foreground leading-relaxed">
                             Evaluate market viability, validate user demographics, map value propositions, and outline key competitive advantages.
                           </p>
                         </div>
                         <Button onClick={() => handleStartGeneration(activeProject.id, 'dna')} className="h-10 text-sm gap-2 px-6">
                           <Sparkles className="h-5 w-5" />
-                          <span>Analyze Concept DNA</span>
+                          <span>Generate Startup Blueprint</span>
                         </Button>
                       </div>
                     )}
@@ -683,7 +641,7 @@ export default function WorkspacePage() {
                             <GitBranch className="h-5 w-5 text-violet-400" />
                           </div>
                           <div>
-                            <h2 className="text-xl font-bold text-foreground">Feature Architecture Spec</h2>
+                            <h2 className="text-xl font-bold text-foreground">Feature Studio</h2>
                             <span className="text-sm text-muted-foreground">Product requirement document</span>
                           </div>
                         </div>
@@ -739,9 +697,9 @@ export default function WorkspacePage() {
                           <GitBranch className="h-8 w-8 text-violet-400" />
                         </div>
                         <div className="space-y-2 max-w-md">
-                          <h3 className="text-lg font-bold text-foreground">Technical Feature Extractor</h3>
+                          <h3 className="text-lg font-bold text-foreground">Feature Studio</h3>
                           <p className="text-sm text-muted-foreground leading-relaxed">
-                            Convert your business DNA into a structured Product Requirement Document (PRD), feature lists, and MVP scoped items.
+                            Transform your startup concept into a structured Product Requirement Document (PRD), feature lists, and MVP scoped items.
                           </p>
                         </div>
                         <Button onClick={() => handleStartGeneration(activeProject.id, 'features')} className="h-10 text-sm gap-2 px-6">
@@ -759,7 +717,7 @@ export default function WorkspacePage() {
                             <LineChart className="h-5 w-5 text-emerald-400" />
                           </div>
                           <div>
-                            <h2 className="text-xl font-bold text-foreground">Timeline Execution Roadmap</h2>
+                            <h2 className="text-xl font-bold text-foreground">Launch Roadmap</h2>
                             <span className="text-sm text-muted-foreground">Comprehensive multi-phase execution strategy</span>
                           </div>
                         </div>
@@ -831,7 +789,7 @@ export default function WorkspacePage() {
                           <LineChart className="h-8 w-8 text-emerald-400" />
                         </div>
                         <div className="space-y-2 max-w-md">
-                          <h3 className="text-lg font-bold text-foreground">Execution Roadmap Compiler</h3>
+                          <h3 className="text-lg font-bold text-foreground">Launch Roadmap</h3>
                           <p className="text-sm text-muted-foreground leading-relaxed">
                             Translate your feature spec into a multi-phase, week-by-week development roadmap with task durations.
                           </p>
@@ -851,7 +809,7 @@ export default function WorkspacePage() {
                             <Network className="h-5 w-5 text-amber-400" />
                           </div>
                           <div>
-                            <h2 className="text-xl font-bold text-foreground">Resource Org Structure</h2>
+                            <h2 className="text-xl font-bold text-foreground">Team Builder</h2>
                             <span className="text-sm text-muted-foreground">{activeProject.team.recommendedTeamSize} recommended roles</span>
                           </div>
                         </div>
@@ -911,7 +869,7 @@ export default function WorkspacePage() {
                           <Network className="h-8 w-8 text-amber-400" />
                         </div>
                         <div className="space-y-2 max-w-md">
-                          <h3 className="text-lg font-bold text-foreground">Resource & Team Allocator</h3>
+                          <h3 className="text-lg font-bold text-foreground">Team Builder</h3>
                           <p className="text-sm text-muted-foreground leading-relaxed">
                             Forecast hiring requirements, define team roles, allocate departments, and calculate monthly salaries.
                           </p>
@@ -931,7 +889,7 @@ export default function WorkspacePage() {
                             <Shield className="h-5 w-5 text-rose-400" />
                           </div>
                           <div>
-                            <h2 className="text-xl font-bold text-foreground">Strategic SWOT Board</h2>
+                            <h2 className="text-xl font-bold text-foreground">Business Insights</h2>
                             <span className="text-sm text-muted-foreground">Competitive intelligence matrix</span>
                           </div>
                         </div>
@@ -1006,14 +964,14 @@ export default function WorkspacePage() {
                           <Shield className="h-8 w-8 text-rose-400" />
                         </div>
                         <div className="space-y-2 max-w-md">
-                          <h3 className="text-lg font-bold text-foreground">Strategic SWOT Board</h3>
+                          <h3 className="text-lg font-bold text-foreground">Business Insights</h3>
                           <p className="text-sm text-muted-foreground leading-relaxed">
-                            Compile strategic Strengths, Weaknesses, Opportunities, and Threats from market positioning.
+                            Analyze strategic Strengths, Weaknesses, Opportunities, and Threats to uncover business insights.
                           </p>
                         </div>
                         <Button onClick={() => handleStartGeneration(activeProject.id, 'swot')} className="h-10 text-sm gap-2 px-6">
                           <Sparkles className="h-5 w-5" />
-                          <span>Conduct SWOT Analysis</span>
+                          <span>View Business Insights</span>
                         </Button>
                       </div>
                     )}
@@ -1026,7 +984,7 @@ export default function WorkspacePage() {
                             <DollarSign className="h-5 w-5 text-cyan-400" />
                           </div>
                           <div>
-                            <h2 className="text-xl font-bold text-foreground">Startup Financial Projections</h2>
+                            <h2 className="text-xl font-bold text-foreground">Budget Planner</h2>
                             <span className="text-sm text-muted-foreground">Burn rate & runway analysis</span>
                           </div>
                         </div>
@@ -1087,7 +1045,7 @@ export default function WorkspacePage() {
 
                         <div className="pt-4 border-t border-white/[0.04] flex justify-end">
                           <Button onClick={() => setActiveStage('final-blueprint')} className="h-9 text-sm gap-1.5">
-                            <span>Reveal Final Blueprint</span>
+                            <span>Reveal Final Draft</span>
                             <ArrowRight className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -1101,7 +1059,7 @@ export default function WorkspacePage() {
                           <DollarSign className="h-8 w-8 text-cyan-400" />
                         </div>
                         <div className="space-y-2 max-w-md">
-                          <h3 className="text-lg font-bold text-foreground">Financial Plan & Cost Estimator</h3>
+                          <h3 className="text-lg font-bold text-foreground">Budget Planner</h3>
                           <p className="text-sm text-muted-foreground leading-relaxed">
                             Model MVP costs, burn rates, runway forecasts, and funding requirements for lean, balanced, and aggressive scenarios.
                           </p>
@@ -1121,7 +1079,7 @@ export default function WorkspacePage() {
                             <FileText className="h-5 w-5 text-violet-400" />
                           </div>
                           <div>
-                            <h2 className="text-xl font-bold text-foreground">Compiled Startup Blueprint</h2>
+                            <h2 className="text-xl font-bold text-foreground">Final Draft</h2>
                             <span className="text-sm text-muted-foreground">Investor-ready operating document</span>
                           </div>
                         </div>
@@ -1168,14 +1126,14 @@ export default function WorkspacePage() {
                           <FileText className="h-8 w-8 text-violet-400" />
                         </div>
                         <div className="space-y-2 max-w-md">
-                          <h3 className="text-lg font-bold text-foreground">Startup Blueprint Compiler</h3>
+                          <h3 className="text-lg font-bold text-foreground">Final Draft</h3>
                           <p className="text-sm text-muted-foreground leading-relaxed">
                             Assemble all modules into an investor-ready, comprehensive operating blueprint with secure sharing and PDF export.
                           </p>
                         </div>
                         <Button onClick={() => handleStartGeneration(activeProject.id, 'blueprint')} className="h-10 text-sm gap-2 px-6">
                           <Sparkles className="h-5 w-5" />
-                          <span>Compile Final Blueprint</span>
+                          <span>Compile Final Draft</span>
                         </Button>
                       </div>
                     )}

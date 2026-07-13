@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Start-up Evolution Engine",
+  title: "IdeaForgeAI",
   description: "Transform startup ideas into complete investor-grade startup blueprints through AI-powered modules.",
 };
 

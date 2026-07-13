@@ -10,7 +10,6 @@ import {
   Bell, 
   Share2, 
   Download, 
-  ChevronDown,
   LogOut,
   User,
   Check,
@@ -231,7 +230,7 @@ export function Navbar() {
     if (!activeProject) return [];
     const logs: Array<{ id: string; text: string; time: string; stage: StageName }> = [];
     if (activeProject.dna) {
-      logs.push({ id: 'n1', text: 'Venture DNA diagnostics structured.', time: 'Stage 1 Complete', stage: 'dna-analyzer' });
+      logs.push({ id: 'n1', text: 'Startup blueprint generated.', time: 'Stage 1 Complete', stage: 'dna-analyzer' });
     }
     if (activeProject.features) {
       logs.push({ id: 'n2', text: 'PRD technical features spec compiled.', time: 'Stage 2 Complete', stage: 'feature-extractor' });
@@ -243,7 +242,7 @@ export function Navbar() {
       logs.push({ id: 'n4', text: 'Resource salary model and chart defined.', time: 'Stage 4 Complete', stage: 'team-structure' });
     }
     if (activeProject.swot) {
-      logs.push({ id: 'n5', text: 'Strategic SWOT board composed.', time: 'Stage 5 Complete', stage: 'swot' });
+      logs.push({ id: 'n5', text: 'Business insights compiled.', time: 'Stage 5 Complete', stage: 'swot' });
     }
     if (activeProject.cost) {
       logs.push({ id: 'n6', text: 'Financial burn scenarios projected.', time: 'Stage 6 Complete', stage: 'cost-estimator' });
@@ -258,14 +257,10 @@ export function Navbar() {
       <header className="h-14 w-full flex items-center justify-between px-5 bg-card/40 backdrop-blur-xl border-b border-white/[0.04] z-20">
         {/* Left Workspace Switcher */}
         <div className="flex items-center gap-3">
-          <div className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-sm font-bold" style={{ background: 'linear-gradient(135deg, hsl(192 91% 54%), hsl(262 83% 68%))' }}>
-            SE
-          </div>
-          <div className="flex items-center gap-1.5 cursor-pointer hover:bg-white/[0.04] px-2 py-1 rounded-md transition-all">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md">
             <span className="text-sm font-semibold text-foreground">
               {activeProject ? activeProject.name : 'Personal Workspace'}
             </span>
-            <ChevronDown className="h-5 w-5 text-muted-foreground" />
           </div>
         </div>
 
@@ -482,13 +477,13 @@ export function Navbar() {
                   <span className="block font-medium text-foreground/60">Quick Navigation</span>
                   <div className="flex flex-wrap gap-2 justify-center px-4">
                     {[
-                      { name: 'DNA Analyzer', stage: 'dna-analyzer' },
-                      { name: 'Feature Spec', stage: 'feature-extractor' },
-                      { name: 'Timeline Roadmap', stage: 'roadmap' },
-                      { name: 'Org Structure', stage: 'team-structure' },
-                      { name: 'SWOT Assessment', stage: 'swot' },
-                      { name: 'Burn Estimator', stage: 'cost-estimator' },
-                      { name: 'Final Strategy', stage: 'final-blueprint' }
+                      { name: 'Startup Blueprint', stage: 'dna-analyzer' },
+                      { name: 'Feature Studio', stage: 'feature-extractor' },
+                      { name: 'Launch Roadmap', stage: 'roadmap' },
+                      { name: 'Team Builder', stage: 'team-structure' },
+                      { name: 'Business Insights', stage: 'swot' },
+                      { name: 'Budget Planner', stage: 'cost-estimator' },
+                      { name: 'Final Draft', stage: 'final-blueprint' }
                     ].map(stg => (
                       <button
                         key={stg.stage}
