@@ -11,23 +11,56 @@ import {
   CheckCircle,
   Loader2,
   RefreshCw,
+  Calendar,
+  Users,
+  Search,
 } from 'lucide-react';
 import { useMeetingStore, Meeting } from '@/store/use-meeting-store';
 
 // ── Status Badge ──────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
-  const config: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
-    RECORDING: { color: 'bg-red-500/20 text-red-300', icon: <Mic className="h-3 w-3" />, label: 'Recording' },
-    TRANSCRIBED: { color: 'bg-blue-500/20 text-blue-300', icon: <FileText className="h-3 w-3" />, label: 'Transcribed' },
-    ANALYZED: { color: 'bg-green-500/20 text-green-300', icon: <CheckCircle className="h-3 w-3" />, label: 'Analyzed' },
-    GENERATING: { color: 'bg-yellow-500/20 text-yellow-300', icon: <Loader2 className="h-3 w-3 animate-spin" />, label: 'Generating' },
-    ERROR: { color: 'bg-red-500/20 text-red-300', icon: <Trash2 className="h-3 w-3" />, label: 'Error' },
+  const config: Record<string, { bg: string; text: string; dot: string; icon: React.ReactNode; label: string }> = {
+    RECORDING: {
+      bg: 'bg-red-50 dark:bg-red-950/30',
+      text: 'text-red-600 dark:text-red-400',
+      dot: 'bg-red-500',
+      icon: <Mic className="h-3 w-3" />,
+      label: 'Recording',
+    },
+    TRANSCRIBED: {
+      bg: 'bg-blue-50 dark:bg-blue-950/30',
+      text: 'text-blue-600 dark:text-blue-400',
+      dot: 'bg-blue-500',
+      icon: <FileText className="h-3 w-3" />,
+      label: 'Transcribed',
+    },
+    ANALYZED: {
+      bg: 'bg-emerald-50 dark:bg-emerald-950/30',
+      text: 'text-emerald-600 dark:text-emerald-400',
+      dot: 'bg-emerald-500',
+      icon: <CheckCircle className="h-3 w-3" />,
+      label: 'Analyzed',
+    },
+    GENERATING: {
+      bg: 'bg-amber-50 dark:bg-amber-950/30',
+      text: 'text-amber-600 dark:text-amber-400',
+      dot: 'bg-amber-500',
+      icon: <Loader2 className="h-3 w-3 animate-spin" />,
+      label: 'Generating',
+    },
+    ERROR: {
+      bg: 'bg-red-50 dark:bg-red-950/30',
+      text: 'text-red-600 dark:text-red-400',
+      dot: 'bg-red-500',
+      icon: <Trash2 className="h-3 w-3" />,
+      label: 'Error',
+    },
   };
   const c = config[status] || config.RECORDING;
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${c.color}`}>
-      {c.icon}
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${c.bg} ${c.text}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
       {c.label}
     </span>
   );
@@ -44,57 +77,64 @@ interface MeetingCardProps {
 }
 
 function MeetingCard({ meeting, onSelect, onDelete, selected }: MeetingCardProps) {
-  const created = new Date(meeting.created_at).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const created = new Date(meeting.created_at);
+  const dateStr = created.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const timeStr = created.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
   const duration = meeting.duration_seconds
     ? `${Math.floor(meeting.duration_seconds / 60)}m ${meeting.duration_seconds % 60}s`
     : null;
 
   return (
-    <Card
-      className={`cursor-pointer transition-all hover:bg-white/10 ${
-        selected ? 'bg-white/10 border-purple-500/50' : 'bg-white/5 border-white/10'
+    <div
+      className={`group relative rounded-xl border p-4 cursor-pointer transition-all duration-200 ${
+        selected
+          ? 'bg-violet-50/80 dark:bg-violet-950/20 border-violet-300 dark:border-violet-800 shadow-sm'
+          : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-sm'
       }`}
       onClick={() => onSelect(meeting.id)}
     >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <h3 className="text-white font-medium truncate">
-              {meeting.title || 'Untitled Meeting'}
-            </h3>
-            <div className="flex items-center gap-3 mt-1.5 text-xs text-white/50">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h3 className={`font-medium truncate text-sm ${
+            selected
+              ? 'text-violet-900 dark:text-violet-100'
+              : 'text-slate-900 dark:text-slate-100'
+          }`}>
+            {meeting.title || 'Untitled Meeting'}
+          </h3>
+          <div className="flex items-center gap-3 mt-2 text-xs text-slate-500 dark:text-slate-400">
+            <span className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              {dateStr}
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {timeStr}
+            </span>
+            {duration && <span>{duration}</span>}
+            {meeting.speaker_count && (
               <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {created}
+                <Users className="h-3 w-3" />
+                {meeting.speaker_count}
               </span>
-              {duration && <span>{duration}</span>}
-              {meeting.speaker_count && <span>{meeting.speaker_count} speakers</span>}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <StatusBadge status={meeting.status} />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(meeting.id);
-              }}
-              className="h-8 w-8 p-0 text-white/40 hover:text-red-400 hover:bg-red-500/10"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            )}
           </div>
         </div>
-      </CardContent>
-    </Card>
+        <div className="flex items-center gap-2 shrink-0">
+          <StatusBadge status={meeting.status} />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(meeting.id);
+            }}
+            className="opacity-0 group-hover:opacity-100 h-7 w-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -124,60 +164,66 @@ export function MeetingsList({ onSelectMeeting }: MeetingsListProps) {
     }
   };
 
-  if (loading && meetings.length === 0) {
-    return (
-      <Card className="bg-white/5 backdrop-blur-xl border-white/10">
-        <CardContent className="p-12 text-center">
-          <Loader2 className="h-8 w-8 text-white/40 mx-auto animate-spin" />
-          <p className="text-white/40 mt-3">Loading meetings...</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-white">Your Meetings</h2>
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
+          History
+        </h2>
         <Button
           onClick={fetchMeetings}
           variant="ghost"
           size="sm"
-          className="text-white/50 hover:text-white"
+          className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
         >
-          <RefreshCw className="h-4 w-4" />
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
         </Button>
       </div>
 
+      {/* Error */}
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-sm">
+        <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 text-xs">
           {error}
         </div>
       )}
 
-      {meetings.length === 0 ? (
-        <Card className="bg-white/5 backdrop-blur-xl border-white/10">
-          <CardContent className="p-12 text-center">
-            <Mic className="h-12 w-12 text-white/20 mx-auto mb-3" />
-            <p className="text-white/60">No meetings yet</p>
-            <p className="text-white/40 text-sm mt-1">
-              Record a meeting or upload a transcript to get started
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
+      {/* Loading */}
+      {loading && meetings.length === 0 && (
         <div className="space-y-2">
-          {meetings.map((meeting) => (
-            <MeetingCard
-              key={meeting.id}
-              meeting={meeting}
-              onSelect={handleSelect}
-              onDelete={handleDelete}
-              selected={currentMeeting?.id === meeting.id}
-            />
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-20 rounded-xl bg-slate-100 dark:bg-slate-900 animate-pulse" />
           ))}
         </div>
       )}
+
+      {/* Empty State */}
+      {!loading && meetings.length === 0 && (
+        <Card className="border-dashed border-2 border-slate-200 dark:border-slate-800 bg-transparent">
+          <CardContent className="p-8 text-center">
+            <div className="flex items-center justify-center h-12 w-12 rounded-2xl bg-slate-100 dark:bg-slate-900 mx-auto mb-3">
+              <Mic className="h-5 w-5 text-slate-300 dark:text-slate-600" />
+            </div>
+            <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">No meetings yet</p>
+            <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">
+              Record or upload to get started
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Meeting List */}
+      <div className="space-y-2">
+        {meetings.map((meeting) => (
+          <MeetingCard
+            key={meeting.id}
+            meeting={meeting}
+            onSelect={handleSelect}
+            onDelete={handleDelete}
+            selected={currentMeeting?.id === meeting.id}
+          />
+        ))}
+      </div>
     </div>
   );
 }

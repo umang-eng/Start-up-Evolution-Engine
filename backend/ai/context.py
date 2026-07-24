@@ -98,23 +98,55 @@ class ContextManager:
     def compress_context_payload(
         self, 
         context: dict[str, Any], 
-        max_items_list: int = 15
+        max_items_list: int = 12
     ) -> dict[str, Any]:
-        """Compresses payload lists and narratives to fit token limits."""
+        """Compresses payload lists and narratives to fit token limits.
+
+        Aggressively compresses to reduce LLM response time:
+        - Truncates long text fields (>500 chars)
+        - Caps lists at max_items_list items
+        - Strips verbose sub-fields
+        """
         compressed = context.copy()
         
         # Compress narrative descriptions if present
         if "description" in compressed and isinstance(compressed["description"], str):
-            if len(compressed["description"]) > 1000:
-                logger.debug("Compressing project description context payload.")
-                compressed["description"] = compressed["description"][:1000] + "... [Truncated]"
+            if len(compressed["description"]) > 500:
+                compressed["description"] = compressed["description"][:500] + "... [Truncated]"
 
         # Compress feature lists if present
         if "features" in compressed and "features" in compressed["features"]:
             feats = compressed["features"]["features"]
             if isinstance(feats, list) and len(feats) > max_items_list:
-                logger.debug(f"Compressing features list size from {len(feats)} to {max_items_list}.")
                 compressed["features"]["features"] = feats[:max_items_list]
+
+        # Compress roadmap phases — limit tasks per phase
+        if "roadmap" in compressed and isinstance(compressed["roadmap"], dict):
+            roadmap = compressed["roadmap"]
+            if "phases" in roadmap and isinstance(roadmap["phases"], list):
+                for phase in roadmap["phases"]:
+                    if isinstance(phase, dict) and "tasks" in phase:
+                        if isinstance(phase["tasks"], list) and len(phase["tasks"]) > 8:
+                            phase["tasks"] = phase["tasks"][:8]
+
+        # Compress team org_chart — limit roles
+        if "team" in compressed and isinstance(compressed["team"], dict):
+            team = compressed["team"]
+            if "org_chart" in team and isinstance(team["org_chart"], list) and len(team["org_chart"]) > 12:
+                team["org_chart"] = team["org_chart"][:12]
+
+        # Compress SWOT mitigations
+        if "swot" in compressed and isinstance(compressed["swot"], dict):
+            swot = compressed["swot"]
+            for key in ("strengths", "weaknesses", "opportunities", "threats"):
+                if key in swot and isinstance(swot[key], list) and len(swot[key]) > 6:
+                    swot[key] = swot[key][:6]
+
+        # Compress cost operational_costs
+        if "cost" in compressed and isinstance(compressed["cost"], dict):
+            cost = compressed["cost"]
+            if "operational_costs" in cost and isinstance(cost["operational_costs"], list) and len(cost["operational_costs"]) > 10:
+                cost["operational_costs"] = cost["operational_costs"][:10]
 
         return compressed
 

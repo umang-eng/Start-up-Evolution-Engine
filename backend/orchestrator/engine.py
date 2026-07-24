@@ -11,8 +11,14 @@ Cache Strategy:
   SHA-256 checksum from the stage's inputs (project base data + all upstream
   results). It then queries the database for an existing result matching
   that checksum. On a hit, the LLM call is skipped entirely.
+
+Parallel Execution:
+  Independent stages run concurrently via asyncio.gather:
+  - swot + cost (after team completes)
+  - blueprint + legal_compliance (after cost completes)
 """
 
+import asyncio
 import json
 import uuid
 from abc import ABC, abstractmethod
@@ -248,171 +254,129 @@ class WorkflowOrchestrator:
         session.status = "RUNNING"
         await db.commit()
 
-        # ── Stage execution loop ──────────────────────────────────
-        for stage_name in sequence:
-            stage_num, is_critical = self.STAGES_CONFIG[stage_name]
-            global_idx = self.STAGES_ORDER.index(stage_name)
-            progress = round((global_idx / total_stages) * 100, 2)
+        # ── Pre-load project with all relations (cached for entire run) ─
+        stmt = (
+            select(Project)
+            .where(Project.id == project.id)
+            .options(
+                selectinload(Project.dna_result),
+                selectinload(Project.feature_result),
+                selectinload(Project.roadmap_result),
+                selectinload(Project.team_result),
+                selectinload(Project.swot_result),
+                selectinload(Project.cost_result),
+                selectinload(Project.legal_compliance_result),
+            )
+        )
+        project = (await db.execute(stmt)).scalar_one()
 
-            # Update DB progress
-            session.current_stage = stage_name
-            session.progress_percentage = progress
-            await db.commit()
+        # ── Parallel execution groups ─────────────────────────────
+        # After team (stage 4) completes: swot + cost can run in parallel
+        # After cost completes: blueprint + legal_compliance can run in parallel
+        PARALLEL_GROUPS: list[list[str]] = [
+            ["dna"],                          # Stage 1
+            ["features"],                     # Stage 2
+            ["roadmap"],                      # Stage 3
+            ["team"],                         # Stage 4
+            ["swot", "cost"],                 # Stages 5+6: parallel
+            ["blueprint", "legal_compliance"], # Stages 7+8: parallel
+        ]
 
-            # Emit module:started
-            await self._publish_event(channel_name, {
-                "event_type": "module:started",
-                "project_id": str(project.id),
-                "session_id": str(session.id),
-                "module_info": {
-                    "module_name": stage_name,
-                    "stage": stage_num,
-                    "total_stages": total_stages,
-                    "status": "RUNNING",
-                },
-            })
+        # Flatten for progress tracking, but execute in groups
+        completed_stages: set[str] = set()
+        progress_base = 0.0
 
-            # Check module registry
-            module_runner = self.modules.get(stage_name)
-            if not module_runner:
-                err_msg = f"Module '{stage_name}' is not registered in the orchestrator."
-                workflow_logger.error(err_msg)
-                await self._handle_stage_failure(db, session, channel_name, stage_name, is_critical, err_msg)
-                if is_critical:
-                    return session
+        for group in PARALLEL_GROUPS:
+            # Filter to only stages in our target sequence
+            active_stages = [s for s in group if s in sequence and s not in completed_stages]
+            if not active_stages:
                 continue
 
-            # ── Assemble context from predecessor outputs ─────────
-            stmt = (
-                select(Project)
-                .where(Project.id == project.id)
-                .options(
-                    selectinload(Project.dna_result),
-                    selectinload(Project.feature_result),
-                    selectinload(Project.roadmap_result),
-                    selectinload(Project.team_result),
-                    selectinload(Project.swot_result),
-                    selectinload(Project.cost_result),
-                    selectinload(Project.legal_compliance_result),
+            if len(active_stages) == 1:
+                # Single stage — run directly
+                stage_name = active_stages[0]
+                stage_num, is_critical = self.STAGES_CONFIG[stage_name]
+                global_idx = self.STAGES_ORDER.index(stage_name)
+                progress = round((global_idx / total_stages) * 100, 2)
+
+                session.current_stage = stage_name
+                session.progress_percentage = progress
+                await db.commit()
+
+                success = await self._run_single_stage(
+                    db, session, project, channel_name, stage_name, is_critical, total_stages
                 )
-            )
-            project = (await db.execute(stmt)).scalar_one()
+                completed_stages.add(stage_name)
 
-            context = context_manager.assemble_context(project)
-            context = context_manager.compress_context_payload(context)
+                if not success and is_critical:
+                    return session
 
-            # ── Semantic Checksum Computation ─────────────────────
-            input_checksum = context_manager.compute_input_checksum(
-                stage_name=stage_name,
-                project=project,
-                context=context,
-            )
-
-            # ── Cache Lookup ──────────────────────────────────────
-            stored_checksum = context_manager.get_stored_checksum(project, stage_name)
-            cache_hit = (stored_checksum is not None and stored_checksum == input_checksum)
-
-            if cache_hit:
-                # ── CACHE HIT: Skip LLM call entirely ─────────────
-                logger.info(
-                    f"[Cache HIT] Stage '{stage_name}' | project={project.id} "
-                    f"checksum={input_checksum[:12]}… — reusing stored result"
+                # Refresh project after stage completion
+                stmt = (
+                    select(Project)
+                    .where(Project.id == project.id)
+                    .options(
+                        selectinload(Project.dna_result),
+                        selectinload(Project.feature_result),
+                        selectinload(Project.roadmap_result),
+                        selectinload(Project.team_result),
+                        selectinload(Project.swot_result),
+                        selectinload(Project.cost_result),
+                        selectinload(Project.legal_compliance_result),
+                    )
                 )
+                project = (await db.execute(stmt)).scalar_one()
 
-                result_data = await self._load_cached_result(db, stage_name, project.id)
-                if result_data is None:
-                    # Edge case: checksum matched but DB row missing (data race)
-                    logger.warning(
-                        f"[Cache MISS] Checksum matched but no DB row for stage '{stage_name}' | "
-                        f"project={project.id} — falling back to fresh generation"
+            else:
+                # Multiple stages — run in parallel
+                logger.info(f"[Pipeline] Running parallel group: {active_stages}")
+
+                # Update progress for the first stage in the group
+                first_stage = active_stages[0]
+                global_idx = self.STAGES_ORDER.index(first_stage)
+                progress = round((global_idx / total_stages) * 100, 2)
+                session.current_stage = "+".join(active_stages)
+                session.progress_percentage = progress
+                await db.commit()
+
+                # Run all stages in parallel
+                tasks = [
+                    self._run_single_stage(
+                        db, session, project, channel_name, stage_name,
+                        self.STAGES_CONFIG[stage_name][1], total_stages,
+                        parallel=True,
                     )
-                    cache_hit = False
+                    for stage_name in active_stages
+                ]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            if not cache_hit:
-                # ── CACHE MISS: Run LLM generation ────────────────
-                if stored_checksum:
-                    logger.info(
-                        f"[Cache MISS] Stage '{stage_name}' | project={project.id} "
-                        f"input={input_checksum[:12]}… stored={stored_checksum[:12]}… — inputs changed"
+                # Process results
+                for stage_name, result in zip(active_stages, results):
+                    completed_stages.add(stage_name)
+                    if isinstance(result, Exception):
+                        workflow_logger.error(f"Parallel stage {stage_name} raised: {result}")
+                        is_critical = self.STAGES_CONFIG[stage_name][1]
+                        await self._handle_stage_failure(
+                            db, session, channel_name, stage_name, is_critical, str(result)
+                        )
+                        if is_critical:
+                            return session
+
+                # Refresh project after parallel group
+                stmt = (
+                    select(Project)
+                    .where(Project.id == project.id)
+                    .options(
+                        selectinload(Project.dna_result),
+                        selectinload(Project.feature_result),
+                        selectinload(Project.roadmap_result),
+                        selectinload(Project.team_result),
+                        selectinload(Project.swot_result),
+                        selectinload(Project.cost_result),
+                        selectinload(Project.legal_compliance_result),
                     )
-                else:
-                    logger.info(
-                        f"[Cache MISS] Stage '{stage_name}' | project={project.id} "
-                        f"checksum={input_checksum[:12]}… — no prior result"
-                    )
-
-                # Set analytics context vars
-                from backend.core.logging import active_project_id_ctx, active_module_name_ctx
-                project_id_token = active_project_id_ctx.set(str(project.id))
-                module_name_token = active_module_name_ctx.set(stage_name)
-
-                try:
-                    retry_count = 3
-                    success = False
-                    result_data = None
-
-                    for attempt in range(retry_count):
-                        try:
-                            result_data = await module_runner.run(db, project, context)
-                            success = True
-                            break
-                        except Exception as e:
-                            workflow_logger.warning(
-                                f"Module {stage_name} failed: attempt {attempt + 1}/{retry_count}",
-                                exc_info=e,
-                            )
-                            if attempt == retry_count - 1:
-                                await self._handle_stage_failure(
-                                    db, session, channel_name, stage_name, is_critical, str(e)
-                                )
-                                if is_critical:
-                                    return session
-                finally:
-                    active_project_id_ctx.reset(project_id_token)
-                    active_module_name_ctx.reset(module_name_token)
-
-                if not success:
-                    continue
-
-                # Save the new checksum alongside the result
-                await self._save_checksum(db, stage_name, project.id, input_checksum)
-
-            # ── Stage completion ──────────────────────────────────
-            cache_status = "hit" if cache_hit else "miss"
-            session.cache_hits = int(session.cache_hits) + (1 if cache_hit else 0)
-            session.cache_misses = int(session.cache_misses) + (0 if cache_hit else 1)
-            if session.stage_cache_map is None:
-                session.stage_cache_map = {}
-            session.stage_cache_map[stage_name] = cache_status
-            await db.commit()
-
-            # Persist event log
-            event = WorkflowEvent(
-                session_id=session.id,
-                event_type="module:completed",
-                stage=stage_name,
-                payload={
-                    **(result_data or {}),
-                    "_cache_status": cache_status,
-                    "_checksum": input_checksum,
-                },
-            )
-            db.add(event)
-            await db.commit()
-
-            # Emit module:completed
-            await self._publish_event(channel_name, {
-                "event_type": "module:completed",
-                "project_id": str(project.id),
-                "session_id": str(session.id),
-                "module_info": {
-                    "module_name": stage_name,
-                    "stage": stage_num,
-                },
-                "cache_status": cache_status,
-                "checksum": input_checksum,
-                "result_info": result_data,
-            })
+                )
+                project = (await db.execute(stmt)).scalar_one()
 
         # ── Pipeline terminal state ───────────────────────────────
         session.status = "COMPLETED"
@@ -435,6 +399,162 @@ class WorkflowOrchestrator:
         })
 
         return session
+
+    # ── Single Stage Runner (supports parallel execution) ──────────
+
+    async def _run_single_stage(
+        self,
+        db: AsyncSession,
+        session: GenerationSession,
+        project: Project,
+        channel_name: str,
+        stage_name: str,
+        is_critical: bool,
+        total_stages: int,
+        parallel: bool = False,
+    ) -> bool:
+        """Run a single pipeline stage with caching and retry logic.
+
+        Returns True on success, False on failure.
+        """
+        from backend.ai.context import context_manager
+
+        stage_num = self.STAGES_CONFIG[stage_name][0]
+        global_idx = self.STAGES_ORDER.index(stage_name)
+
+        # Emit module:started
+        await self._publish_event(channel_name, {
+            "event_type": "module:started",
+            "project_id": str(project.id),
+            "session_id": str(session.id),
+            "module_info": {
+                "module_name": stage_name,
+                "stage": stage_num,
+                "total_stages": total_stages,
+                "status": "RUNNING",
+                "parallel": parallel,
+            },
+        })
+
+        # Check module registry
+        module_runner = self.modules.get(stage_name)
+        if not module_runner:
+            err_msg = f"Module '{stage_name}' is not registered in the orchestrator."
+            workflow_logger.error(err_msg)
+            await self._handle_stage_failure(db, session, channel_name, stage_name, is_critical, err_msg)
+            return False
+
+        # Assemble context from predecessor outputs
+        context = context_manager.assemble_context(project)
+        context = context_manager.compress_context_payload(context)
+
+        # Semantic Checksum Computation
+        input_checksum = context_manager.compute_input_checksum(
+            stage_name=stage_name,
+            project=project,
+            context=context,
+        )
+
+        # Cache Lookup
+        stored_checksum = context_manager.get_stored_checksum(project, stage_name)
+        cache_hit = (stored_checksum is not None and stored_checksum == input_checksum)
+
+        if cache_hit:
+            logger.info(
+                f"[Cache HIT] Stage '{stage_name}' | project={project.id} "
+                f"checksum={input_checksum[:12]}… — reusing stored result"
+            )
+            result_data = await self._load_cached_result(db, stage_name, project.id)
+            if result_data is None:
+                logger.warning(
+                    f"[Cache MISS] Checksum matched but no DB row for stage '{stage_name}' | "
+                    f"project={project.id} — falling back to fresh generation"
+                )
+                cache_hit = False
+
+        if not cache_hit:
+            if stored_checksum:
+                logger.info(
+                    f"[Cache MISS] Stage '{stage_name}' | project={project.id} "
+                    f"input={input_checksum[:12]}… stored={stored_checksum[:12]}… — inputs changed"
+                )
+            else:
+                logger.info(
+                    f"[Cache MISS] Stage '{stage_name}' | project={project.id} "
+                    f"checksum={input_checksum[:12]}… — no prior result"
+                )
+
+            from backend.core.logging import active_project_id_ctx, active_module_name_ctx
+            project_id_token = active_project_id_ctx.set(str(project.id))
+            module_name_token = active_module_name_ctx.set(stage_name)
+
+            try:
+                retry_count = 3
+                success = False
+                result_data = None
+
+                for attempt in range(retry_count):
+                    try:
+                        result_data = await module_runner.run(db, project, context)
+                        success = True
+                        break
+                    except Exception as e:
+                        workflow_logger.warning(
+                            f"Module {stage_name} failed: attempt {attempt + 1}/{retry_count}",
+                            exc_info=e,
+                        )
+                        if attempt == retry_count - 1:
+                            await self._handle_stage_failure(
+                                db, session, channel_name, stage_name, is_critical, str(e)
+                            )
+                            return False
+            finally:
+                active_project_id_ctx.reset(project_id_token)
+                active_module_name_ctx.reset(module_name_token)
+
+            if not success:
+                return False
+
+            await self._save_checksum(db, stage_name, project.id, input_checksum)
+
+        # Stage completion
+        cache_status = "hit" if cache_hit else "miss"
+        session.cache_hits = int(session.cache_hits) + (1 if cache_hit else 0)
+        session.cache_misses = int(session.cache_misses) + (0 if cache_hit else 1)
+        if session.stage_cache_map is None:
+            session.stage_cache_map = {}
+        session.stage_cache_map[stage_name] = cache_status
+        await db.commit()
+
+        # Persist event log
+        event = WorkflowEvent(
+            session_id=session.id,
+            event_type="module:completed",
+            stage=stage_name,
+            payload={
+                **(result_data or {}),
+                "_cache_status": cache_status,
+                "_checksum": input_checksum,
+            },
+        )
+        db.add(event)
+        await db.commit()
+
+        # Emit module:completed
+        await self._publish_event(channel_name, {
+            "event_type": "module:completed",
+            "project_id": str(project.id),
+            "session_id": str(session.id),
+            "module_info": {
+                "module_name": stage_name,
+                "stage": stage_num,
+            },
+            "cache_status": cache_status,
+            "checksum": input_checksum,
+            "result_info": result_data,
+        })
+
+        return True
 
     # ── Cache Helpers ──────────────────────────────────────────────
 

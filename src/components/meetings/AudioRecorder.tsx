@@ -15,6 +15,10 @@ import {
   FileText,
   AlertCircle,
   Pause,
+  Play,
+  RotateCcw,
+  AudioLines,
+  Sparkles,
 } from 'lucide-react';
 import { useMeetingStore } from '@/store/use-meeting-store';
 
@@ -49,7 +53,6 @@ function useMediaRecorder() {
       streamRef.current = stream;
       chunksRef.current = [];
 
-      // Prefer webm Opus, fallback to whatever's available
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : 'audio/webm';
@@ -66,7 +69,6 @@ function useMediaRecorder() {
       recorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: mimeType });
         setAudioBlob(blob);
-        // Stop all tracks
         stream.getTracks().forEach((t) => t.stop());
       };
 
@@ -75,14 +77,13 @@ function useMediaRecorder() {
         setIsRecording(false);
       };
 
-      recorder.start(1000); // Collect data every second
+      recorder.start(1000);
       recorderRef.current = recorder;
       setIsRecording(true);
       setIsPaused(false);
       setError(null);
       setElapsedTime(0);
 
-      // Start timer
       timerRef.current = setInterval(() => {
         setElapsedTime((p) => p + 1);
       }, 1000);
@@ -132,7 +133,6 @@ function useMediaRecorder() {
     chunksRef.current = [];
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -155,6 +155,31 @@ function useMediaRecorder() {
     resumeRecording,
     reset,
   };
+}
+
+
+// ── Waveform Visualizer ──────────────────────────────────────────
+
+function WaveformVisualizer({ isPaused }: { isPaused: boolean }) {
+  return (
+    <div className="flex items-center justify-center gap-1 h-12">
+      {Array.from({ length: 24 }).map((_, i) => (
+        <div
+          key={i}
+          className={`w-1 rounded-full transition-all duration-150 ${
+            isPaused
+              ? 'h-1 bg-slate-300 dark:bg-slate-600'
+              : 'bg-gradient-to-t from-violet-500 to-purple-400 animate-pulse'
+          }`}
+          style={{
+            height: isPaused ? undefined : `${Math.random() * 32 + 8}px`,
+            animationDelay: `${i * 0.05}s`,
+            animationDuration: `${0.3 + Math.random() * 0.4}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
 }
 
 
@@ -189,7 +214,6 @@ export function AudioRecorder({ onComplete }: AudioRecorderProps) {
   const formatTime = (s: number) =>
     `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 
-  // Start live recording
   const handleStartRecording = async () => {
     try {
       const meeting = await createMeeting(title || undefined);
@@ -199,13 +223,11 @@ export function AudioRecorder({ onComplete }: AudioRecorderProps) {
     } catch {}
   };
 
-  // Stop recording → review
   const handleStop = () => {
     stopRecording();
     setStep('review');
   };
 
-  // Upload audio for transcription
   const handleTranscribe = async () => {
     if (!meetingId || !audioBlob) return;
     setTranscribing(true);
@@ -218,7 +240,6 @@ export function AudioRecorder({ onComplete }: AudioRecorderProps) {
     }
   };
 
-  // Paste text directly
   const handlePasteSubmit = async () => {
     if (!pasteText.trim()) return;
     try {
@@ -246,53 +267,61 @@ export function AudioRecorder({ onComplete }: AudioRecorderProps) {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto bg-white/5 backdrop-blur-xl border-white/10">
-      <CardHeader>
-        <CardTitle className="text-white flex items-center gap-2">
-          <Mic className="h-5 w-5 text-purple-400" />
-          Conversation Intelligence
+    <Card className="w-full border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-slate-900 dark:text-white flex items-center gap-2.5">
+          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 shadow-lg shadow-red-500/25">
+            <Mic className="h-4 w-4 text-white" />
+          </div>
+          New Recording
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
+        {/* Error */}
         {recorderError && (
-          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm flex items-start gap-2">
+          <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-700 dark:text-amber-400 text-sm flex items-start gap-2.5">
             <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
             {recorderError}
           </div>
         )}
 
-        {/* ── Setup ── */}
+        {/* Setup Step */}
         {step === 'setup' && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <label className="text-sm text-white/60 mb-1.5 block">Meeting Title (optional)</label>
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 block uppercase tracking-wider">
+                Meeting Title
+              </label>
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g., Weekly Standup, Client Call..."
-                className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                className="h-10 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
               />
             </div>
 
-            {/* Paste transcript */}
             <div>
-              <label className="text-sm text-white/60 mb-1.5 block flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5" />
-                Paste Transcript
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 block uppercase tracking-wider">
+                Or Paste Transcript
               </label>
               <Textarea
                 value={pasteText}
                 onChange={(e) => setPasteText(e.target.value)}
                 placeholder={"Speaker A: Let's discuss the roadmap.\nSpeaker B: I think we should prioritize auth.\nSpeaker A: Agreed. Own it by Friday?"}
-                className="min-h-[120px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-y font-mono text-sm"
+                className="min-h-[140px] bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 resize-y font-mono text-sm"
               />
+              {pasteText.trim() && (
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">
+                  {pasteText.trim().split(/\s+/).filter(Boolean).length} words
+                </p>
+              )}
             </div>
 
             <div className="flex gap-3">
               {isSupported && (
                 <Button
                   onClick={handleStartRecording}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  className="flex-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-lg shadow-red-500/25 h-11"
                 >
                   <Mic className="h-4 w-4 mr-2" />
                   Record Audio
@@ -301,51 +330,87 @@ export function AudioRecorder({ onComplete }: AudioRecorderProps) {
               <Button
                 onClick={handlePasteSubmit}
                 disabled={!pasteText.trim() || loading}
-                className={`flex-1 bg-purple-600 hover:bg-purple-700 text-white ${!isSupported ? 'w-full' : ''}`}
+                className={`flex-1 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-lg shadow-purple-500/25 h-11 ${
+                  !isSupported ? 'w-full' : ''
+                }`}
               >
-                {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-                Use Pasted Text
+                {loading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                {loading ? 'Processing...' : 'Use Pasted Text'}
               </Button>
             </div>
 
             {!isSupported && (
-              <p className="text-xs text-white/30 text-center">
+              <p className="text-xs text-slate-400 dark:text-slate-500 text-center">
                 Audio recording requires a modern browser with MediaRecorder support
               </p>
             )}
           </div>
         )}
 
-        {/* ── Recording ── */}
+        {/* Recording Step */}
         {step === 'recording' && (
-          <div className="space-y-4">
-            <div className="p-6 rounded-2xl bg-red-500/10 border border-red-500/20 text-center">
-              <div className="relative mx-auto w-20 h-20">
-                {!isPaused && <div className="absolute inset-0 rounded-full bg-red-500/20 animate-ping" />}
-                <div className={`relative h-20 w-20 rounded-full flex items-center justify-center ${isPaused ? 'bg-yellow-500/30' : 'bg-red-500/30'}`}>
-                  {isPaused ? <Pause className="h-8 w-8 text-yellow-400" /> : <Mic className="h-8 w-8 text-red-400" />}
+          <div className="space-y-5">
+            <div className="py-8 rounded-2xl bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 border border-red-200/50 dark:border-red-900/30 text-center">
+              <div className="relative mx-auto w-20 h-20 mb-4">
+                {!isPaused && (
+                  <>
+                    <div className="absolute inset-0 rounded-full bg-red-400/20 animate-ping" />
+                    <div className="absolute inset-1 rounded-full bg-red-400/10 animate-ping" style={{ animationDelay: '0.5s' }} />
+                  </>
+                )}
+                <div className={`relative h-20 w-20 rounded-full flex items-center justify-center shadow-xl ${
+                  isPaused
+                    ? 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/30'
+                    : 'bg-gradient-to-br from-red-500 to-rose-600 shadow-red-500/30'
+                }`}>
+                  {isPaused ? (
+                    <Pause className="h-8 w-8 text-white" />
+                  ) : (
+                    <AudioLines className="h-8 w-8 text-white" />
+                  )}
                 </div>
               </div>
-              <p className={`mt-3 font-mono text-3xl font-bold ${isPaused ? 'text-yellow-300' : 'text-red-300'}`}>
+
+              <p className={`font-mono text-4xl font-bold tracking-tight ${
+                isPaused ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
+              }`}>
                 {formatTime(elapsedTime)}
               </p>
-              <p className="text-white/50 text-xs mt-1">
-                {isPaused ? 'Paused — click Resume to continue' : 'Recording in progress...'}
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">
+                {isPaused ? 'Recording paused' : 'Recording in progress...'}
               </p>
+
+              {!isPaused && <WaveformVisualizer isPaused={isPaused} />}
             </div>
 
             <div className="flex gap-3">
               {isPaused ? (
-                <Button onClick={resumeRecording} variant="outline" className="flex-1 border-white/10 text-white hover:bg-white/5">
+                <Button
+                  onClick={resumeRecording}
+                  variant="outline"
+                  className="flex-1 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 h-11"
+                >
+                  <Play className="h-4 w-4 mr-2" />
                   Resume
                 </Button>
               ) : (
-                <Button onClick={pauseRecording} variant="outline" className="flex-1 border-white/10 text-white hover:bg-white/5">
+                <Button
+                  onClick={pauseRecording}
+                  variant="outline"
+                  className="flex-1 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 h-11"
+                >
                   <Pause className="h-4 w-4 mr-2" />
                   Pause
                 </Button>
               )}
-              <Button onClick={handleStop} variant="destructive" className="flex-1">
+              <Button
+                onClick={handleStop}
+                className="flex-1 bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-white shadow-lg h-11"
+              >
                 <Square className="h-4 w-4 mr-2" />
                 Stop & Transcribe
               </Button>
@@ -353,16 +418,25 @@ export function AudioRecorder({ onComplete }: AudioRecorderProps) {
           </div>
         )}
 
-        {/* ── Review ── */}
+        {/* Review Step */}
         {step === 'review' && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {audioBlob && (
-              <div className="p-4 rounded-lg bg-white/5 space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-white/80 font-medium">Recorded Audio</span>
-                  <span className="text-white/40">{formatSize(audioBlob.size)} &middot; {formatTime(elapsedTime)}</span>
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                <div className="flex items-center justify-between text-sm mb-3">
+                  <span className="text-slate-900 dark:text-white font-medium flex items-center gap-2">
+                    <AudioLines className="h-4 w-4 text-violet-500" />
+                    Recorded Audio
+                  </span>
+                  <span className="text-slate-500 dark:text-slate-400 text-xs">
+                    {formatSize(audioBlob.size)} · {formatTime(elapsedTime)}
+                  </span>
                 </div>
-                <audio controls src={URL.createObjectURL(audioBlob)} className="w-full h-10" />
+                <audio
+                  controls
+                  src={URL.createObjectURL(audioBlob)}
+                  className="w-full h-10 [&::-webkit-media-controls-panel]:bg-slate-100 dark:[&::-webkit-media-controls-panel]:bg-slate-800"
+                />
               </div>
             )}
 
@@ -370,36 +444,48 @@ export function AudioRecorder({ onComplete }: AudioRecorderProps) {
               <Button
                 onClick={handleReset}
                 variant="outline"
-                className="flex-1 border-white/10 text-white hover:bg-white/5"
+                className="flex-1 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 h-11"
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                <RotateCcw className="h-4 w-4 mr-2" />
                 Discard
               </Button>
               <Button
                 onClick={handleTranscribe}
                 disabled={transcribing || loading || !audioBlob}
-                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-lg shadow-purple-500/25 h-11"
               >
                 {transcribing || loading ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
-                  <Upload className="h-4 w-4 mr-2" />
+                  <Sparkles className="h-4 w-4 mr-2" />
                 )}
-                {transcribing ? 'Transcribing...' : 'Send to Whisper'}
+                {transcribing ? 'Transcribing...' : 'Transcribe with AI'}
               </Button>
             </div>
           </div>
         )}
 
-        {/* ── Done ── */}
+        {/* Done Step */}
         {step === 'done' && (
-          <div className="text-center space-y-4 py-4">
-            <CheckCircle className="h-14 w-14 text-green-400 mx-auto" />
-            <p className="text-white text-lg font-medium">Transcript Ready</p>
-            <p className="text-white/50 text-sm max-w-sm mx-auto">
-              Switch to the <strong>Report</strong> tab to generate your AI intelligence report.
-            </p>
-            <Button onClick={handleReset} variant="outline" className="border-white/10 text-white hover:bg-white/5">
+          <div className="text-center space-y-5 py-6">
+            <div className="relative mx-auto w-16 h-16">
+              <div className="absolute inset-0 rounded-full bg-emerald-400/20 animate-ping" />
+              <div className="relative h-16 w-16 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-xl shadow-emerald-500/30">
+                <CheckCircle className="h-7 w-7 text-white" />
+              </div>
+            </div>
+            <div>
+              <p className="text-slate-900 dark:text-white text-lg font-semibold">Transcript Ready</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1.5 max-w-sm mx-auto">
+                Switch to the <strong>Report</strong> tab to generate your AI intelligence report.
+              </p>
+            </div>
+            <Button
+              onClick={handleReset}
+              variant="outline"
+              className="border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900"
+            >
+              <Mic className="h-4 w-4 mr-2" />
               Record Another
             </Button>
           </div>
