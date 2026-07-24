@@ -22,12 +22,19 @@ _orchestrator = None
 
 
 def _get_orchestrator():
-    """Lazily import and cache the orchestrator singleton with registered modules."""
+    """Lazily import and cache the orchestrator singleton with registered modules.
+
+    Routes to AgentModule when agent mesh is enabled for a stage,
+    otherwise uses the original BaseModule implementation.
+    """
     global _orchestrator
     if _orchestrator is None:
         from backend.orchestrator.engine import WorkflowOrchestrator
+        from backend.agents.config import AGENT_MESH_CONFIG
+
         _orchestrator = WorkflowOrchestrator()
 
+        # Original module classes (fallback)
         from backend.modules.dna.module import DNAModule
         from backend.modules.features.module import FeatureModule
         from backend.modules.roadmap.module import RoadmapModule
@@ -37,14 +44,27 @@ def _get_orchestrator():
         from backend.modules.blueprint.module import BlueprintModule
         from backend.modules.legal_compliance.module import LegalComplianceModule
 
-        _orchestrator.register_module("dna", DNAModule())
-        _orchestrator.register_module("features", FeatureModule())
-        _orchestrator.register_module("roadmap", RoadmapModule())
-        _orchestrator.register_module("team", TeamModule())
-        _orchestrator.register_module("swot", SWOTModule())
-        _orchestrator.register_module("cost", CostModule())
-        _orchestrator.register_module("blueprint", BlueprintModule())
-        _orchestrator.register_module("legal_compliance", LegalComplianceModule())
+        stage_module_map: dict[str, type] = {
+            "dna": DNAModule,
+            "features": FeatureModule,
+            "roadmap": RoadmapModule,
+            "team": TeamModule,
+            "swot": SWOTModule,
+            "cost": CostModule,
+            "blueprint": BlueprintModule,
+            "legal_compliance": LegalComplianceModule,
+        }
+
+        for stage_name, original_cls in stage_module_map.items():
+            mesh_cfg = AGENT_MESH_CONFIG.get(stage_name)
+            if mesh_cfg and mesh_cfg.enabled:
+                from backend.agents.module import AgentModule
+                _orchestrator.register_module(stage_name, AgentModule(stage_name))
+                logger.info(
+                    f"[Worker] Registered AgentModule for stage={stage_name}"
+                )
+            else:
+                _orchestrator.register_module(stage_name, original_cls())
 
     return _orchestrator
 
