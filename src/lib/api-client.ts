@@ -425,4 +425,35 @@ export const api = {
       body: JSON.stringify({ session_id: sessionId }),
     }),
   },
+  meetings: {
+    list: (offset = 0, limit = 50) => request(`/api/v1/meetings?offset=${offset}&limit=${limit}`),
+    create: (payload: { project_id?: string; title?: string; language?: string }) =>
+      request('/api/v1/meetings', { method: 'POST', body: JSON.stringify(payload) }),
+    get: (id: string) => request(`/api/v1/meetings/${id}`),
+    update: (id: string, payload: any) =>
+      request(`/api/v1/meetings/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+    delete: (id: string) => request(`/api/v1/meetings/${id}`, { method: 'DELETE' }),
+    uploadTranscript: (meetingId: string, rawText: string, language?: string) =>
+      request(`/api/v1/meetings/${meetingId}/transcript`, {
+        method: 'POST',
+        body: JSON.stringify({ raw_text: rawText, language_detected: language }),
+      }),
+    uploadSegments: (meetingId: string, segments: any[]) =>
+      request(`/api/v1/meetings/${meetingId}/transcript/segments`, {
+        method: 'POST',
+        body: JSON.stringify({ segments }),
+      }),
+    getTranscript: (meetingId: string) => request(`/api/v1/meetings/${meetingId}/transcript`),
+    uploadAudio: (meetingId: string, audioBlob: Blob, filename: string = 'recording.webm') => {
+      const formData = new FormData();
+      formData.append('file', audioBlob, filename);
+      return request(`/api/v1/meetings/${meetingId}/transcript/audio`, {
+        method: 'POST',
+        body: formData,
+      });
+    },
+    generateReport: (meetingId: string) =>
+      request(`/api/v1/meetings/${meetingId}/report/generate`, { method: 'POST' }),
+    getReport: (meetingId: string) => request(`/api/v1/meetings/${meetingId}/report`),
+  },
 };

@@ -17,7 +17,8 @@ import {
   TrendingUp,
   LineChart,
   Award,
-  Sparkles
+  Sparkles,
+  Mic
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StageName } from '@/types/blueprint';
@@ -209,6 +210,20 @@ export function Sidebar() {
               </span>
             )}
           </div>
+        </div>
+
+        {/* Conversation Intelligence */}
+        <div className="pt-2 pb-2">
+          <a
+            href="/meetings"
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-all duration-150 text-xs",
+              "text-muted-foreground hover:bg-purple-500/10 hover:text-purple-400"
+            )}
+          >
+            <Mic className="h-4 w-4 shrink-0" />
+            {sidebarOpen && <span>Conversation Intelligence</span>}
+          </a>
         </div>
       </div>
       {/* New Startup Dialog */}

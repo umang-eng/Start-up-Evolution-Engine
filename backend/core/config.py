@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     OLLAMA_MODEL: str = "nemotron-3-super:cloud"
     OLLAMA_API_KEY: str = ""
 
+    # Whisper (speech-to-text)
+    WHISPER_HOST: str = "http://localhost:9000"
+    WHISPER_API_KEY: str = ""
+
     # Real-Time Search (at least one provider required for live market grounding)
     TAVILY_API_KEY: str = ""
     GOOGLE_SEARCH_API_KEY: str = ""

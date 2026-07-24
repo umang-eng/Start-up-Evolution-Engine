@@ -7,3 +7,4 @@ from backend.models.results import DNAResult, FeatureResult, RoadmapResult, Team
 from backend.models.workflow import GenerationSession, WorkflowEvent # noqa
 from backend.models.audit import AuditLog # noqa
 from backend.models.analytics import AnalyticsLog # noqa
+from backend.models.meeting import Meeting, MeetingSegment, Transcript, MeetingReport # noqa

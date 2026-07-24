@@ -67,6 +67,26 @@ services:
       retries: 5
       start_period: 30s
 
+  whisper:
+    image: hwdsl2/whisper-server
+    container_name: see-whisper
+    restart: always
+    ports:
+      - "${WHISPER_EXTERNAL_PORT:-9000}:9000"
+    volumes:
+      - whisper_data:/var/lib/whisper
+    environment:
+      - WHISPER_MODEL=${WHISPER_MODEL:-base}
+      - WHISPER_API_KEY=${WHISPER_API_KEY:-see-whisper-secret-key-2026}
+    networks:
+      - see-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
   # ── Tier 3: API Gateway ────────────────────────────────────────
   api-gateway:
     build:
@@ -91,6 +111,8 @@ services:
       - OLLAMA_HOST=http://ollama:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-nemotron-3-super:cloud}
       - OLLAMA_API_KEY=${OLLAMA_API_KEY:-}
+      - WHISPER_HOST=http://whisper:9000
+      - WHISPER_API_KEY=${WHISPER_API_KEY:-see-whisper-secret-key-2026}
       - TAVILY_API_KEY=${TAVILY_API_KEY:-}
       - SECRET_KEY=${SECRET_KEY:-39fca85521b7c191a0c4f8263152d24269e8ef81d11ff31ff215443210ef8abc}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
@@ -100,6 +122,8 @@ services:
       redis:
         condition: service_healthy
       ollama:
+        condition: service_healthy
+      whisper:
         condition: service_healthy
     networks:
       - see-net
@@ -132,6 +156,8 @@ services:
       - OLLAMA_HOST=http://ollama:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-nemotron-3-super:cloud}
       - OLLAMA_API_KEY=${OLLAMA_API_KEY:-}
+      - WHISPER_HOST=http://whisper:9000
+      - WHISPER_API_KEY=${WHISPER_API_KEY:-see-whisper-secret-key-2026}
       - TAVILY_API_KEY=${TAVILY_API_KEY:-}
       - SECRET_KEY=${SECRET_KEY:-39fca85521b7c191a0c4f8263152d24269e8ef81d11ff31ff215443210ef8abc}
     depends_on:
@@ -140,6 +166,8 @@ services:
       redis:
         condition: service_healthy
       ollama:
+        condition: service_healthy
+      whisper:
         condition: service_healthy
     networks:
       - see-net
@@ -172,3 +200,4 @@ volumes:
   postgres_data:
   redis_data:
   ollama_data:
+  whisper_data:

@@ -21,3 +21,4 @@ from backend.models.results import (  # noqa: F401
 )
 from backend.models.workflow import GenerationSession, WorkflowEvent  # noqa: F401
 from backend.models.analytics import AnalyticsLog  # noqa: F401
+from backend.models.meeting import Meeting, MeetingSegment, Transcript, MeetingReport  # noqa: F401
