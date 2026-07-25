@@ -23,6 +23,7 @@ import {
   Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SettingsDialog } from './settings-dialog';
 import { StageName } from '@/types/blueprint';
 import {
   Dialog,
@@ -64,6 +65,8 @@ export function Sidebar() {
   const [projectName, setProjectName] = useState('');
   const [projectPrompt, setProjectPrompt] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const handleNewProject = () => {
     setProjectName('');
@@ -282,10 +285,10 @@ export function Sidebar() {
       {/* Bottom Actions */}
       <div className="p-3 border-t border-border">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon-sm" className="flex-1">
+          <Button variant="ghost" size="icon-sm" className="flex-1" onClick={() => setSettingsOpen(true)}>
             <Settings className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon-sm" className="flex-1">
+          <Button variant="ghost" size="icon-sm" className="flex-1" onClick={() => setHelpOpen(true)}>
             <HelpCircle className="h-4 w-4" />
           </Button>
         </div>
@@ -344,6 +347,32 @@ export function Sidebar() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 text-primary" />
+              Help & Keyboard Shortcuts
+            </DialogTitle>
+            <DialogDescription>
+              Quick reference for navigating the Evolution Engine.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4 text-sm">
+            <div className="flex justify-between"><span className="text-muted-foreground">Create new project</span><kbd className="px-2 py-0.5 rounded bg-muted text-xs font-mono">Sidebar + button</kbd></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Navigate stages</span><kbd className="px-2 py-0.5 rounded bg-muted text-xs font-mono">Click stage in sidebar</kbd></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Collapse sidebar</span><kbd className="px-2 py-0.5 rounded bg-muted text-xs font-mono">Chevron icon</kbd></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Open settings</span><kbd className="px-2 py-0.5 rounded bg-muted text-xs font-mono">Gear icon (bottom)</kbd></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Record meeting</span><kbd className="px-2 py-0.5 rounded bg-muted text-xs font-mono">Mic icon in navbar</kbd></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHelpOpen(false)}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </aside>

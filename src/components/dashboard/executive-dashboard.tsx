@@ -245,7 +245,16 @@ export function ExecutiveDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button className="flex items-center gap-3 p-4 rounded-xl border border-border hover:bg-muted transition-colors text-left">
+              <button 
+                onClick={() => {
+                  // Find first project with features to show analytics
+                  const projectWithFeatures = projects.find(p => p.features || p.dna);
+                  if (projectWithFeatures) {
+                    setActiveProject(projectWithFeatures.id);
+                  }
+                }}
+                className="flex items-center gap-3 p-4 rounded-xl border border-border hover:bg-muted transition-colors text-left cursor-pointer"
+              >
                 <div className="h-10 w-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                   <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
@@ -254,7 +263,16 @@ export function ExecutiveDashboard() {
                   <span className="text-xs text-muted-foreground">Portfolio insights</span>
                 </div>
               </button>
-              <button className="flex items-center gap-3 p-4 rounded-xl border border-border hover:bg-muted transition-colors text-left">
+              <button 
+                onClick={() => {
+                  // Find first project with team structure
+                  const projectWithTeam = projects.find(p => p.team);
+                  if (projectWithTeam) {
+                    setActiveProject(projectWithTeam.id);
+                  }
+                }}
+                className="flex items-center gap-3 p-4 rounded-xl border border-border hover:bg-muted transition-colors text-left cursor-pointer"
+              >
                 <div className="h-10 w-10 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
                   <Users className="h-5 w-5 text-violet-600 dark:text-violet-400" />
                 </div>
@@ -263,7 +281,16 @@ export function ExecutiveDashboard() {
                   <span className="text-xs text-muted-foreground">Organization planning</span>
                 </div>
               </button>
-              <button className="flex items-center gap-3 p-4 rounded-xl border border-border hover:bg-muted transition-colors text-left">
+              <button 
+                onClick={() => {
+                  // Find first project with cost data
+                  const projectWithCosts = projects.find(p => p.cost);
+                  if (projectWithCosts) {
+                    setActiveProject(projectWithCosts.id);
+                  }
+                }}
+                className="flex items-center gap-3 p-4 rounded-xl border border-border hover:bg-muted transition-colors text-left cursor-pointer"
+              >
                 <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                   <DollarSign className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                 </div>
