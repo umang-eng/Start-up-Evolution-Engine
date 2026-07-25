@@ -13,7 +13,7 @@ from backend.utils.search import search_provider
 
 
 class CostModule(BaseModule):
-    """Generates financial models, scenario projections, and funding requirements with real-time regional cost data."""
+    """Generates financial models connected to features, roadmap, and team with real-time regional cost data."""
 
     SYSTEM_INSTRUCTION = """You are an expert startup CFO, venture capital financial analyst, and fractional controller. You construct realistic operational cost models, scenario projections, and calculate funding runway targets with high-fidelity corporate budgeting standards.
 
@@ -21,12 +21,17 @@ You have access to real-time regional cost benchmarks, government subsidies, tax
 - Reference actual salary benchmarks, cloud pricing, and operational costs for the specific region
 - Factor in real government subsidies, tax breaks, and industrial incentives the startup can claim
 - Ground your financial projections in verified current market rates, not generic estimates
-- Cite specific subsidy schemes, SEZ benefits, or regional cost advantages by name"""
+- Cite specific subsidy schemes, SEZ benefits, or regional cost advantages by name
+- Connect costs directly to features and roadmap phases"""
 
-    PROMPT_TEMPLATE = """Build a comprehensive operational cost estimation and cash runway analysis model.
-Predecessor Stage Outputs (DNA, Roadmap, Team, and SWOT Context):
+    PROMPT_TEMPLATE = """Build a comprehensive operational cost estimation and cash runway analysis model directly connected to the feature catalog and roadmap.
+
+Predecessor Stage Outputs:
 Startup Concept: {{ startup_idea }}
 DNA Revenue Model: {{ dna }}
+Feature Count: {{ features.features | length }} features
+Feature Details: {{ features }}
+Development Roadmap: {{ roadmap }}
 Hiring Chart & Salaries: {{ team }}
 SWOT Risk Parameters: {{ swot }}
 
@@ -36,12 +41,30 @@ SWOT Risk Parameters: {{ swot }}
 
 Using the real-time regional cost data above (labeled [REAL-TIME_MARKET_DATA] and [REAL-TIME_FUNDING_DATA]), ground your financial projections:
 
-Calculate and project:
-1. Monthly payroll expenses: use the specific base salaries from the hiring chart in the team structure, adjusted for regional cost benchmarks from the real-time data.
-2. Operational tools & services (OPEX): allocate realistic monthly budgets for exactly 4 core categories: Hosting/Cloud, APIs/LLM usage, Marketing/Sales, and Operations/Legal — reference actual regional pricing where available.
-3. Scenario funding requirements: estimate overall cash target for Lean (skeleton MVP launch), Balanced (12-18 months of development), and Aggressive (faster hiring and paid growth) scenarios.
-4. Total cash runway target and runway months projection.
-5. Government subsidies and tax incentives: list any applicable regional programs, SEZ benefits, or startup schemes that reduce effective costs — include scheme names and eligibility notes.
+1. FEATURE COST BREAKDOWN: For each feature in the catalog, estimate:
+   - Development cost based on complexity and effort estimate
+   - Estimated weeks to build
+   - Primary cost driver
+
+2. PHASE COST BREAKDOWN: For each roadmap phase, estimate:
+   - Total phase cost (sum of feature costs + overhead)
+   - Major cost items
+
+3. Monthly payroll: use the specific base salaries from the hiring chart, adjusted for regional cost benchmarks.
+
+4. Operational tools & services (OPEX): allocate realistic monthly budgets for: Hosting/Cloud, APIs/LLM usage, Marketing/Sales, Operations/Legal.
+
+5. Budget scenarios:
+   - LEAN: skeleton MVP launch, minimum viable team
+   - BALANCED: 12-18 months of development, moderate hiring
+   - AGGRESSIVE: faster hiring and paid growth
+   For each scenario, list key assumptions.
+
+6. Contingency: add 10-30% buffer based on risk level.
+
+7. Break-even estimate: when does the business generate enough revenue to cover costs?
+
+8. Government subsidies and tax incentives from the real-time data.
 
 Ensure the output conforms strictly to the requested JSON schema, ensuring financial calculations are clean and balance correctly."""
 
@@ -58,11 +81,7 @@ Ensure the output conforms strictly to the requested JSON schema, ensuring finan
     async def _fetch_realtime_data(
         self, project: Project, context: dict[str, Any]
     ) -> tuple[str, str]:
-        """Execute parallel searches for cost benchmarks and subsidies.
-
-        Returns:
-            (cost_benchmark_block, subsidy_data_block) formatted for LLM injection
-        """
+        """Execute parallel searches for cost benchmarks and subsidies."""
         industry = project.industry or context.get("dna", {}).get("category", "technology")
         region = getattr(project, "region", None) or "US"
         year = "2026"
@@ -92,7 +111,7 @@ Ensure the output conforms strictly to the requested JSON schema, ensuring finan
         )
 
         cost_responses = responses[: len(cost_queries)]
-        subsidy_responses = responses[len(cost_queries) :]
+        subsidy_responses = responses[len(cost_queries):]
 
         cost_block = search_provider.format_for_llm(cost_responses)
         subsidy_block = search_provider.format_grants(subsidy_responses)

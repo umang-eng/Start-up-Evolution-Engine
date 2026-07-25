@@ -96,57 +96,61 @@ class ContextManager:
         return None
 
     def compress_context_payload(
-        self, 
-        context: dict[str, Any], 
-        max_items_list: int = 12
+        self,
+        context: dict[str, Any],
+        max_items_list: int = 25,
     ) -> dict[str, Any]:
-        """Compresses payload lists and narratives to fit token limits.
+        """Preserve full structured data between stages — only compress when absolutely necessary.
 
-        Aggressively compresses to reduce LLM response time:
-        - Truncates long text fields (>500 chars)
-        - Caps lists at max_items_list items
-        - Strips verbose sub-fields
+        Previous version destroyed critical context (descriptions, dependencies, responsibilities).
+        This version only compresses when lists exceed realistic token budgets.
+
+        Compression strategy:
+        - DNA: preserve scores, competitors, key risks (foundation for all downstream)
+        - Features: preserve descriptions, user_stories, dependencies (roadmap needs them)
+        - Roadmap: preserve task details, acceptance_criteria (team/cost need them)
+        - Team: preserve responsibilities, skills, salary (cost/blueprint need them)
+        - SWOT: preserve mitigations with severity (blueprint needs them)
+        - Cost: preserve breakdowns (blueprint needs them)
+        - Only truncate text fields > 3000 chars (not 500)
         """
         compressed = context.copy()
-        
-        # Compress narrative descriptions if present
-        if "description" in compressed and isinstance(compressed["description"], str):
-            if len(compressed["description"]) > 500:
-                compressed["description"] = compressed["description"][:500] + "... [Truncated]"
 
-        # Compress feature lists if present
-        if "features" in compressed and "features" in compressed["features"]:
-            feats = compressed["features"]["features"]
+        # Only truncate extremely long narrative descriptions
+        if "description" in compressed and isinstance(compressed["description"], str):
+            if len(compressed["description"]) > 3000:
+                compressed["description"] = compressed["description"][:3000] + "... [Truncated]"
+
+        # Features: keep all fields, only cap at 25 features max
+        if "features" in compressed and isinstance(compressed.get("features"), dict):
+            feats = compressed["features"].get("features", [])
             if isinstance(feats, list) and len(feats) > max_items_list:
                 compressed["features"]["features"] = feats[:max_items_list]
 
-        # Compress roadmap phases — limit tasks per phase
+        # Roadmap: keep all task fields, only cap phases at 8
         if "roadmap" in compressed and isinstance(compressed["roadmap"], dict):
-            roadmap = compressed["roadmap"]
-            if "phases" in roadmap and isinstance(roadmap["phases"], list):
-                for phase in roadmap["phases"]:
-                    if isinstance(phase, dict) and "tasks" in phase:
-                        if isinstance(phase["tasks"], list) and len(phase["tasks"]) > 8:
-                            phase["tasks"] = phase["tasks"][:8]
+            phases = compressed["roadmap"].get("phases", [])
+            if isinstance(phases, list) and len(phases) > 8:
+                compressed["roadmap"]["phases"] = phases[:8]
 
-        # Compress team org_chart — limit roles
+        # Team: keep all role fields, only cap at 15 roles
         if "team" in compressed and isinstance(compressed["team"], dict):
-            team = compressed["team"]
-            if "org_chart" in team and isinstance(team["org_chart"], list) and len(team["org_chart"]) > 12:
-                team["org_chart"] = team["org_chart"][:12]
+            org = compressed["team"].get("org_chart", [])
+            if isinstance(org, list) and len(org) > 15:
+                compressed["team"]["org_chart"] = org[:15]
 
-        # Compress SWOT mitigations
+        # SWOT: keep all data, only cap lists at 10
         if "swot" in compressed and isinstance(compressed["swot"], dict):
-            swot = compressed["swot"]
             for key in ("strengths", "weaknesses", "opportunities", "threats"):
-                if key in swot and isinstance(swot[key], list) and len(swot[key]) > 6:
-                    swot[key] = swot[key][:6]
+                val = compressed["swot"].get(key, [])
+                if isinstance(val, list) and len(val) > 10:
+                    compressed["swot"][key] = val[:10]
 
-        # Compress cost operational_costs
+        # Cost: keep all data, only cap operational costs at 15
         if "cost" in compressed and isinstance(compressed["cost"], dict):
-            cost = compressed["cost"]
-            if "operational_costs" in cost and isinstance(cost["operational_costs"], list) and len(cost["operational_costs"]) > 10:
-                cost["operational_costs"] = cost["operational_costs"][:10]
+            ops = compressed["cost"].get("operational_costs", [])
+            if isinstance(ops, list) and len(ops) > 15:
+                compressed["cost"]["operational_costs"] = ops[:15]
 
         return compressed
 

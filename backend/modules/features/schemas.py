@@ -16,18 +16,47 @@ class FeatureItem(BaseModel):
     complexity: Literal["LOW", "MEDIUM", "HIGH"] = Field(
         description="Development complexity estimate"
     )
+    effort_estimate: Literal["XS", "S", "M", "L", "XL"] = Field(
+        default="M",
+        description="Engineering effort: XS(<1wk), S(1-2wk), M(2-4wk), L(1-2mo), XL(2+mo)"
+    )
     dependencies: list[str] = Field(
         default_factory=list,
         description="List of parent feature IDs this feature depends on"
+    )
+    user_stories: list[str] = Field(
+        default_factory=list,
+        description="As a [user], I want [X] so that [Y]"
+    )
+    business_value: str = Field(
+        default="",
+        max_length=300,
+        description="Why this feature matters to the business"
+    )
+    success_metrics: list[str] = Field(
+        default_factory=list,
+        description="How to measure this feature works post-launch"
     )
 
 
 class FeatureExtractorOutput(BaseModel):
     """Structured output schema returned by the Feature Extraction Module."""
-    features: list[FeatureItem]
+    features: list[FeatureItem] = Field(
+        min_length=5,
+        max_length=20,
+        description="Dynamic feature list scaled by startup complexity (5-20 features)"
+    )
     mvp_scope_rationale: str = Field(max_length=1000)
     core_stack: list[str] = Field(description="Recommended technology choices")
     blockers: list[str] = Field(description="Identified technical risk factors or integration blockers")
+    nfr_requirements: list[str] = Field(
+        default_factory=list,
+        description="Non-functional requirements: performance, security, scalability, accessibility"
+    )
+    technical_risks: list[str] = Field(
+        default_factory=list,
+        description="Known implementation risks and mitigation approaches"
+    )
 
     @field_validator("features")
     @classmethod

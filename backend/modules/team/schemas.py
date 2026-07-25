@@ -23,6 +23,14 @@ class RoleCard(BaseModel):
     hiring_stage: Literal["Immediate", "Pre-MVP", "Pre-Launch", "Growth"] = Field(
         description="Chronological hiring window target"
     )
+    equity_offered_percent: float = Field(
+        ge=0.0, le=50.0, default=0.0,
+        description="Equity percentage offered for this role (0 = cash-only)"
+    )
+    hiring_rationale: str = Field(
+        default="", max_length=200,
+        description="Why this role is needed and when"
+    )
 
 
 class RACIAssignment(BaseModel):
@@ -36,7 +44,32 @@ class RACIAssignment(BaseModel):
 
 class TeamOutput(BaseModel):
     """Structured output returned by the Team Structure Module."""
-    org_chart: list[RoleCard] = Field(description="Hiring pipeline roles configuration")
+    org_chart: list[RoleCard] = Field(
+        min_length=3,
+        max_length=12,
+        description="Dynamic hiring pipeline (3-12 roles based on complexity)"
+    )
     raci_matrix: list[RACIAssignment] = Field(description="RACI matrix assigning roles to roadmap tasks")
     recommended_team_size: int = Field(ge=1)
     hiring_sequence: list[str] = Field(description="Array of role_id slugs in priority order")
+    compensation_structure: Literal["CASH_ONLY", "EQUITY_HEAVY", "BALANCED"] = Field(
+        default="BALANCED",
+        description="Overall compensation philosophy for this team"
+    )
+    equity_pool_percent: float = Field(
+        ge=0.0, le=40.0, default=10.0,
+        description="Total equity pool allocated for all hires (excluding founders)"
+    )
+    cofounder_recommendation: str = Field(
+        default="",
+        max_length=300,
+        description="Whether a cofounder is recommended and what profile"
+    )
+    key_hiring_risks: list[str] = Field(
+        default_factory=list,
+        description="Risks in the hiring plan (e.g., 'AI talent is scarce', 'CTO role may need cofounder')"
+    )
+    total_monthly_payroll_usd: float = Field(
+        ge=0.0, default=0.0,
+        description="Total monthly payroll for cross-validation with Cost module"
+    )

@@ -14,29 +14,50 @@ from backend.orchestrator.engine import BaseModule
 class TeamModule(BaseModule):
     """Generates organizational hiring structures and role responsibility assignments."""
 
-    SYSTEM_INSTRUCTION = """You are a world-class Head of Talent, HR Executive, and startup co-founder advisor. You design organizational charts, hiring paths, and compensation budgets scaled to support aggressive product delivery timelines with realistic, data-driven targets."""
+    SYSTEM_INSTRUCTION = """You are a world-class Head of Talent, HR Executive, and startup co-founder advisor. You design organizational charts, hiring paths, and compensation budgets scaled to support aggressive product delivery timelines with realistic, data-driven targets.
+
+Your team plans must be proportional to roadmap complexity:
+- Simple roadmap (15-20 tasks): 3-5 roles
+- Medium roadmap (20-30 tasks): 5-8 roles
+- Complex roadmap (30+ tasks): 8-12 roles
+
+Consider equity compensation, cofounder needs, and hiring risks."""
 
     PROMPT_TEMPLATE = """Propose a structured hiring roadmap and salary estimations to support the product launch timeline.
-Predecessor Stage Outputs (DNA and Roadmap Context):
+
+Predecessor Stage Outputs:
 Startup Concept: {{ startup_idea }}
 DNA Focus Areas: {{ dna }}
+Feature Count: {{ features.features | length }} features
 Development Roadmap: {{ roadmap }}
+Total Estimated Weeks: {{ roadmap.total_estimated_weeks }}
 
-Define a lean, highly execution-oriented startup structure with exactly 3-4 core positions (e.g. CTO, Senior Developer, PM). Keep roles and responsibilities extremely brief (1-2 sentences).
-Define:
-1. Key departments needed.
-2. Core positions with brief responsibilities.
-3. Target hiring milestones (linking each position back to specific roadmap phases where their presence is first required).
-4. Estimated base salary ranges (USD/year) scaled realistically for remote/global startup talent (incorporate market rates).
-5. Direct reporting structures (who reports to whom using role IDs).
+Based on the roadmap complexity ({{ roadmap.total_estimated_weeks }} weeks, {{ roadmap.phases | length }} phases), design a team structure:
+
+Define 3-12 roles (scaled to project complexity):
+1. Key departments needed based on the feature set
+2. Core positions with:
+   - Brief responsibilities (1-2 sentences)
+   - Required technical/operational skills
+   - Target hiring milestone (linked to specific roadmap phases)
+   - Estimated salary ranges (USD/year) — realistic for remote/global startup talent
+   - Equity offered (0% for early hires, 1-5% for key hires)
+   - Hiring rationale (why this role, when needed)
+3. Direct reporting structures (who reports to whom using role IDs)
+4. Compensation structure: CASH_ONLY, EQUITY_HEAVY, or BALANCED
+5. Total equity pool percentage for all hires
+6. Cofounder recommendation: is a cofounder needed? What profile?
+7. Key hiring risks (talent scarcity, critical role dependency, etc.)
+
+Compute total monthly payroll for cross-validation with Cost module.
 
 Ensure the output conforms strictly to the requested JSON schema, providing role requirements."""
 
     async def run(
-        self, 
-        db: AsyncSession, 
-        project: Project, 
-        context: dict[str, Any]
+        self,
+        db: AsyncSession,
+        project: Project,
+        context: dict[str, Any],
     ) -> dict[str, Any]:
         """Validates predecessor metrics, renders prompts, executes AI hiring charts, and commits records."""
         logger.info(f"Running Team Structure Module for project: {project.id}")
@@ -49,7 +70,7 @@ Ensure the output conforms strictly to the requested JSON schema, providing role
             raise BaseBusinessException(
                 message="DNA, Feature, and Roadmap contexts are required to run the Team Structure Generator.",
                 code="DEPENDENCY_MISSING_ERROR",
-                status_code=400
+                status_code=400,
             )
 
         # 2. Compile templates variables
@@ -57,21 +78,21 @@ Ensure the output conforms strictly to the requested JSON schema, providing role
             "startup_idea": project.title,
             "dna": dna_context,
             "features": features_context,
-            "roadmap": roadmap_context
+            "roadmap": roadmap_context,
         }
 
-        # 3. Render system instructions and prompt templates owned by this module
+        # 3. Render system instructions and prompt templates
         system_instruction, rendered_prompt = self.render_prompt(
             system_template=self.SYSTEM_INSTRUCTION,
             user_template=self.PROMPT_TEMPLATE,
-            variables=variables
+            variables=variables,
         )
 
         # 4. Invoke LLM structured validation client
         team_output: TeamOutput = await gemini_adapter.generate(
             prompt=rendered_prompt,
             schema=TeamOutput,
-            system_instruction=system_instruction
+            system_instruction=system_instruction,
         )
 
         output_dict = team_output.model_dump()
@@ -84,10 +105,7 @@ Ensure the output conforms strictly to the requested JSON schema, providing role
         if team_record:
             team_record.data = output_dict
         else:
-            team_record = TeamResult(
-                project_id=project.id,
-                data=output_dict
-            )
+            team_record = TeamResult(project_id=project.id, data=output_dict)
             db.add(team_record)
 
         await db.commit()

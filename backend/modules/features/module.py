@@ -12,37 +12,58 @@ from backend.orchestrator.engine import BaseModule
 
 
 class FeatureModule(BaseModule):
-    """Generates structured product scope features catalogs from business DNA metrics."""
+    """Generates dynamic product feature catalogs scaled by startup complexity."""
 
-    SYSTEM_INSTRUCTION = """You are a distinguished Principal Product Manager and Enterprise Software Architect who has built platforms at Stripe, Google, and successful unicorns. You translate high-level business DNA profiles into production-ready product feature catalogs (PRDs) with technical clarity."""
+    SYSTEM_INSTRUCTION = """You are a distinguished Principal Product Manager and Enterprise Software Architect who has built platforms at Stripe, Google, and successful unicorns. You translate high-level business DNA profiles into production-ready product feature catalogs (PRDs) with technical clarity.
+
+Your feature catalogs must be proportional to startup complexity:
+- Simple B2C apps: 5-8 features
+- B2B SaaS: 8-12 features
+- Platform/marketplace: 10-15 features
+- Enterprise/DeepTech: 12-20 features
+
+Every feature must include user stories and success metrics. Do not pad with trivial features."""
 
     PROMPT_TEMPLATE = """Translate the strategic business profile of this startup into a comprehensive, hierarchical product feature catalog.
+
 Predecessor Stage Outputs (DNA Context):
 Startup Concept: {{ startup_idea }}
 Business Model & Revenue Streams: {{ dna.business_model }}
 Value Proposition Core: {{ dna.value_proposition }}
 Unique Selling Proposition (USP): {{ dna.usp }}
+Market Opportunity: {{ dna.market_size_estimate }}
+Complexity Score: {{ dna.scores.complexity }}
+Key Competitors: {{ dna.competitor_landscape }}
 
-For the MVP, design exactly 5 prioritized features in total:
-1. Exactly 2 Core features: absolute must-haves for launch.
-2. Exactly 1 Advanced feature: features that provide real competitive differentiation.
-3. Exactly 1 Future feature: long-term vision features.
-4. Exactly 1 Competitive feature: specific features to defend against incumbents.
+Based on the DNA complexity score and market context, generate 5-20 features:
 
-For each feature, provide:
-- An absolute, unique ID (e.g. FEAT-001).
-- A concise but clear functional description (max 2 sentences).
-- Development complexity (Low, Medium, High).
-- Business impact (Low, Medium, High).
-- Pre-requisite feature dependencies.
+1. Core features (MUST_HAVE): Absolute must-haves for MVP launch. Every core feature needs a user story.
+2. Advanced features (SHOULD_HAVE): Competitive differentiation features.
+3. Future features (COULD_HAVE): Long-term vision features for post-launch.
+4. Competitive features: Features specifically designed to counter identified competitors.
+5. Growth features: Features that enable scaling and market expansion.
 
-Ensure all outputs strictly adhere to the requested JSON schema, ensuring that descriptions are precise and clear."""
+For EACH feature provide:
+- Unique ID (e.g. FEAT-001)
+- Clear functional description (2-3 sentences)
+- User stories in "As a [user], I want [X] so that [Y]" format
+- Business value: why this feature matters
+- Complexity (LOW/MEDIUM/HIGH) and effort estimate (XS/S/M/L/XL)
+- Dependencies on other features (FEAT-XXX IDs)
+- Success metrics: how to measure this feature works post-launch
+
+Also provide:
+- Non-functional requirements (NFRs): performance, security, scalability needs
+- Technical risks: known implementation challenges
+- Technology stack recommendations
+
+Ensure all outputs strictly adhere to the requested JSON schema."""
 
     async def run(
-        self, 
-        db: AsyncSession, 
-        project: Project, 
-        context: dict[str, Any]
+        self,
+        db: AsyncSession,
+        project: Project,
+        context: dict[str, Any],
     ) -> dict[str, Any]:
         """Loads prompt configs, validates predecessor models, runs AI scopes, and upserts feature results."""
         logger.info(f"Running Feature Extraction Module for project: {project.id}")
@@ -53,27 +74,27 @@ Ensure all outputs strictly adhere to the requested JSON schema, ensuring that d
             raise BaseBusinessException(
                 message="DNA context is missing. Feature Extraction depends on completed DNA records.",
                 code="DEPENDENCY_MISSING_ERROR",
-                status_code=400
+                status_code=400,
             )
 
         # 2. Compile templates variables
         variables = {
             "startup_idea": project.title,
-            "dna": dna_context
+            "dna": dna_context,
         }
 
-        # 3. Render system instructions and prompt templates owned by this module
+        # 3. Render system instructions and prompt templates
         system_instruction, rendered_prompt = self.render_prompt(
             system_template=self.SYSTEM_INSTRUCTION,
             user_template=self.PROMPT_TEMPLATE,
-            variables=variables
+            variables=variables,
         )
 
-        # 4. Invoke LLM client with structured output model validation parameters
+        # 4. Invoke LLM with structured output model validation
         feature_output: FeatureExtractorOutput = await gemini_adapter.generate(
             prompt=rendered_prompt,
             schema=FeatureExtractorOutput,
-            system_instruction=system_instruction
+            system_instruction=system_instruction,
         )
 
         output_dict = feature_output.model_dump()
@@ -86,10 +107,7 @@ Ensure all outputs strictly adhere to the requested JSON schema, ensuring that d
         if feature_record:
             feature_record.data = output_dict
         else:
-            feature_record = FeatureResult(
-                project_id=project.id,
-                data=output_dict
-            )
+            feature_record = FeatureResult(project_id=project.id, data=output_dict)
             db.add(feature_record)
 
         await db.commit()

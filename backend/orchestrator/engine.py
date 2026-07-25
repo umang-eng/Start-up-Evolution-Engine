@@ -70,80 +70,64 @@ class BaseModule(ABC):
         return system_rendered, user_rendered
 
     def _compress_prompt_variables(self, variables: dict[str, Any]) -> dict[str, Any]:
-        """Recursively compresses context dictionaries specifically for prompt payload reduction."""
+        """Preserve full structured data between stages — only compress when token limits require it.
+
+        Unlike the old destructive compression, this version keeps all critical fields:
+        - DNA: scores, executive_summary, competitor_landscape, key_risks (all downstream-critical)
+        - Features: descriptions, user_stories, business_value, dependencies (roadmap needs them)
+        - Roadmap: task descriptions, acceptance_criteria, risk_level, feature_ids (team/cost need them)
+        - Team: responsibilities, required_skills, equity, salary (cost/blueprint need them)
+        - SWOT: mitigations with full severity, founder_actions (blueprint needs them)
+        - Cost: full breakdowns, scenarios (blueprint needs them)
+        """
         import copy
 
         compressed = copy.deepcopy(variables)
 
+        # DNA: preserve scores, competitor landscape, key risks — downstream needs all of it
+        # Only compress if the description is extremely long
         if "dna" in compressed and isinstance(compressed["dna"], dict):
             dna = compressed["dna"]
-            keys_to_keep = ["category", "customer_type", "market_type", "business_model", "revenue_streams", "value_proposition", "usp", "target_segments"]
-            compressed["dna"] = {k: dna[k] for k in keys_to_keep if k in dna}
+            # Keep all fields — DNA is the foundation everything builds on
+            # Only truncate extremely long executive_summary if > 2000 chars
+            if "executive_summary" in dna and isinstance(dna["executive_summary"], str) and len(dna["executive_summary"]) > 2000:
+                dna["executive_summary"] = dna["executive_summary"][:2000] + "... [Truncated]"
 
+        # Features: keep all fields — roadmap needs descriptions, user_stories, dependencies
+        # Only compress if feature list is very long (> 25)
         if "features" in compressed and isinstance(compressed["features"], dict):
             features = compressed["features"]
-            if "features" in features and isinstance(features["features"], list):
-                compressed["features"] = {"features": [
-                    {k: f.get(k) for k in ("id", "title", "complexity", "impact")} if isinstance(f, dict) else f
-                    for f in features["features"]
-                ][:15]}
+            if "features" in features and isinstance(features["features"], list) and len(features["features"]) > 25:
+                features["features"] = features["features"][:25]
 
+        # Roadmap: keep all task fields — team needs role assignments, cost needs duration
+        # Only compress if there are too many phases (> 8)
         if "roadmap" in compressed and isinstance(compressed["roadmap"], dict):
             roadmap = compressed["roadmap"]
-            if "phases" in roadmap and isinstance(roadmap["phases"], list):
-                c_phases = []
-                for phase in roadmap["phases"]:
-                    if isinstance(phase, dict):
-                        c_phase = {k: phase.get(k) for k in ("phase_id", "name", "duration_months", "milestones")}
-                        tasks = phase.get("tasks", [])
-                        if isinstance(tasks, list):
-                            c_phase["tasks"] = [
-                                {k: t.get(k) for k in ("id", "title", "duration_weeks", "assigned_role_id")} if isinstance(t, dict) else t
-                                for t in tasks
-                            ]
-                        c_phases.append(c_phase)
-                    else:
-                        c_phases.append(phase)
-                compressed["roadmap"] = {"phases": c_phases}
+            if "phases" in roadmap and isinstance(roadmap["phases"], list) and len(roadmap["phases"]) > 8:
+                roadmap["phases"] = roadmap["phases"][:8]
 
+        # Team: keep all role fields — cost needs salaries, blueprint needs skills
+        # Only compress if there are too many roles (> 15)
         if "team" in compressed and isinstance(compressed["team"], dict):
             team = compressed["team"]
-            if "org_chart" in team and isinstance(team["org_chart"], list):
-                compressed["team"] = {
-                    "org_chart": [
-                        {k: r.get(k) for k in ("role_id", "title", "department", "estimated_salary_usd", "hiring_stage")} if isinstance(r, dict) else r
-                        for r in team["org_chart"]
-                    ],
-                    "recommended_team_size": team.get("recommended_team_size"),
-                    "hiring_sequence": team.get("hiring_sequence"),
-                }
+            if "org_chart" in team and isinstance(team["org_chart"], list) and len(team["org_chart"]) > 15:
+                team["org_chart"] = team["org_chart"][:15]
 
+        # SWOT: keep all mitigations and actions — blueprint needs full risk data
+        # Only compress if lists are extremely long (> 10 items each)
         if "swot" in compressed and isinstance(compressed["swot"], dict):
             swot = compressed["swot"]
-            c_swot = {k: swot[k] for k in ("strengths", "weaknesses", "opportunities", "threats") if k in swot}
-            if "mitigations" in swot and isinstance(swot["mitigations"], list):
-                c_swot["mitigations"] = [
-                    {k: m.get(k) for k in ("threat_description", "severity", "mitigation_strategy")} if isinstance(m, dict) else m
-                    for m in swot["mitigations"]
-                ]
-            if "founder_actions" in swot and isinstance(swot["founder_actions"], list):
-                c_swot["founder_actions"] = [
-                    {k: a.get(k) for k in ("horizon", "action", "priority")} if isinstance(a, dict) else a
-                    for a in swot["founder_actions"]
-                ]
-            compressed["swot"] = c_swot
+            for key in ("strengths", "weaknesses", "opportunities", "threats"):
+                if key in swot and isinstance(swot[key], list) and len(swot[key]) > 10:
+                    swot[key] = swot[key][:10]
 
+        # Cost: keep full breakdowns — blueprint needs detailed cost analysis
+        # Only compress if operational costs list is very long (> 15)
         if "cost" in compressed and isinstance(compressed["cost"], dict):
             cost = compressed["cost"]
-            c_cost = {}
-            if "operational_costs" in cost and isinstance(cost["operational_costs"], list):
-                c_cost["operational_costs"] = [
-                    {k: o.get(k) for k in ("category", "monthly_usd")} if isinstance(o, dict) else o
-                    for o in cost["operational_costs"]
-                ]
-            if "funding_requirements" in cost:
-                c_cost["funding_requirements"] = cost["funding_requirements"]
-            compressed["cost"] = c_cost
+            if "operational_costs" in cost and isinstance(cost["operational_costs"], list) and len(cost["operational_costs"]) > 15:
+                cost["operational_costs"] = cost["operational_costs"][:15]
 
         return compressed
 

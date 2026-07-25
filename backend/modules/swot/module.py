@@ -21,12 +21,15 @@ You have access to real-time market data, competitive intelligence, funding sche
 - Identify actual government schemes, grants, and subsidies the startup can apply for
 - Reference real market trends, competitor moves, and regulatory changes
 - Ground your opportunities and threats in verified current events, not hypotheticals
-- Cite specific schemes, programs, or market developments by name when relevant"""
+- Cite specific schemes, programs, or market developments by name when relevant
+- Assess competitor positioning based on real market data"""
 
     PROMPT_TEMPLATE = """Perform an exhaustive strategic SWOT risk matrix evaluation.
-Predecessor Stage Outputs (DNA, Roadmap, and Team Context):
+
+Predecessor Stage Outputs:
 Startup Concept: {{ startup_idea }}
 DNA Viability Profile: {{ dna }}
+Feature Count: {{ features.features | length }} features
 Development Roadmap Phases: {{ roadmap }}
 Hiring & Org Structure: {{ team }}
 
@@ -37,14 +40,26 @@ Hiring & Org Structure: {{ team }}
 Using the real-time market data above (labeled [REAL-TIME_MARKET_DATA] and [REAL-TIME_FUNDING_DATA]), ground your analysis:
 
 Identify:
-1. Exactly 2 Core Strengths.
-2. Exactly 2 Core Weaknesses.
+1. Exactly 2 Core Strengths — internal advantages with specific evidence.
+2. Exactly 2 Core Weaknesses — internal gaps with specific evidence.
 3. Exactly 2 Market Opportunities — must reference specific market trends, funding programs, or competitive gaps from the real-time data.
 4. Exactly 2 Active Threats — must reference specific regulatory risks, competitor moves, or market headwinds from the real-time data.
 
+For each threat, provide:
+- Impact (1=Low, 2=Medium, 3=High)
+- Probability (1=Low, 2=Medium, 3=High)
+- Severity will be computed automatically as impact × probability
+- Affected area: MARKET, TECHNICAL, FINANCIAL, REGULATORY, or COMPETITIVE
+- Concrete mitigation strategy
+
 Formulate Actionable Strategies:
-- Map a clear, concrete, and actionable Mitigation strategy for each of the 2 identified Threats.
-- Provide a concise founder action plan outlining immediate strategic next steps (max 1-2 items).
+- Map a clear, concrete, and actionable Mitigation strategy for each threat
+- Provide a founder action plan with 3-5 strategic items across 4 time horizons
+
+Additional Analysis:
+- Competitor Positioning: where this startup stands vs real competitors
+- Market Validation Required: what the founder must validate before proceeding
+- Biggest Assumption: the single riskiest assumption the business depends on
 
 Ensure the output conforms strictly to the requested JSON schema, providing strategic value grounded in verified real-time intelligence."""
 
@@ -61,11 +76,7 @@ Ensure the output conforms strictly to the requested JSON schema, providing stra
     async def _fetch_realtime_data(
         self, project: Project, context: dict[str, Any]
     ) -> tuple[str, str]:
-        """Execute parallel searches for market data and funding schemes.
-
-        Returns:
-            (market_data_block, funding_data_block) formatted for LLM injection
-        """
+        """Execute parallel searches for market data and funding schemes."""
         industry = project.industry or context.get("dna", {}).get("category", "technology")
         region = getattr(project, "region", None) or "US"
         year = "2026"
@@ -77,7 +88,6 @@ Ensure the output conforms strictly to the requested JSON schema, providing stra
                 "[REAL-TIME_FUNDING_DATA] Real-time funding data unavailable. Analyze based on general knowledge.[/REAL-TIME_FUNDING_DATA]",
             )
 
-        # Build queries
         market_queries = [
             q.format(industry=industry, year=year) for q in self.MARKET_SEARCH_QUERIES
         ]
@@ -85,7 +95,6 @@ Ensure the output conforms strictly to the requested JSON schema, providing stra
             q.format(industry=industry, year=year) for q in self.FUNDING_SEARCH_QUERIES
         ]
 
-        # Execute searches concurrently
         all_queries = market_queries + funding_queries
         responses = await search_provider.search_multi(
             queries=all_queries,
@@ -95,7 +104,7 @@ Ensure the output conforms strictly to the requested JSON schema, providing stra
         )
 
         market_responses = responses[: len(market_queries)]
-        funding_responses = responses[len(market_queries) :]
+        funding_responses = responses[len(market_queries):]
 
         market_block = search_provider.format_for_llm(market_responses)
         funding_block = search_provider.format_grants(funding_responses)
