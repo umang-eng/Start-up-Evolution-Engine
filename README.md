@@ -2,7 +2,7 @@
 
 # Start-up Evolution Engine
 
-**An AI-powered platform that transforms raw startup ideas into investor-ready blueprints through an 8-stage compilation pipeline with real-time market grounding, conversation intelligence, and a pluggable multi-agent mesh.**
+**An AI-powered venture studio that transforms raw startup ideas into investor-grade, execution-ready blueprints through a 14-stage evidence-driven pipeline with multi-agent intelligence, competitive moat analysis, and investment committee simulation.**
 
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-3776AB.svg?style=flat&logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![Next.js 16](https://img.shields.io/badge/next.js-16-black?style=flat&logo=next.js)](https://nextjs.org/)
@@ -19,7 +19,10 @@
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
-- [8-Stage Compilation Pipeline](#8-stage-compilation-pipeline)
+- [14-Stage Pipeline](#14-stage-pipeline)
+- [Evidence & Confidence System](#evidence--confidence-system)
+- [Multi-Agent Decision System](#multi-agent-decision-system)
+- [Intelligence Modules](#intelligence-modules)
 - [Agent Mesh System](#agent-mesh-system)
 - [Conversation Intelligence](#conversation-intelligence)
 - [Real-Time Search Integration](#real-time-search-integration)
@@ -41,18 +44,25 @@
 
 A founder describes their startup idea in plain text. The platform then:
 
-1. **Extracts** structured business DNA — category, business model, revenue streams, USP, and six strategic scores (innovation, scalability, complexity, market opportunity, risk, competition)
-2. **Generates** a product feature set with MoSCoW prioritization, complexity scores, and dependency graphs
-3. **Builds** a phased delivery roadmap with milestone tasks, timeline estimates, and launch readiness scoring
-4. **Designs** an org chart with RACI matrix, hiring sequence, and salary estimates across 8 departments
-5. **Analyzes** a SWOT matrix with real-time market data, threat severity scoring, and founder action items across 4 time horizons
-6. **Projects** financial models with regional cost benchmarks, 3 budget scenarios (lean/balanced/aggressive), and funding runway targets
-7. **Compiles** an investor-ready Blueprint with 6 health indicators, conflict resolution logs, and executive summaries
-8. **Produces** a Legal & Compliance document pack with active government grants, registration requirements, and regulatory directories — all grounded in live web search
+### Core Pipeline (Stages 1-8)
+1. **Extracts** structured business DNA — category, business model, revenue streams, USP, and six strategic scores with real-time market grounding
+2. **Generates** 5-20 product features with MoSCoW prioritization, user stories, effort estimates, and dependency graphs
+3. **Builds** a phased delivery roadmap with 15-40 tasks, acceptance criteria, risk levels, and critical path identification
+4. **Designs** an org chart with 3-12 roles, equity structures, compensation packages, and hiring sequences
+5. **Analyzes** a SWOT matrix with threat severity scoring (impact × probability) and founder action items
+6. **Projects** financial models with feature-level cost breakdowns, phase costs, and funding runway targets
+7. **Compiles** an investor-ready Blueprint with competitive analysis, market positioning, and next steps
+8. **Produces** a Legal & Compliance document pack with government grants, registration requirements, and regulatory directories
 
-Every stage uses **structured Pydantic output schemas** validated against the LLM response. A **deterministic SHA-256 cache** skips LLM calls when inputs haven't changed. **Real-time web search** (Tavily / Google Custom Search) grounds stages 5, 6, and 8 in live market facts.
+### Intelligence Pipeline (Stages 9-14)
+9. **Assesses** competitive moats across 10 dimensions (network effects, data moat, brand, technology, switching costs, economies of scale, regulatory, distribution, community, AI flywheel) with difficulty/time/cost estimates
+10. **Stress tests** against 10+ scenarios (competitor entry, open-source alternatives, price wars, regulatory changes, recession, funding freeze) with mitigation strategies and recovery plans
+11. **Generates** investor-grade financials — unit economics, projections (monthly Y1, quarterly Y2-3), best/base/worst scenarios, valuation, and funding requirements
+12. **Simulates** an Investment Committee with 5 VC partners voting on the deal, producing term sheets, due diligence checklists, and investment theses
+13. **Creates** product execution assets — PRDs, 15-25 user stories, technical architecture, sprint backlogs, release plans, QA and deployment strategies
+14. **Plans** global expansion with multi-country waves, regulatory analysis, localization needs, hiring costs, and GTM strategies per market
 
-The platform also includes **Conversation Intelligence** — record or upload meeting audio, transcribe it with Whisper.cpp, and generate AI-powered intelligence reports with action items, decisions, risks, and follow-ups.
+Every stage uses **structured Pydantic output schemas** validated against the LLM response. Every score includes **confidence, evidence, and uncertainty explanations**. A **deterministic SHA-256 cache** skips LLM calls when inputs haven't changed. **Real-time web search** grounds analysis in live market facts.
 
 ---
 
@@ -79,27 +89,26 @@ The platform also includes **Conversation Intelligence** — record or upload me
        |  PostgreSQL |   |    Redis     |   |   ARQ       |
        |  16 (data)  |   |  7 (cache + |   |   Worker    |
        |             |   |   Pub/Sub)  |   |   Engine    |
-       +-------------+   +-------------+   +----+--------+
+       +-------------+   +-------------+   +----+--------/
                                                  |
                                          +-------v--------+
-                                         |  8-Stage        |
+                                         |  14-Stage       |
                                          |  Pipeline       |
                                          |  Orchestrator   |
                                          +-------+--------+
                                                  |
-                                    +------------+------------+
-                                    |            |            |
-                               +----v---+  +----v---+  +----v---+
-                               | Agent  |  |  LLM   |  | Search |
-                               |  Mesh  |  | Gemini |  | Tavily |
-                               +--------+  +--------+  +--------+
-                                    |
-                        +-----------+-----------+
-                        |           |           |
-                   +----v---+ +----v---+ +----v---+
-                   |Research| |Analyst | |Reviewer|
-                   |  er    | |        | |        |
-                   +--------+ +--------+ +--------+
+                              +------------------+------------------+
+                              |                  |                  |
+                    +---------v--------+ +-------v-------+ +-------v-------+
+                    |  Core Pipeline   | | Intelligence  | | Agent Mesh    |
+                    |  (8 stages)      | | Pipeline      | | (7 agents +   |
+                    |  DNA→Blueprint   | | (6 modules)   | |  Judge)       |
+                    +------------------+ +---------------+ +---------------+
+                              |                  |                  |
+                    +---------v--------+ +-------v-------+ +-------v-------+
+                    |  LLM (Gemini)    | | Evidence      | | Search        |
+                    |  Structured JSON  | | Collector     | | (Tavily/Google)|
+                    +------------------+ +---------------+ +---------------+
 ```
 
 ### 5-Tier Docker Deployment
@@ -193,45 +202,35 @@ The platform also includes **Conversation Intelligence** — record or upload me
 │   │       ├── analyst.py        # Computes health indicators + metrics
 │   │       ├── synthesizer.py    # LLM-powered output generation (schema-bound)
 │   │       └── reviewer.py       # Validates output quality + completeness
-│   ├── core/
-│   │   ├── config.py             # Pydantic Settings (all env vars)
-│   │   ├── logging.py            # Structured JSON logging + correlation IDs
-│   │   └── exceptions.py         # Custom business exceptions
-│   ├── models/
-│   │   ├── base.py               # DeclarativeBase + mixins (UUID, timestamps)
-│   │   ├── user.py               # User (email, hashed_password, role)
-│   │   ├── project.py            # Project, ProjectVersion
-│   │   ├── results.py            # DNAResult, FeatureResult, ..., LegalComplianceResult
-│   │   ├── blueprint.py          # Blueprint (final compiled output)
-│   │   ├── workflow.py           # GenerationSession, WorkflowEvent
-│   │   ├── meeting.py            # Meeting, MeetingSegment, Transcript, MeetingReport
-│   │   ├── audit.py              # AuditLog
-│   │   └── analytics.py          # AnalyticsLog (token usage, latency, cost)
 │   ├── modules/
 │   │   ├── dna/                  # Stage 1: Business DNA extraction
-│   │   │   ├── module.py         # DNAModule(BaseModule)
-│   │   │   └── schemas.py        # DNAOutput, DNAScores, DNAPayload
 │   │   ├── features/             # Stage 2: Product feature generation
-│   │   │   ├── module.py         # FeatureExtractorModule
-│   │   │   └── schemas.py        # FeatureExtractorOutput, FeatureItem
 │   │   ├── roadmap/              # Stage 3: Delivery roadmap
-│   │   │   ├── module.py         # RoadmapGeneratorModule
-│   │   │   └── schemas.py        # RoadmapOutput, RoadmapPhase, LaunchReadinessPlan
 │   │   ├── team/                 # Stage 4: Org chart + hiring
-│   │   │   ├── module.py         # TeamGeneratorModule
-│   │   │   └── schemas.py        # TeamOutput, RoleCard, RACIAssignment
 │   │   ├── swot/                 # Stage 5: SWOT + market data
-│   │   │   ├── module.py         # SWOTBuilderModule
-│   │   │   └── schemas.py        # SWOTOutput, ThreatMitigation, FounderAction
 │   │   ├── cost/                 # Stage 6: Financial model
-│   │   │   ├── module.py         # CostEstimatorModule
-│   │   │   └── schemas.py        # CostOutput, BudgetScenario, FundingRequirement
 │   │   ├── blueprint/            # Stage 7: Investor blueprint
-│   │   │   ├── module.py         # BlueprintComposerModule
-│   │   │   └── schemas.py        # BlueprintOutput, ExecutiveSummary, HealthIndicators
-│   │   └── legal_compliance/     # Stage 8: Legal & compliance
-│   │       ├── module.py         # LegalComplianceModule
-│   │       └── schemas.py        # LegalComplianceOutput, FundingSource, RegistrationRequirement
+│   │   ├── legal_compliance/     # Stage 8: Legal & compliance
+│   │   ├── evidence/             # Evidence & confidence infrastructure
+│   │   │   ├── types.py          # EvidenceSource, ConfidenceScore, ExplainableDecision
+│   │   │   ├── collector.py      # Web search evidence gathering
+│   │   │   ├── multi_agent.py    # 7 specialized agents + Judge
+│   │   │   ├── pipeline.py       # Decision pipeline orchestrator
+│   │   │   └── agents/           # Agent implementations
+│   │   │       ├── market_analyst.py
+│   │   │       ├── product_strategist.py
+│   │   │       ├── technical_architect.py
+│   │   │       ├── financial_analyst.py
+│   │   │       ├── gtm_strategist.py
+│   │   │       ├── risk_analyst.py
+│   │   │       ├── devils_advocate.py
+│   │   │       └── judge.py
+│   │   ├── competitive_moat/     # Stage 9: Competitive moat analysis
+│   │   ├── stress_test/          # Stage 10: Market stress testing
+│   │   ├── financial_intelligence/ # Stage 11: Financial intelligence engine
+│   │   ├── investment_committee/ # Stage 12: Investment committee simulation
+│   │   ├── product_execution/    # Stage 13: Product execution engine
+│   │   └── global_expansion/     # Stage 14: Global expansion engine
 │   ├── orchestrator/
 │   │   └── engine.py             # WorkflowOrchestrator + BaseModule ABC
 │   ├── services/
@@ -249,17 +248,25 @@ The platform also includes **Conversation Intelligence** — record or upload me
 │   ├── cache/                    # Redis connection manager
 │   ├── database/                 # Async session factory + connectivity verification
 │   ├── schemas/                  # Pydantic request/response models
-│   ├── tests/                    # pytest + pytest-asyncio suite
 │   └── requirements.txt
 ├── tests/
-│   └── agents/                   # Agent mesh unit tests (74 tests)
-│       ├── test_types.py
-│       ├── test_tools.py
-│       ├── test_context_bus.py
-│       ├── test_base.py
-│       ├── test_workflows.py
-│       ├── test_dna_e2e.py
-│       └── test_worker_integration.py
+│   ├── agents/                   # Agent mesh unit tests (74 tests)
+│   │   ├── test_types.py
+│   │   ├── test_tools.py
+│   │   ├── test_context_bus.py
+│   │   ├── test_base.py
+│   │   ├── test_workflows.py
+│   │   ├── test_dna_e2e.py
+│   │   └── test_worker_integration.py
+│   └── intelligence/             # Intelligence pipeline tests (58 tests)
+│       ├── test_evidence_types.py
+│       ├── test_multi_agent.py
+│       ├── test_competitive_moat.py
+│       ├── test_stress_test.py
+│       ├── test_financial_intelligence.py
+│       ├── test_investment_committee.py
+│       ├── test_product_execution.py
+│       └── test_global_expansion.py
 ├── src/
 │   ├── app/                      # Next.js App Router pages
 │   │   ├── page.tsx              # Main workspace + pipeline visualization
@@ -287,45 +294,234 @@ The platform also includes **Conversation Intelligence** — record or upload me
 
 ---
 
-## 8-Stage Compilation Pipeline
+## 14-Stage Pipeline
 
-The pipeline runs stages in a dependency-aware order with parallel execution where possible:
+The pipeline runs stages in a dependency-aware order with parallel execution:
 
 ```
-[dna] → [features] → [roadmap] → [team] → [swot] + [cost] → [blueprint] + [legal_compliance]
-                                                           (parallel)        (parallel)
+Core Pipeline (Stages 1-8)
+──────────────────────────
+[dna] → [features] → [roadmap] → [team] → [swot] + [cost] → [blueprint] + [legal]
+                                                          (parallel)     (parallel)
+
+Intelligence Pipeline (Stages 9-14) — all run in parallel after core completes
+─────────────────────────────────────────────────────────────────────────────
+[competitive_moat] + [stress_test] + [financial_intelligence]
+[investment_committee] + [product_execution] + [global_expansion]
 ```
 
-### Stage Details
+### Core Pipeline Stages
 
 | # | Stage | Module | Output Schema | Parallel | Description |
 |---|-------|--------|---------------|----------|-------------|
-| 1 | `dna` | `DNAModule` | `DNAOutput` | No | Business category, model, revenue streams, USP, 6 strategic scores (0-100) |
-| 2 | `features` | `FeatureExtractorModule` | `FeatureExtractorOutput` | No | 5 features with MoSCoW priority, complexity, and dependency graph |
-| 3 | `roadmap` | `RoadmapGeneratorModule` | `RoadmapOutput` | No | Phased delivery timeline with 12 tasks, milestones, and launch readiness score |
-| 4 | `team` | `TeamGeneratorModule` | `TeamOutput` | No | Org chart (3-4 roles), RACI matrix, hiring sequence, salary estimates |
-| 5 | `swot` | `SWOTBuilderModule` | `SWOTOutput` | Yes | SWOT matrix, threat mitigations (severity 1-9), founder actions across 4 horizons |
-| 6 | `cost` | `CostEstimatorModule` | `CostOutput` | Yes | Operational costs, 3 budget scenarios, funding requirements, runway analysis |
-| 7 | `blueprint` | `BlueprintComposerModule` | `BlueprintOutput` | No | Aggregates all modules, health scoring (6 indicators), executive summary, conflict resolution |
+| 1 | `dna` | `DNAModule` | `DNAOutput` | No | Business category, model, revenue streams, USP, 6 strategic scores with real-time market grounding |
+| 2 | `features` | `FeatureExtractorModule` | `FeatureExtractorOutput` | No | 5-20 features with MoSCoW priority, user stories, effort estimates (XS-XL), business value, success metrics |
+| 3 | `roadmap` | `RoadmapGeneratorModule` | `RoadmapOutput` | No | 3-8 phases, 15-40 tasks with acceptance criteria, risk levels, critical path, feature IDs |
+| 4 | `team` | `TeamGeneratorModule` | `TeamOutput` | No | 3-12 roles with equity, compensation structure, cofounder recommendation, hiring risks |
+| 5 | `swot` | `SWOTBuilderModule` | `SWOTOutput` | Yes | SWOT matrix with threat severity (impact × probability), competitor positioning, market validation |
+| 6 | `cost` | `CostEstimatorModule` | `CostOutput` | Yes | Feature-level cost breakdown, phase costs, contingency, break-even analysis, funding scenarios |
+| 7 | `blueprint` | `BlueprintComposerModule` | `BlueprintOutput` | No | Competitive analysis, market positioning, investment readiness checklist, next steps, expansion opportunities |
 | 8 | `legal_compliance` | `LegalComplianceModule` | `LegalComplianceOutput` | No | Funding sources, registration requirements, compliance directories, data protection |
 
-### Output Schemas (Key Fields)
+### Intelligence Pipeline Stages
 
-**DNAOutput** — `category`, `business_model`, `revenue_streams[]`, `value_proposition`, `usp`, `target_segments[]`, `scores.{innovation, scalability, complexity, market_opportunity, risk_factor, competition}`, `executive_summary`, `strategic_recommendations[]`, `confidence_score`
+| # | Stage | Module | Description |
+|---|-------|--------|-------------|
+| 9 | `competitive_moat` | `CompetitiveMoatModule` | 10-moat analysis: network effects, data, brand, technology, switching costs, scale, regulatory, distribution, community, AI flywheel. Each scored with difficulty/time/cost to copy |
+| 10 | `stress_test` | `StressTestModule` | 10+ scenarios: competitor entry, open-source, price war, regulation, recession, acquisition changes, infrastructure costs, funding freeze. Each with impact, probability, mitigation, recovery |
+| 11 | `financial_intelligence` | `FinancialIntelligenceModule` | Unit economics, monthly Y1 + quarterly Y2-3 projections, best/base/worst scenarios, valuation, funding requirements |
+| 12 | `investment_committee` | `InvestmentCommitteeModule` | 5 VC partners with individual votes, term sheet, due diligence checklist, investment thesis |
+| 13 | `product_execution` | `ProductExecutionModule` | PRDs, 15-25 user stories, technical architecture, sprint backlogs, release plan, QA/deployment strategy |
+| 14 | `global_expansion` | `GlobalExpansionModule` | Multi-country waves with market size, regulations, localization, pricing, hiring, GTM per market |
 
-**FeatureExtractorOutput** — `features[].{id, name, category[CORE/ADVANCED/FUTURE/COMPETITIVE/GROWTH], priority[MoSCoW], complexity[LOW/MEDIUM/HIGH], dependencies[]}`, `mvp_scope_rationale`, `core_stack`, `blockers`
+---
 
-**RoadmapOutput** — `phases[].{phase_id, name, duration_months, milestones[], tasks[].{id, title, duration_weeks, assigned_role_id, dependencies[]}}`, `launch_readiness_plan.{readiness_score, checklist[]}`
+## Evidence & Confidence System
 
-**TeamOutput** — `org_chart[].{role_id, title, department, reports_to, responsibilities[], required_skills[], estimated_salary_usd, hiring_stage}`, `raci_matrix[]`, `recommended_team_size`, `hiring_sequence[]`
+Every claim, score, and recommendation is backed by structured evidence.
 
-**SWOTOutput** — `strengths[]`, `weaknesses[]`, `opportunities[]`, `threats[].{description, impact, probability, severity}`, `mitigations[].{threat_description, mitigation_strategy, action_item_id}`, `founder_actions[].{horizon, action, priority}`
+### Core Types
 
-**CostOutput** — `operational_costs[].{category, monthly_usd, is_mvp_critical}`, `budget_scenarios[].{name[LEAN/BALANCED/AGGRESSIVE], monthly_burn_usd, runway_months}`, `funding_requirements.{minimum_target_usd, optimal_target_usd}`, `mvp_cost_estimate`, `year_1_cost_estimate`, `financial_risk_level`
+```python
+class EvidenceSource(BaseModel):
+    source_name: str        # "Statista", "Crunchbase", "Gartner"
+    source_url: str         # URL or reference ID
+    source_type: Literal["WEB_SEARCH", "DATABASE", "LLM_KNOWLEDGE",
+                         "USER_INPUT", "CALCULATION", "API"]
+    retrieval_date: str     # ISO date when retrieved
+    snippet: str            # Relevant excerpt (max 500 chars)
+    relevance_score: float  # 0.0-1.0
 
-**BlueprintOutput** — `executive_summary.{business_summary, strategic_summary, execution_summary, financial_summary, founder_directives}`, `health_indicators.{composite_score, execution_readiness, funding_readiness, growth_readiness, risk_exposure, strategic_strength}`, `startup_dna`, `product_architecture`, `execution_roadmap`, `team_structure`, `swot_analysis`, `financial_plan`, `conflict_resolution_log[]`, `legal_compliance`
+class ConfidenceScore(BaseModel):
+    score: float                        # 0-100 percentage
+    evidence: list[EvidenceSource]      # Supporting citations
+    missing_information: list[str]      # What would increase confidence
+    assumptions: list[str]              # Key assumptions made
+    alternative_interpretations: list[str]  # Other readings of the data
 
-**LegalComplianceOutput** — `funding_sources[].{scheme_name, scheme_type, amount_range, application_url, relevance_score}`, `registration_requirements[].{requirement_name, authority, category, is_mandatory, estimated_cost, timeline}`, `compliance_directories[]`, `industry_specific_licenses[]`, `data_protection_requirements[]`, `estimated_compliance_budget_usd`
+class ExplainableDecision(BaseModel):
+    decision: str                       # The recommendation
+    rationale: str                      # Why this was chosen
+    evidence: list[EvidenceSource]      # Supporting citations
+    assumptions: list[str]              # Key assumptions
+    alternatives_rejected: list[str]    # What was considered and rejected
+    what_would_change_it: list[str]     # New info that would change decision
+    confidence: float                   # 0-100
+```
+
+### Explainability
+
+Every recommendation answers:
+- **Why was this chosen?** — rationale citing specific evidence
+- **Which evidence supports it?** — linked EvidenceSource list
+- **Which assumptions were made?** — explicit assumption list
+- **What alternatives were rejected?** — with reasons
+- **What would change the recommendation?** — new information triggers
+
+### Evidence Collection
+
+The `collector.py` module gathers evidence from multiple sources:
+- **Market data**: size, growth, CAGR, trends
+- **Competitor intelligence**: funding, features, pricing
+- **Financial benchmarks**: CAC, LTV, margins by stage/industry
+- **Regulatory data**: compliance requirements by country
+
+---
+
+## Multi-Agent Decision System
+
+7 specialized agents produce independent assessments. The Judge synthesizes them into a consensus verdict.
+
+### Agent Roles
+
+| Agent | Expertise | What it assesses |
+|-------|-----------|-----------------|
+| **Market Analyst** | Market sizing, trends, timing | TAM/SAM/SOM, growth rate, competitive intensity, timing |
+| **Product Strategist** | Product-market fit, differentiation | PMF signals, differentiation strength, feature viability |
+| **Technical Architect** | Architecture, scalability | Feasibility, scalability readiness, technology risk |
+| **Financial Analyst** | Unit economics, fundraising | Viability, LTV:CAC, burn rate, fundraising readiness |
+| **GTM Strategist** | Channels, acquisition | Channel strategy, CAC viability, launch readiness |
+| **Risk Analyst** | Risk identification, mitigation | Risk level, mitigation quality, overall risk position |
+| **Devil's Advocate** | Contrarian analysis | Assumption challenges, weaknesses, contrarian case |
+
+### Judge (Investment Committee)
+
+The Judge:
+1. Collects all 7 agent opinions
+2. Identifies agreements (findings in 60%+ of agents)
+3. Detects conflicts (opposing assessments)
+4. Resolves conflicts by weighing agent confidence
+5. Produces consensus scores (averaged from agents)
+6. Assigns overall confidence with evidence
+
+### Usage
+
+```python
+from backend.modules.evidence.pipeline import run_decision_pipeline
+
+result = await run_decision_pipeline(
+    context={
+        "industry": "SaaS",
+        "product_description": "CRM platform",
+        "target_market": "SMBs",
+        "features": [...],
+        "cost_output": {...},
+    },
+    evidence=[...],  # Pre-gathered evidence
+    stages=["Market Analyst", "Financial Analyst"],  # Optional filter
+)
+
+# result["opinions"]  → list of 7 AgentOpinion dicts
+# result["verdict"]   → JudgeVerdict with final assessment
+```
+
+---
+
+## Intelligence Modules
+
+### 9. Competitive Moat Analysis
+
+Replaces simple SWOT thinking with deep moat assessment across 10 dimensions:
+
+| Moat Type | What it measures | Scoring |
+|-----------|-----------------|---------|
+| Network Effects | Product value increases with users | 0-10 + difficulty/time/cost to copy |
+| Data Moat | Proprietary data improves the product | 0-10 + difficulty/time/cost to copy |
+| Brand Moat | Brand recognition/trust competitors lack | 0-10 + difficulty/time/cost to copy |
+| Technology Moat | Proprietary technology hard to replicate | 0-10 + difficulty/time/cost to copy |
+| Switching Costs | Cost for customers to switch | 0-10 + difficulty/time/cost to copy |
+| Economies of Scale | Cost advantages at scale | 0-10 + difficulty/time/cost to copy |
+| Regulatory Advantage | Licenses, patents, regulations | 0-10 + difficulty/time/cost to copy |
+| Distribution Advantage | Unique customer access | 0-10 + difficulty/time/cost to copy |
+| Community Advantage | Community/network lock-in | 0-10 + difficulty/time/cost to copy |
+| AI/Data Flywheel | Self-reinforcing improvement loop | 0-10 + difficulty/time/cost to copy |
+
+### 10. Market Stress Testing
+
+Simulates 10+ negative scenarios with full impact assessment:
+
+| Scenario | Impact Levels | Output |
+|----------|--------------|--------|
+| Large competitor enters | CATASTROPHIC → NEGLIGIBLE | Mitigation + recovery plan |
+| Open-source alternative | CATASTROPHIC → NEGLIGIBLE | Mitigation + recovery plan |
+| Price war | CATASTROPHIC → NEGLIGIBLE | Mitigation + recovery plan |
+| Regulatory change | CATASTROPHIC → NEGLIGIBLE | Mitigation + recovery plan |
+| Economic recession | CATASTROPHIC → NEGLIGIBLE | Mitigation + recovery plan |
+| Customer acquisition changes | CATASTROPHIC → NEGLIGIBLE | Mitigation + recovery plan |
+| Infrastructure cost surge | CATASTROPHIC → NEGLIGIBLE | Mitigation + recovery plan |
+| Funding freeze | CATASTROPHIC → NEGLIGIBLE | Mitigation + recovery plan |
+| Key person departure | CATASTROPHIC → NEGLIGIBLE | Mitigation + recovery plan |
+
+Each scenario includes: trigger event, probability, time to manifest, duration, affected areas, early warning signs, pre-positioning actions.
+
+### 11. Financial Intelligence Engine
+
+Investor-grade financial analysis:
+
+**Core Metrics:** ARR, MRR, Gross Margin, CAC, LTV, LTV:CAC, Burn Rate, Burn Multiple, Payback Period, Cash Runway, Break-even Month
+
+**Projections:** Monthly for Year 1, Quarterly for Years 2-3 (revenue, costs, profit, cash balance, customers)
+
+**Scenarios:** Best Case (20%), Base Case (60%), Worst Case (20%) — each with revenue, break-even, funding required, valuation
+
+**Valuation:** Revenue multiple approach, comparable company analysis
+
+### 12. Investment Committee Simulation
+
+Realistic VC review with 5 partners:
+
+| Partner | Focus | Personality |
+|---------|-------|-------------|
+| Market-focused | Market size & timing | Growth-oriented |
+| Technical | Technology moat | Deep diligence |
+| Financial | Unit economics | Conservative |
+| Growth | Scalability | Aggressive |
+| Risk-averse | Downside protection | Skeptical |
+
+**Outputs:** Individual votes (INVEST/PASS/CONDITIONAL), term sheet, due diligence checklist, investment thesis, reasons to invest/not, fatal risks
+
+### 13. Product Execution Engine
+
+Generates execution-ready assets:
+- **Product Vision**: Clear, inspiring statement
+- **PRD**: Problem, solution, users, success metrics
+- **User Stories**: 15-25 stories with acceptance criteria (P0-P3)
+- **Technical Architecture**: Components, data flow, API design, DB schema
+- **Sprint Plan**: 6-8 sprints (2 weeks each) with goals and story allocation
+- **Release Plan**: v1.0 scope, milestones, success metrics, rollback plan
+- **QA Strategy**: Testing approach and automation
+- **Deployment Strategy**: CI/CD, environments, monitoring
+
+### 14. Global Expansion Engine
+
+Multi-country expansion analysis with 3 waves:
+
+**Per Country:** Market size, local competitors, regulatory requirements, localization needs, hiring costs, pricing adjustment, tax considerations, GTM strategy, risks, priority tier
+
+**Expansion Waves:**
+- Wave 1 (0-12 months): Easiest, highest ROI markets
+- Wave 2 (12-24 months): Moderate complexity
+- Wave 3 (24-36 months): Most challenging, high potential
 
 ---
 
@@ -333,7 +529,7 @@ The pipeline runs stages in a dependency-aware order with parallel execution whe
 
 A pluggable multi-agent system that can replace any pipeline stage's single LLM call with a team of specialized agents collaborating through structured workflows.
 
-### Agent Roles
+### Agent Roles (Pipeline Mesh)
 
 | Role | Purpose | Tools Used |
 |------|---------|------------|
@@ -439,7 +635,7 @@ Upload Text/File                                          Executive Summary
 
 ## Real-Time Search Integration
 
-Stages 5 (SWOT), 6 (Cost), and 8 (Legal & Compliance) perform live web searches to ground LLM outputs in verified market facts.
+Multiple stages perform live web searches to ground LLM outputs in verified market facts.
 
 **Provider chain:** Tavily (primary) → Google Custom Search (fallback) → Graceful degradation
 
@@ -447,20 +643,23 @@ Stages 5 (SWOT), 6 (Cost), and 8 (Legal & Compliance) perform live web searches 
 
 1. Each module builds region + industry-qualified search queries
 2. Queries execute concurrently via `asyncio.gather`
-3. Results are formatted into labeled context blocks:
-   - `[REAL-TIME_MARKET_DATA]...[/REAL-TIME_MARKET_DATA]`
-   - `[REAL-TIME_FUNDING_DATA]...[/REAL-TIME_FUNDING_DATA]`
-   - `[REAL-TIME_COMPLIANCE_DATA]...[/REAL-TIME_COMPLIANCE_DATA]`
-4. Blocks are injected into the Jinja2 prompt template
-5. The LLM is instructed to reference specific scheme names, URLs, and data points
+3. Results are formatted into structured EvidenceSource objects
+4. Evidence is injected into prompts with source citations
+5. The LLM is instructed to reference specific data points
 
-### Search Queries Per Module
+### Search Coverage
 
 | Module | Sample Queries |
 |--------|---------------|
+| DNA | `"{industry} market size TAM 2026 report"`, `"{industry} competitive landscape top players"` |
 | SWOT | `"{industry} market trends 2026 opportunities"`, `"government startup grants {industry}"` |
 | Cost | `"{industry} startup costs {region} 2026"`, `"startup subsidy scheme {region}"` |
 | Legal | `"business registration {region} 2026"`, `"data protection law {region} {industry}"` |
+| Competitive Moat | `"{industry} competitive moat barriers entry defensibility"` |
+| Stress Test | `"{industry} industry risks threats challenges disruption 2025"` |
+| Financial | `"{industry} {stage} startup SaaS benchmarks metrics 2025"` |
+| Investment Committee | `"{industry} startup valuation multiples funding rounds 2025"` |
+| Global Expansion | `"{industry} international expansion global markets 2025"` |
 
 ---
 
@@ -490,6 +689,7 @@ If the checksum matches a stored result, the LLM call is skipped entirely. This 
 The orchestrator runs independent stages concurrently:
 - Stages 5 (SWOT) and 6 (Cost) run in parallel
 - Stages 7 (Blueprint) and 8 (Legal) run in parallel
+- All 6 intelligence stages (9-14) run in parallel after core pipeline completes
 
 ### Connection Pooling
 
@@ -499,10 +699,10 @@ The orchestrator runs independent stages concurrently:
 
 ### Prompt Compression
 
-Context dictionaries are recursively compressed before injection into prompts:
-- Lists capped at 12 items
-- Descriptions truncated to 500 characters
-- Nested objects flattened
+Context dictionaries are compressed before injection into prompts:
+- Full structured data preserved between stages
+- Only compressed at extreme limits (25 features, 8 phases, 15 roles, 10 items per list)
+- Evidence and confidence always preserved
 
 ---
 
@@ -900,17 +1100,37 @@ pytest -v
 pytest tests/agents/ -v
 ```
 
+### Intelligence pipeline tests (58 tests)
+
+```bash
+pytest tests/intelligence/ -v
+```
+
+### All tests (132 tests)
+
+```bash
+pytest tests/ -v
+```
+
 ### Test categories
 
 | Category | Files | What's Tested |
 |----------|-------|---------------|
-| Types | `test_types.py` | Pydantic model validation, defaults, boundaries |
-| Tools | `test_tools.py` | Tool registry, search, DB, calculations, safe_execute |
+| Agent Types | `test_types.py` | Pydantic model validation, defaults, boundaries |
+| Agent Tools | `test_tools.py` | Tool registry, search, DB, calculations, safe_execute |
 | Context Bus | `test_context_bus.py` | Publish/subscribe, timeout, observation retrieval |
 | Base Agent | `test_base.py` | Safe run, budget enforcement, tool errors, observation flow |
 | Workflows | `test_workflows.py` | Sequential, parallel (merge strategies), debate (convergence, non-convergence) |
 | DNA E2E | `test_dna_e2e.py` | Researcher, Analyst, Reviewer with mocked tools |
 | Worker Integration | `test_worker_integration.py` | Feature flag routing, module registration |
+| Evidence Types | `test_evidence_types.py` | EvidenceSource, ConfidenceScore, ExplainableDecision, ScenarioAnalysis |
+| Multi-Agent | `test_multi_agent.py` | All 7 agents, Judge deliberation, conflict detection, pipeline |
+| Competitive Moat | `test_competitive_moat.py` | Moat dimensions, scoring, module initialization |
+| Stress Test | `test_stress_test.py` | Scenario creation, categories, output validation |
+| Financial Intel | `test_financial_intelligence.py` | Unit economics, projections, scenarios, module fallback |
+| Investment Committee | `test_investment_committee.py` | Committee members, votes, term sheet, module fallback |
+| Product Execution | `test_product_execution.py` | User stories, sprints, architecture, release plan |
+| Global Expansion | `test_global_expansion.py` | Countries, waves, tiers, expansion output |
 
 Tests use mocked LLM responses and in-memory databases. No external services required.
 
@@ -920,7 +1140,7 @@ Tests use mocked LLM responses and in-memory databases. No external services req
 
 ### Pipeline fails with "Module not registered"
 - Ensure `worker-engine` container is running: `docker compose logs worker-engine`
-- Check `worker/tasks.py` has all 8 modules registered
+- Check `worker/tasks.py` has all modules registered
 
 ### Search returns "No search provider configured"
 - Set `TAVILY_API_KEY` in `.env` (free at https://tavily.com)
@@ -960,6 +1180,12 @@ Tests use mocked LLM responses and in-memory databases. No external services req
 - Stop the local service: `net stop postgresql-x64-18`
 - Or remap Docker port in `.env`: `POSTGRES_EXTERNAL_PORT=5433`
 
+### Intelligence pipeline failures
+- Intelligence modules are non-critical — core pipeline continues if they fail
+- Check logs: `docker compose logs worker-engine | grep -i "competitive_moat\|stress_test\|financial"`
+- Intelligence modules require Gemini API key for LLM generation
+- Evidence collection requires Tavily or Google Search API key
+
 ---
 
 ## Contributing
@@ -967,7 +1193,7 @@ Tests use mocked LLM responses and in-memory databases. No external services req
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/my-feature`
 3. Make changes and add tests
-4. Run the full test suite: `pytest tests/agents/ -v && cd backend && pytest -v`
+4. Run the full test suite: `pytest tests/ -v`
 5. Ensure Docker builds: `docker compose up -d --build`
 6. Submit a pull request
 
@@ -975,7 +1201,7 @@ Tests use mocked LLM responses and in-memory databases. No external services req
 
 - **Backend**: Python 3.13+, type hints, async/await, Pydantic V2, SQLAlchemy 2.0 async
 - **Frontend**: TypeScript, React 19, Tailwind CSS, Zustand stores, TanStack Query
-- **Tests**: pytest + pytest-asyncio, mocked external services, 74 agent mesh tests
+- **Tests**: pytest + pytest-asyncio, mocked external services, 132 tests total
 - **Git**: Conventional commits, feature branches, no direct commits to `main`
 
 ---

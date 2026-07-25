@@ -1,275 +1,319 @@
-# Pipeline Quality Improvement Analysis
+# AI Venture Studio — Pipeline Architecture
 
-## Critical Weaknesses Found
+## Overview
 
-After analyzing every prompt, schema, context assembly, and search integration across all 8 stages, here are the structural issues dragging down output quality.
+The pipeline has evolved from an 8-stage startup analyzer into a **14-stage evidence-driven AI Venture Studio** that produces investor-grade, execution-ready outputs with full explainability.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     CORE PIPELINE (Stages 1-8)                      │
+├─────────────────────────────────────────────────────────────────────┤
+│  1. DNA  →  2. Features  →  3. Roadmap  →  4. Team                 │
+│                        ↓                                            │
+│               5. SWOT + 6. Cost (parallel)                          │
+│                        ↓                                            │
+│          7. Blueprint + 8. Legal Compliance (parallel)              │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                 INTELLIGENCE PIPELINE (Stages 9-14)                 │
+│                    (all run in parallel)                             │
+├─────────────────────────────────────────────────────────────────────┤
+│  9. Competitive Moat    │  12. Investment Committee                 │
+│  10. Stress Test        │  13. Product Execution                    │
+│  11. Financial Intel    │  14. Global Expansion                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Total: 132 tests passing (74 core + 58 intelligence)**
 
 ---
 
-## Step 1: DNA Stage Has No Market Grounding
+## Evidence & Confidence Infrastructure
 
-**Problem:** DNA is the foundation everything else builds on, yet it uses zero web search. Scores for `market_opportunity`, `competition`, and `risk_factor` are pure LLM guessing. The `notes` field is hardcoded to `"None"` — there's no way to pass founder-provided context.
+Every claim, score, and recommendation is backed by structured evidence.
 
-**Impact:** Every downstream stage inherits fabricated market data. Features are designed for a non-existent market. Cost projections ignore real competitor pricing.
-
-**Fix:**
-- Add 2 search queries: `"{industry} market size 2026"` and `"{industry} competitive landscape top players"`
-- Inject results as `[REAL-TIME_MARKET_DATA]` block (same pattern as SWOT/Cost)
-- Replace hardcoded `"None"` notes with `project.description` as additional context
-- Add a `market_size_estimate: str` field to `DNAOutput` for downstream use
-- Add a `competitor_landscape: list[str]` field (top 3-5 competitors)
-
-**Schema change:**
+### EvidenceSource
 ```python
-class DNAOutput(BaseModel):
-    # ... existing fields ...
-    market_size_estimate: str          # NEW: "TAM ~$Xb, SAM ~$Yb"
-    competitor_landscape: list[str]    # NEW: top 3-5 competitors
-    key_risks: list[str]               # NEW: top 3 risks with brief rationale
+class EvidenceSource(BaseModel):
+    source_name: str        # "Statista", "Crunchbase", "Gartner"
+    source_url: str         # URL or reference ID
+    source_type: Literal["WEB_SEARCH", "DATABASE", "LLM_KNOWLEDGE",
+                         "USER_INPUT", "CALCULATION", "API"]
+    retrieval_date: str     # ISO date when retrieved
+    snippet: str            # Relevant excerpt (max 500 chars)
+    relevance_score: float  # 0.0-1.0
+```
+
+### ConfidenceScore
+```python
+class ConfidenceScore(BaseModel):
+    score: float                        # 0-100 percentage
+    evidence: list[EvidenceSource]      # Supporting citations
+    missing_information: list[str]      # What would increase confidence
+    assumptions: list[str]              # Key assumptions made
+    alternative_interpretations: list[str]  # Other readings of the data
+```
+
+### ExplainableDecision
+Every recommendation answers:
+- **Why was this chosen?** — rationale citing specific evidence
+- **Which evidence supports it?** — linked EvidenceSource list
+- **Which assumptions were made?** — explicit assumption list
+- **What alternatives were rejected?** — with reasons
+- **What would change the recommendation?** — new information triggers
+
+### Evidence Collection
+The `collector.py` module gathers evidence from multiple sources:
+- **Market data**: size, growth, CAGR, trends
+- **Competitor intelligence**: funding, features, pricing
+- **Financial benchmarks**: CAC, LTV, margins by stage/industry
+- **Regulatory data**: compliance requirements by country
+
+---
+
+## Multi-Agent Decision System
+
+7 specialized agents produce independent assessments. The Judge synthesizes them.
+
+### Agent Roles
+
+| Agent | Expertise | What it assesses |
+|-------|-----------|-----------------|
+| **Market Analyst** | Market sizing, trends, timing | TAM/SAM/SOM, growth rate, competitive intensity, timing |
+| **Product Strategist** | Product-market fit, differentiation | PMF signals, differentiation strength, feature viability |
+| **Technical Architect** | Architecture, scalability | Feasibility, scalability readiness, technology risk |
+| **Financial Analyst** | Unit economics, fundraising | Viability, LTV:CAC, burn rate, fundraising readiness |
+| **GTM Strategist** | Channels, acquisition | Channel strategy, CAC viability, launch readiness |
+| **Risk Analyst** | Risk identification, mitigation | Risk level, mitigation quality, overall risk position |
+| **Devil's Advocate** | Contrarian analysis | Assumption challenges, weaknesses, contrarian case |
+
+### Judge (Investment Committee)
+
+The Judge:
+1. Collects all 7 agent opinions
+2. Identifies agreements (findings in 60%+ of agents)
+3. Detects conflicts (opposing assessments)
+4. Resolves conflicts by weighing agent confidence
+5. Produces consensus scores (averaged from agents)
+6. Assigns overall confidence with evidence
+
+### Decision Pipeline
+```python
+result = await run_decision_pipeline(
+    context={...},          # Industry, product, features, etc.
+    evidence=[...],         # Pre-gathered evidence
+    stages=["Market Analyst", "Financial Analyst"],  # Optional filter
+)
+# result["opinions"]  → list of 7 AgentOpinion dicts
+# result["verdict"]   → JudgeVerdict with final assessment
 ```
 
 ---
 
-## Step 2: Features Stage Is Too Rigid and Shallow
+## 6 Intelligence Modules
 
-**Problem:** Exactly 5 features (2 Core, 1 Advanced, 1 Future, 1 Competitive) regardless of startup complexity. Features have no user stories, no acceptance criteria, no effort estimation beyond LOW/MEDIUM/HIGH. No non-functional requirements (performance, security, scalability).
+### 9. Competitive Moat Analysis
 
-**Impact:** A complex enterprise SaaS and a simple mobile app get the same 5-feature structure. Investors see toy-level planning.
+Replaces simple SWOT thinking with deep moat assessment across 10 dimensions:
 
-**Fix:**
-- Scale features by complexity: DNA `complexity` score determines feature count (5-12)
-- Add `user_stories: list[str]` to `FeatureItem` (who + what + why)
-- Add `effort_estimate: Literal["XS","S","M","L","XL"]` alongside complexity
-- Add `nfr_requirements: list[str]` to `FeatureExtractorOutput` (non-functional requirements)
-- Add `technical_risks: list[str]` to flag known implementation risks
+| Moat Type | What it measures |
+|-----------|-----------------|
+| Network Effects | Product value increases with users |
+| Data Moat | Proprietary data improves the product |
+| Brand Moat | Brand recognition/trust competitors lack |
+| Technology Moat | Proprietary technology hard to replicate |
+| Switching Costs | Cost for customers to switch |
+| Economies of Scale | Cost advantages at scale |
+| Regulatory Advantage | Licenses, patents, regulations |
+| Distribution Advantage | Unique customer access |
+| Community Advantage | Community/network lock-in |
+| AI/Data Flywheel | Self-reinforcing improvement loop |
 
-**Schema change:**
+Each dimension scored with:
+- **Strength**: 0-10 (none → fortress)
+- **Difficulty to Copy**: TRIVIAL → NEAR_IMPOSSIBLE
+- **Time to Copy**: months for well-funded competitor
+- **Cost to Copy**: USD estimate
+
+### 10. Market Stress Testing
+
+Simulates 10+ negative scenarios with full impact assessment:
+
+| Scenario | Impact | Probability | Recovery |
+|----------|--------|-------------|----------|
+| Large competitor enters | SEVERE | 0.3 | Differentiate on niche |
+| Open-source alternative | MODERATE | 0.4 | Build community moat |
+| Price war | MODERATE | 0.3 | Emphasize value, not price |
+| Regulatory change | SEVERE | 0.2 | Compliance roadmap |
+| Economic recession | CATASTROPHIC | 0.25 | Cut burn, focus on retention |
+| Customer acquisition halves | SEVERE | 0.35 | Channel diversification |
+| Infrastructure cost surge | MODERATE | 0.2 | Optimize, negotiate |
+| Funding freeze | CATASTROPHIC | 0.2 | Path to profitability |
+| Key person departure | SEVERE | 0.3 | Knowledge documentation |
+
+Each scenario includes: early warning signs, pre-positioning actions, recovery plan.
+
+### 11. Financial Intelligence Engine
+
+Investor-grade financial analysis:
+
+**Core Metrics:**
+- ARR, MRR (with growth assumptions)
+- Gross Margin, CAC, LTV, LTV:CAC Ratio
+- Burn Rate, Burn Multiple, Payback Period
+- Cash Runway, Break-even Month
+
+**Unit Economics:**
+- CAC by channel (organic, paid, referral)
+- LTV with churn assumptions
+- Contribution margin, expansion rate
+
+**Projections:**
+- Monthly for Year 1, Quarterly for Years 2-3
+- Revenue, costs, profit, cash balance, customers
+
+**Scenarios:**
+- Best Case (20% probability)
+- Base Case (60% probability)
+- Worst Case (20% probability)
+
+**Valuation:**
+- Revenue multiple approach
+- Comparable company analysis
+
+### 12. Investment Committee Simulation
+
+Realistic VC review with 5 partners:
+
+| Partner | Focus | Personality |
+|---------|-------|-------------|
+| Market-focused | Market size & timing | Growth-oriented |
+| Technical | Technology moat | Deep diligence |
+| Financial | Unit economics | Conservative |
+| Growth | Scalability | Aggressive |
+| Risk-averse | Downside protection | Skeptical |
+
+**Outputs:**
+- Individual votes (INVEST / PASS / CONDITIONAL)
+- Term sheet (valuation, equity, board seats, protective provisions)
+- Due diligence checklist (8-12 items)
+- Investment thesis, reasons to invest/not, fatal risks
+
+### 13. Product Execution Engine
+
+Generates execution-ready assets:
+
+- **Product Vision**: Clear, inspiring statement
+- **PRD**: Problem, solution, users, success metrics
+- **User Stories**: 15-25 stories with acceptance criteria (P0-P3)
+- **Technical Architecture**: Components, data flow, API design, DB schema
+- **Sprint Plan**: 6-8 sprints (2 weeks each) with goals and story allocation
+- **Release Plan**: v1.0 scope, milestones, success metrics, rollback plan
+- **QA Strategy**: Testing approach and automation
+- **Deployment Strategy**: CI/CD, environments, monitoring
+
+All outputs synchronized with features and roadmap from earlier stages.
+
+### 14. Global Expansion Engine
+
+Multi-country expansion analysis with 3 waves:
+
+**Per Country:**
+- Market size (USD), local competitors
+- Regulatory requirements, localization needs
+- Hiring costs, pricing adjustment vs US
+- Tax considerations, GTM strategy
+- Country-specific risks, expansion priority (TIER_1/2/3)
+
+**Expansion Waves:**
+- Wave 1 (0-12 months): Easiest, highest ROI
+- Wave 2 (12-24 months): Moderate complexity
+- Wave 3 (24-36 months): Most challenging, high potential
+
+---
+
+## Pipeline Integration
+
+### Orchestrator Changes
+
+The `WorkflowOrchestrator` now manages 14 stages:
+
 ```python
-class FeatureItem(BaseModel):
-    # ... existing fields ...
-    user_stories: list[str]                    # NEW: "As a [user], I want [X] so that [Y]"
-    effort_estimate: Literal["XS","S","M","L","XL"]  # NEW: engineering effort
-    success_metrics: list[str]                 # NEW: how to measure this feature works
-
-class FeatureExtractorOutput(BaseModel):
-    # ... existing fields ...
-    nfr_requirements: list[str]                # NEW: non-functional requirements
-    technical_risks: list[str]                 # NEW: known implementation risks
+STAGES_ORDER = [
+    # Core pipeline (stages 1-8)
+    "dna", "features", "roadmap", "team", "swot", "cost",
+    "blueprint", "legal_compliance",
+    # Intelligence pipeline (stages 9-14)
+    "competitive_moat", "stress_test", "financial_intelligence",
+    "investment_committee", "product_execution", "global_expansion",
+]
 ```
 
----
+### Parallel Execution Groups
 
-## Step 3: Roadmap Tasks Are Too Sparse and Lack Risk Awareness
-
-**Problem:** Only 2 tasks per phase (12 total). No risk assessment per task. No resource estimation. Phase names are hardcoded to 6 fixed names — inflexible for different project types. Tasks have no acceptance criteria.
-
-**Impact:** A 12-task roadmap for a 6-month project is unrealistic. No way to identify critical path or bottleneck risks.
-
-**Fix:**
-- Scale tasks: 3-4 per phase (18-24 total) based on complexity
-- Add `risk_level: Literal["LOW","MEDIUM","HIGH"]` to `RoadmapTask`
-- Add `acceptance_criteria: list[str]` to `RoadmapTask`
-- Add `resource_requirements: str` (e.g., "1 senior dev, 2 weeks")
-- Add `critical_path: bool` flag to identify bottleneck tasks
-- Allow phase names to be dynamic (keep the 6 as suggestions, not constraints)
-
-**Schema change:**
-```python
-class RoadmapTask(BaseModel):
-    # ... existing fields ...
-    risk_level: Literal["LOW", "MEDIUM", "HIGH"]   # NEW
-    acceptance_criteria: list[str]                   # NEW
-    resource_requirements: str                       # NEW: "1 senior dev, 2 weeks"
-    is_critical_path: bool = False                   # NEW
-
-class RoadmapOutput(BaseModel):
-    # ... existing fields ...
-    total_estimated_weeks: int                       # NEW
-    critical_path: list[str]                         # NEW: task IDs on critical path
-    key_dependencies: list[str]                      # NEW: cross-phase dependency risks
+```
+Group 1: [dna]
+Group 2: [features]
+Group 3: [roadmap]
+Group 4: [team]
+Group 5: [swot, cost]              ← parallel
+Group 6: [blueprint, legal]        ← parallel
+Group 7: [moat, stress, finance,   ← all 6 in parallel
+           IC, product, expansion]
 ```
 
+### Graceful Degradation
+
+Intelligence modules are **non-critical** — if any fails, the core pipeline continues. This ensures the 8 core stages always complete even if intelligence modules encounter issues.
+
+### Context Propagation
+
+Full structured data flows between all stages:
+- DNA scores, competitor landscape, key risks → all downstream
+- Features with user stories, effort estimates, dependencies → roadmap, team, cost
+- Roadmap phases with acceptance criteria, feature IDs → team, cost, blueprint
+- Team with equity, compensation, hiring risks → cost, blueprint
+- SWOT with mitigations, severity scores → blueprint
+- Cost with feature breakdowns, phase costs → blueprint
+
 ---
 
-## Step 4: Team Stage Ignores Market Reality and Has Dead Variables
+## Module Summary
 
-**Problem:** Only 3-4 roles regardless of startup stage. No equity structure. No remote/onsite cost adjustment. The `features` variable is passed to the prompt but never used (dead code). No consideration for cofounder vs hire decisions.
+| Module | Stage | Input Stages | Output |
+|--------|-------|--------------|--------|
+| DNA | 1 | — | Market analysis, scores, competitors |
+| Features | 2 | DNA | 5-20 features with user stories |
+| Roadmap | 3 | DNA, Features | 3-8 phases, 15-40 tasks |
+| Team | 4 | DNA, Roadmap | 3-12 roles with equity/salary |
+| SWOT | 5 | DNA, Features, Roadmap | Threats with severity, mitigations |
+| Cost | 6 | Features, Roadmap, Team | Feature/phase cost breakdowns |
+| Blueprint | 7 | All core | Executive summary, health, next steps |
+| Legal | 8 | Blueprint | Compliance documents |
+| Competitive Moat | 9 | All core | 10-moat assessment |
+| Stress Test | 10 | All core + moat | 10+ scenario simulations |
+| Financial Intel | 11 | All core | Unit economics, projections, valuation |
+| Investment Committee | 12 | All core + finance | VC review, term sheet, DD checklist |
+| Product Execution | 13 | DNA, Features, Roadmap | PRDs, architecture, sprints |
+| Global Expansion | 14 | DNA, Features, Roadmap, Cost | Multi-country expansion waves |
 
-**Impact:** Team recommendations feel generic. Salary estimates don't reflect actual market rates for the region.
+---
 
-**Fix:**
-- Scale roles: 4-8 based on DNA complexity and roadmap phases
-- Add `compensation_structure: Literal["CASH_ONLY","EQUITY_HEAVY","BALANCED"]` to team output
-- Add `equity_pool_percent: float` field for equity allocation
-- Add `remote_friendly: bool` flag affecting salary estimates
-- Remove unused `features` variable from context assembly
-- Add `cofounder_recommendation: str` field (when to seek cofounders)
+## Test Coverage
 
-**Schema change:**
-```python
-class TeamOutput(BaseModel):
-    # ... existing fields ...
-    compensation_structure: Literal["CASH_ONLY", "EQUITY_HEAVY", "BALANCED"]  # NEW
-    equity_pool_percent: float                                                  # NEW
-    cofounder_recommendation: str                                               # NEW
-    key_hiring_risks: list[str]                                                 # NEW
-    total_monthly_payroll_usd: float                                            # NEW: for cross-validation with Cost
+```
+tests/
+├── agents/          74 tests — agent mesh, tools, workflows, types
+├── intelligence/    58 tests — all new modules
+│   ├── test_evidence_types.py       (10 tests)
+│   ├── test_multi_agent.py          (18 tests)
+│   ├── test_competitive_moat.py     (5 tests)
+│   ├── test_stress_test.py          (5 tests)
+│   ├── test_financial_intelligence.py (6 tests)
+│   ├── test_investment_committee.py  (4 tests)
+│   ├── test_product_execution.py     (7 tests)
+│   └── test_global_expansion.py      (6 tests)
 ```
 
----
-
-## Step 5: SWOT Threats Lack Quantified Impact and Search Results Are Raw
-
-**Problem:** `ThreatMitigation.severity` validator is a no-op (just returns `v`). Threats are vague strings, not structured risk items. Search results are injected raw — the LLM has to parse formatted text, leading to inconsistent引用. No competitor-specific threats.
-
-**Impact:** SWOT reads like a generic textbook, not a data-driven analysis. Mitigations are hand-wavy.
-
-**Fix:**
-- Fix severity validator: `severity = impact * probability` (actual computation)
-- Structure threats as `ThreatItem` with: description, affected_stage, financial_impact_estimate
-- Pre-process search results into structured bullet points (not raw blocks)
-- Add competitor-specific SWOT entries
-- Add `market_validation_required: list[str]` — actions the founder must take to validate assumptions
-
-**Schema change:**
-```python
-class ThreatItem(BaseModel):
-    description: str
-    affected_area: Literal["MARKET", "TECHNICAL", "FINANCIAL", "REGULATORY", "COMPETITIVE"]
-    financial_impact_estimate: str           # NEW: "could delay runway by 3-6 months"
-    severity: int = Field(computed=True)     # FIXED: impact * probability
-
-class SWOTOutput(BaseModel):
-    # ... existing fields ...
-    competitor_positioning: str              # NEW: where we stand vs competitors
-    market_validation_required: list[str]    # NEW: founder must-validate items
-    biggest_assumption: str                  # NEW: the single riskiest assumption
-```
-
----
-
-## Step 6: Cost Estimates Are Disconnected from Features and Roadmap
-
-**Problem:** Cost module receives compressed SWOT (only 4 list fields) but doesn't use feature count or roadmap timeline for estimation. Budget scenarios are fixed names (LEAN/BALANCED/AGGRESSIVE) with no startup-specific context. MVP cost estimate is a single number with no breakdown.
-
-**Impact:** Financial projections feel arbitrary. No connection between "we need 12 tasks" and "this costs $X."
-
-**Fix:**
-- Add `feature_cost_breakdown: dict[str, float]` — cost per feature (estimated from complexity)
-- Add `phase_cost_breakdown: dict[str, float]` — cost per roadmap phase
-- Add `hire_cost_impact: float` — monthly cost impact of each team hire
-- Add `contingency_percent: float` (10-30% buffer)
-- Add `revenue_projections: RevenueProjection` — simple revenue model based on DNA business model
-- Make budget scenarios contextual: add `assumptions: list[str]` to each scenario
-
-**Schema change:**
-```python
-class BudgetScenario(BaseModel):
-    # ... existing fields ...
-    assumptions: list[str]                  # NEW: "assumes 2 engineers, no marketing spend"
-    monthly_burn_breakdown: dict[str, float]  # NEW: category-level breakdown
-
-class CostOutput(BaseModel):
-    # ... existing fields ...
-    contingency_percent: float              # NEW
-    break_even_month: int | None            # NEW: estimated month to break even
-    key_cost_risks: list[str]               # NEW
-```
-
----
-
-## Step 7: Blueprint Is a Passive Aggregator, Not an Active Analyst
-
-**Problem:** Blueprint just concatenates previous outputs. Health indicators use hardcoded formulas that don't adapt to startup type. Conflict resolution only checks salary vs budget — misses feature vs roadmap mismatches, team vs hiring timeline gaps. Executive summary is generic "strong opportunity" language.
-
-**Impact:** The final document doesn't feel like an investor wrote it. Health scores don't reflect real readiness.
-
-**Fix:**
-- Add `competitive_analysis: CompetitiveAnalysis` — where we win, where we lose
-- Add `market_positioning: str` — positioning statement
-- Add `investment_readiness_checklist: list[ChecklistItem]` — what's missing for fundraise
-- Improve health indicator formulas with startup-type-specific weights
-- Add cross-module validation: feature count vs team size vs budget alignment
-- Add `key_assumptions: list[str]` — the 3-5 assumptions that must be true
-- Add `next_steps: list[ActionItem]` — concrete 30-day actions for the founder
-
-**Schema change:**
-```python
-class CompetitiveAnalysis(BaseModel):
-    direct_competitors: list[str]
-    indirect_competitors: list[str]
-    competitive_advantages: list[str]
-    competitive_gaps: list[str]
-    differentiation_strategy: str
-
-class ActionItem(BaseModel):
-    action: str
-    owner: Literal["FOUNDER", "CTO", "TEAM", "ADVISOR"]
-    deadline: str
-    priority: Literal["CRITICAL", "HIGH", "MEDIUM", "LOW"]
-    depends_on: list[str]
-
-class BlueprintOutput(BaseModel):
-    # ... existing fields ...
-    competitive_analysis: CompetitiveAnalysis          # NEW
-    market_positioning: str                             # NEW
-    investment_readiness_checklist: list[ChecklistItem]  # NEW
-    key_assumptions: list[str]                          # NEW
-    next_steps: list[ActionItem]                        # NEW
-```
-
----
-
-## Step 8: Context Compression Is Destroying Signal
-
-**Problem:** The orchestrator aggressively compresses context before passing it downstream. DNA loses `scores` and `executive_summary`. Features lose `description`, `dependencies`, `priority`. Roadmap loses task descriptions. Team loses `responsibilities` and `required_skills`. SWOT loses `founder_actions` detail.
-
-**Impact:** Downstream modules receive hollow summaries. Blueprint gets dicts with 4 fields per feature instead of full context. The LLM can't make nuanced connections when it only sees truncated data.
-
-**Fix:**
-- Increase compression limits: features from 15 → 25 items, descriptions from 4 → full
-- Pass `scores` through from DNA (downstream needs to know innovation level)
-- Pass `executive_summary` through (gives strategic context)
-- Add a `context_summary: str` field — a 200-char executive summary of each stage, always passed through
-- For Blueprint (stage 7), pass full uncompressed context (it's the final stage, token budget is less constrained)
-
-**Implementation in `engine.py`:**
-```python
-# BEFORE compression, extract a context_summary from each stage
-context_summary = {
-    "dna": output.get("executive_summary", "")[:200],
-    "features": f"{len(output.get('features', []))} features, MVP: {output.get('mvp_scope_rationale', '')[:100]}",
-    "roadmap": f"{len(output.get('phases', []))} phases, readiness: {output.get('launch_readiness_plan', {}).get('readiness_score', 'N/A')}",
-    # ...
-}
-# Pass context_summary alongside compressed data
-```
-
----
-
-## Summary: Before vs After
-
-| Dimension | Current | After Improvements |
-|-----------|---------|-------------------|
-| Market grounding | 3/8 stages use search | 5/8 stages use search (DNA + Features added) |
-| Feature count | Fixed 5 | 5-12 (complexity-scaled) |
-| Roadmap tasks | Fixed 12 | 18-24 (complexity-scaled) |
-| Team roles | Fixed 3-4 | 4-8 (complexity-scaled) |
-| SWOT severity | No-op validator | Computed: impact × probability |
-| Cost connection | Disconnected from features | Feature-level cost breakdown |
-| Blueprint depth | Passive aggregator | Active analyst with competitive analysis |
-| Context passed | 4-8 fields per stage | 8-12 fields + context summaries |
-| Search coverage | 14 queries/run | 18 queries/run (+4 for DNA) |
-
----
-
-## Implementation Priority
-
-| Priority | Step | Effort | Impact |
-|----------|------|--------|--------|
-| 1 | Fix context compression (Step 8) | Low | High — immediately improves all downstream quality |
-| 2 | Add search to DNA (Step 1) | Medium | High — grounds the entire pipeline in real data |
-| 3 | Fix SWOT severity validator (Step 5) | Low | Medium — quick fix, real data quality improvement |
-| 4 | Scale features/roadmap/team (Steps 2-4) | Medium | Medium — more realistic output |
-| 5 | Connect cost to features (Step 6) | Medium | High — makes financial projections believable |
-| 6 | Enhance blueprint (Step 7) | High | High — final output quality |
+**Total: 132 tests, all passing**
