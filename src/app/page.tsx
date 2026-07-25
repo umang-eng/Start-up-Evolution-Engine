@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useTransition } from 'react';
+import React, { useState, useEffect, useTransition, useCallback } from 'react';
 import { useBlueprintStore } from '@/store/use-blueprint-store';
 import { useAuth } from '@/components/shared/auth-provider';
+import { usePipelineStore } from '@/store/use-pipeline-store';
+import { useNotificationStore } from '@/store/use-notification-store';
 import { 
   api, getAccessToken, 
   mapDnaResponse, mapFeaturesResponse, mapRoadmapResponse, mapTeamResponse, 
@@ -21,6 +23,10 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExecutiveDashboard } from '@/components/dashboard/executive-dashboard';
+import { WorkspaceView } from '@/components/workspace';
+import { PipelineProgress } from '@/components/pipeline/pipeline-progress';
+import { NotificationPanel } from '@/components/notifications/notification-panel';
+import { requestNotificationPermission } from '@/components/notifications/notification-panel';
 import { 
   Sparkles, 
   ArrowRight, 
@@ -44,7 +50,8 @@ import {
   Rocket,
   Globe,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 import { StageName, ALL_STAGES, STAGE_LABELS } from '@/types/blueprint';
 
@@ -364,6 +371,50 @@ export default function WorkspacePage() {
     );
   }
 
+  // Handle one-click complete pipeline generation
+  const handleStartCompletePipeline = useCallback(async (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    updateProjectStatus(projectId, 'generating');
+    setStreamLog(['Starting complete venture blueprint generation...']);
+    
+    // Start the pipeline store
+    usePipelineStore.getState().startPipeline(projectId);
+
+    // Find first incomplete stage to start from
+    const stagesToCheck = ['dna', 'features', 'roadmap', 'team', 'swot', 'cost'];
+    let startStage = 'dna';
+    
+    for (const stage of stagesToCheck) {
+      const frontendStage = getFrontendStageName(stage);
+      if (!isStageCompleted(frontendStage, project)) {
+        startStage = stage;
+        break;
+      }
+    }
+
+    // Start generation from the first incomplete stage
+    await handleStartGeneration(projectId, startStage);
+  }, [projects, handleStartGeneration, updateProjectStatus]);
+
+  // Request notification permission on mount
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
+
+  // Safe loading check
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-2">
+          <RefreshCw className="h-6 w-6 text-primary animate-spin" />
+          <span className="text-sm text-muted-foreground">Authenticating session...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen w-screen flex overflow-hidden bg-background">
       {/* Sidebar Navigation */}
@@ -373,53 +424,23 @@ export default function WorkspacePage() {
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <Navbar />
 
-        {/* Focus Viewport */}
-        <main className="flex-1 overflow-y-auto p-8">
+        {/* Focus Viewport - Single scrollable area */}
+        <main className="flex-1 overflow-y-auto">
           {!activeProject ? (
             /* EXECUTIVE DASHBOARD */
             <ExecutiveDashboard />
           ) : (
-            /* ACTIVE BLUEPRINT WORKSPACE */
-            <div className="h-full flex flex-col gap-6">
-              {/* Stage Navigation Stepper */}
-              <div className="shrink-0">
-                <div className="flex items-center gap-1 overflow-x-auto pb-2 scrollbar-thin">
-                  {STAGE_ORDER.map((stage, idx) => {
-                    const Icon = STAGE_ICONS[stage];
-                    const completed = isStageCompleted(stage, activeProject);
-                    const isCurrent = activeStage === stage;
-                    return (
-                      <React.Fragment key={stage}>
-                        <button
-                          onClick={() => setActiveStage(stage)}
-                          className={cn(
-                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0",
-                            isCurrent
-                              ? "bg-primary text-primary-foreground shadow-sm"
-                              : completed
-                              ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400"
-                              : "bg-card text-muted-foreground hover:bg-muted border border-border"
-                          )}
-                        >
-                          {completed ? (
-                            <CheckCircle className="h-4 w-4" />
-                          ) : (
-                            <Icon className="h-4 w-4" />
-                          )}
-                          <span className="hidden lg:inline">{STAGE_LABELS[stage]}</span>
-                        </button>
-                        {idx < STAGE_ORDER.length - 1 && (
-                          <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex-1 flex gap-8 overflow-hidden">
-              {/* Left Column: Canvas document display */}
-              <div className="flex-1 max-w-4xl space-y-6">
+            /* UNIFIED WORKSPACE */
+            <WorkspaceView
+              activeProject={activeProject}
+              activeStage={activeStage}
+              onStageSelect={setActiveStage}
+              onStartGeneration={handleStartGeneration}
+              onStartCompletePipeline={handleStartCompletePipeline}
+              isGenerating={activeProject.status === 'generating'}
+            >
+              {/* Stage Content */}
+              <div className="space-y-6">
                 {/* ERROR STATE */}
                 {activeProject.status === 'error' && (
                   <Card className="border-red-200 bg-red-50/50 dark:bg-red-900/10 dark:border-red-800/30">
@@ -1642,32 +1663,30 @@ export default function WorkspacePage() {
                 })}
               </div>
 
-              {/* Right Column: AI Reasoning copilot stream */}
-              <div className="w-[320px] shrink-0 space-y-6">
-                <GlassPanel shadow="md" className="p-4 bg-card h-[480px] flex flex-col">
-                  <span className="text-xs font-semibold text-primary flex items-center gap-1.5 mb-3 border-b border-border/60 pb-2">
-                    <Sparkles className="h-4 w-4 text-accent-blue animate-pulse" />
-                    AI Reasoning Feed
-                  </span>
+              {/* AI Reasoning Feed - Collapsible sidebar */}
+              <div className="mt-6">
+                <GlassPanel shadow="sm" className="p-4 bg-card">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-semibold text-foreground">Activity Log</span>
+                  </div>
 
-                  {/* Streaming logs list */}
-                  <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 text-[11px] leading-relaxed text-muted-foreground scrollbar-thin">
+                  <div className="max-h-[200px] overflow-y-auto space-y-1.5 text-xs text-muted-foreground">
                     {streamLog.map((log, i) => (
-                      <div key={i} className="flex gap-2 p-1.5 rounded bg-black/5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-accent-blue shrink-0 mt-1.5" />
+                      <div key={i} className="flex items-start gap-2 py-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 mt-1.5" />
                         <span>{log}</span>
                       </div>
                     ))}
                     {streamLog.length === 0 && (
-                      <span className="text-muted-foreground/50 italic text-center block pt-24">
-                        Ready to co-author.
+                      <span className="text-muted-foreground/50 italic text-center block py-4">
+                        Activity will appear here during generation.
                       </span>
                     )}
                   </div>
                 </GlassPanel>
               </div>
-              </div>
-            </div>
+            </WorkspaceView>
           )}
         </main>
       </div>
