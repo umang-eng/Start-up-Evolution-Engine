@@ -9,9 +9,10 @@ Uses sse-starlette's EventSourceResponse for proper SSE protocol handling.
 
 import asyncio
 import json
+import uuid
 from typing import Any, AsyncGenerator
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sse_starlette.sse import EventSourceResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -127,12 +128,55 @@ async def _event_generator(
         await pubsub.close()
 
 
-# ── Endpoint ───────────────────────────────────────────────────────
+# ── Endpoints ──────────────────────────────────────────────────────
+
+@router.get("/progress/{project_id}")
+async def stream_project_progress(
+    project_id: str,
+    request: Request,
+    token: str = Query(..., description="JWT Bearer token passed via query param"),
+    db: AsyncSession = Depends(get_db),
+    claims: dict[str, Any] = Depends(get_token_payload),
+) -> EventSourceResponse:
+    """Stream real-time pipeline progress for a project.
+
+    The frontend connects via:
+        GET /api/v1/streams/progress/{project_id}?token=<jwt>
+
+    The worker-engine publishes events to Redis Pub/Sub on channel:
+        project:run:{project_id}:stream
+
+    This endpoint bridges the two, piping worker events straight to the client.
+    """
+    stmt = (
+        select(GenerationSession)
+        .where(GenerationSession.project_id == uuid.UUID(project_id))
+        .order_by(GenerationSession.created_at.desc())
+        .limit(1)
+    )
+    session = (await db.execute(stmt)).scalars().first()
+
+    if not session:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="No generation session found for this project")
+
+    session_id = str(session.id)
+
+    return EventSourceResponse(
+        _event_generator(request, session_id, project_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
 
 @router.get("/{session_id}")
 async def stream_session_progress(
     session_id: str,
-    request,
+    request: Request,
     token: str = Query(..., description="JWT Bearer token passed via query param"),
     db: AsyncSession = Depends(get_db),
     claims: dict[str, Any] = Depends(get_token_payload),
@@ -147,7 +191,6 @@ async def stream_session_progress(
 
     This endpoint bridges the two, piping worker events straight to the client.
     """
-    # Validate session exists and resolve the project_id
     stmt = select(GenerationSession).where(GenerationSession.id == session_id)
     session = (await db.execute(stmt)).scalars().first()
 

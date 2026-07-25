@@ -230,7 +230,10 @@ Every stage uses **structured Pydantic output schemas** validated against the LL
 │   │   ├── financial_intelligence/ # Stage 11: Financial intelligence engine
 │   │   ├── investment_committee/ # Stage 12: Investment committee simulation
 │   │   ├── product_execution/    # Stage 13: Product execution engine
-│   │   └── global_expansion/     # Stage 14: Global expansion engine
+│   │   ├── global_expansion/     # Stage 14: Global expansion engine
+│   │   ├── meeting_health/       # Meeting health analysis (9 dimensions)
+│   │   ├── meeting_timeline/     # Timeline event extraction
+│   │   └── meeting_sync/         # Blueprint synchronization engine
 │   ├── orchestrator/
 │   │   └── engine.py             # WorkflowOrchestrator + BaseModule ABC
 │   ├── services/
@@ -615,6 +618,9 @@ Upload Text/File                                          Executive Summary
 - **AI-powered intelligence reports** via Gemini/Ollama
 - **Structured report fields**: executive summary, decisions, action items with owners, risks, agreements, technical topics, business opportunities
 - **Report viewer** with collapsible sections, priority badges, copy-to-clipboard
+- **Meeting Health Analysis** — 9-dimension scoring (Focus, Clarity, Participation, Decision Quality, Execution Readiness, Innovation, Strategic Alignment, Conflict Resolution, Time Efficiency)
+- **Timeline Extraction** — automatically extracts decisions, pivots, hires, funding events, milestones, and strategy changes from meeting transcripts
+- **Combined Analysis** — runs all intelligence engines in a single call for comprehensive meeting insights
 
 ### API Endpoints
 
@@ -623,6 +629,7 @@ Upload Text/File                                          Executive Summary
 | `POST` | `/api/v1/meetings` | Create meeting session |
 | `GET` | `/api/v1/meetings` | List user meetings |
 | `GET` | `/api/v1/meetings/{id}` | Get meeting details |
+| `PATCH` | `/api/v1/meetings/{id}` | Update meeting metadata |
 | `DELETE` | `/api/v1/meetings/{id}` | Delete meeting + transcripts |
 | `POST` | `/api/v1/meetings/{id}/transcript` | Upload complete transcript |
 | `POST` | `/api/v1/meetings/{id}/transcript/segments` | Upload streaming segments |
@@ -630,6 +637,9 @@ Upload Text/File                                          Executive Summary
 | `GET` | `/api/v1/meetings/{id}/transcript` | Fetch transcript |
 | `POST` | `/api/v1/meetings/{id}/report/generate` | Generate AI report |
 | `GET` | `/api/v1/meetings/{id}/report` | Fetch AI report |
+| `GET` | `/api/v1/meetings/{id}/health` | Run 9-dimension health analysis |
+| `GET` | `/api/v1/meetings/{id}/timeline` | Extract timeline events |
+| `POST` | `/api/v1/meetings/{id}/analyze` | Run all intelligence engines |
 
 ---
 
@@ -1020,6 +1030,9 @@ docker compose up -d --build api-gateway worker-engine
 | `GET` | `/api/v1/meetings/{id}/transcript` | Fetch transcript |
 | `POST` | `/api/v1/meetings/{id}/report/generate` | Generate AI report |
 | `GET` | `/api/v1/meetings/{id}/report` | Fetch AI report |
+| `GET` | `/api/v1/meetings/{id}/health` | Run 9-dimension health analysis |
+| `GET` | `/api/v1/meetings/{id}/timeline` | Extract timeline events |
+| `POST` | `/api/v1/meetings/{id}/analyze` | Run all intelligence engines |
 
 ### Health
 

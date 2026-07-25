@@ -29,8 +29,8 @@ async def test_progress_stream_handshake(client: AsyncClient, db_session: Any) -
 
     project_id = str(uuid.uuid4())
 
-    # Patch sse_event_generator with a deterministic stub that yields init and exits
-    with patch("backend.api.v1.streams.sse_event_generator", new=_stub_sse_generator):
+    # Patch _event_generator with a deterministic stub that yields init and exits
+    with patch("backend.api.v1.streams._event_generator", new=_stub_sse_generator):
         # 1. Valid token → 200 SSE
         response = await client.get(
             f"/api/v1/streams/progress/{project_id}?token={token}",

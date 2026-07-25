@@ -289,3 +289,137 @@ async def get_report(
         "data": MeetingReportResponse.model_validate(report),
         "metadata": APIResponseMetadata(),
     }
+
+
+# ── Intelligence Engine Endpoints ────────────────────────────────
+
+@router.get("/{meeting_id}/health")
+async def get_meeting_health(
+    meeting_id: uuid.UUID,
+    claims: dict[str, Any] = Depends(get_token_payload),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Run health analysis on a meeting's transcript across 9 dimensions."""
+    user_id = uuid.UUID(claims["sub"])
+    meeting = await meeting_repository.get_by_meeting_and_user(db, meeting_id, user_id)
+    if not meeting:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting not found")
+
+    transcript = await transcript_repository.get_by_meeting(db, meeting_id)
+    if not transcript:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")
+
+    from backend.modules.meeting_health.engine import MeetingHealthEngine
+    engine = MeetingHealthEngine()
+
+    participants = [f"Speaker {meeting.speaker_count or i}" for i in range(1, (meeting.speaker_count or 2) + 1)]
+    duration_str = f"{meeting.duration_seconds // 60}m {meeting.duration_seconds % 60}s" if meeting.duration_seconds else "unknown"
+
+    health_report = await engine.analyze(
+        meeting_id=str(meeting_id),
+        title=meeting.title or "Untitled Meeting",
+        duration=duration_str,
+        participants=participants,
+        transcript=transcript.raw_text,
+    )
+    return {
+        "success": True,
+        "data": health_report.model_dump(),
+        "metadata": APIResponseMetadata(),
+    }
+
+
+@router.get("/{meeting_id}/timeline")
+async def get_meeting_timeline(
+    meeting_id: uuid.UUID,
+    claims: dict[str, Any] = Depends(get_token_payload),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Extract timeline-worthy events from a meeting transcript."""
+    user_id = uuid.UUID(claims["sub"])
+    meeting = await meeting_repository.get_by_meeting_and_user(db, meeting_id, user_id)
+    if not meeting:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting not found")
+
+    transcript = await transcript_repository.get_by_meeting(db, meeting_id)
+    if not transcript:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")
+
+    from backend.modules.meeting_timeline.engine import TimelineEngine
+    project_id = str(meeting.project_id) if meeting.project_id else str(meeting_id)
+    engine = TimelineEngine(project_id=project_id)
+
+    participants = [f"Speaker {meeting.speaker_count or i}" for i in range(1, (meeting.speaker_count or 2) + 1)]
+
+    events = await engine.extract_events(
+        meeting_id=str(meeting_id),
+        title=meeting.title or "Untitled Meeting",
+        date=meeting.created_at.isoformat(),
+        participants=participants,
+        transcript=transcript.raw_text,
+    )
+    return {
+        "success": True,
+        "data": {
+            "events": [e.model_dump() for e in events],
+            "total_events": len(events),
+            "meeting_id": str(meeting_id),
+        },
+        "metadata": APIResponseMetadata(),
+    }
+
+
+@router.post("/{meeting_id}/analyze")
+async def analyze_meeting(
+    meeting_id: uuid.UUID,
+    claims: dict[str, Any] = Depends(get_token_payload),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Run all intelligence engines on a meeting: health analysis + timeline extraction."""
+    user_id = uuid.UUID(claims["sub"])
+    meeting = await meeting_repository.get_by_meeting_and_user(db, meeting_id, user_id)
+    if not meeting:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting not found")
+
+    transcript = await transcript_repository.get_by_meeting(db, meeting_id)
+    if not transcript:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")
+
+    participants = [f"Speaker {meeting.speaker_count or i}" for i in range(1, (meeting.speaker_count or 2) + 1)]
+    duration_str = f"{meeting.duration_seconds // 60}m {meeting.duration_seconds % 60}s" if meeting.duration_seconds else "unknown"
+
+    # Run health analysis
+    from backend.modules.meeting_health.engine import MeetingHealthEngine
+    health_engine = MeetingHealthEngine()
+    health_report = await health_engine.analyze(
+        meeting_id=str(meeting_id),
+        title=meeting.title or "Untitled Meeting",
+        duration=duration_str,
+        participants=participants,
+        transcript=transcript.raw_text,
+    )
+
+    # Run timeline extraction
+    from backend.modules.meeting_timeline.engine import TimelineEngine
+    project_id = str(meeting.project_id) if meeting.project_id else str(meeting_id)
+    timeline_engine = TimelineEngine(project_id=project_id)
+    events = await timeline_engine.extract_events(
+        meeting_id=str(meeting_id),
+        title=meeting.title or "Untitled Meeting",
+        date=meeting.created_at.isoformat(),
+        participants=participants,
+        transcript=transcript.raw_text,
+    )
+
+    return {
+        "success": True,
+        "data": {
+            "health": health_report.model_dump(),
+            "timeline": {
+                "events": [e.model_dump() for e in events],
+                "total_events": len(events),
+            },
+            "meeting_id": str(meeting_id),
+        },
+        "metadata": APIResponseMetadata(),
+    }
