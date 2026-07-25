@@ -56,17 +56,67 @@ export interface MeetingReport {
   updated_at: string;
 }
 
+export interface HealthDimension {
+  name: string;
+  score: number;
+  weight: number;
+  explanation: string;
+  improvement: string;
+}
+
+export interface MeetingHealthReport {
+  meeting_id: string;
+  overall_score: number;
+  dimensions: HealthDimension[];
+  strengths: string[];
+  weaknesses: string[];
+  improvement_opportunities: string[];
+  trend: string;
+  benchmark_comparison: string;
+  timestamp: string;
+}
+
+export interface TimelineEvent {
+  id: string;
+  event_type: string;
+  title: string;
+  description: string;
+  date: string;
+  meeting_id: string;
+  meeting_title: string;
+  importance: string;
+  affected_areas: string[];
+  related_events: string[];
+  metadata: Record<string, any>;
+  created_at: string;
+}
+
+export interface MeetingAnalysis {
+  health: MeetingHealthReport;
+  timeline: {
+    events: TimelineEvent[];
+    total_events: number;
+  };
+  meeting_id: string;
+}
+
 interface MeetingState {
   // Data
   meetings: Meeting[];
   currentMeeting: Meeting | null;
   transcript: Transcript | null;
   report: MeetingReport | null;
+  health: MeetingHealthReport | null;
+  timeline: TimelineEvent[];
+  analysis: MeetingAnalysis | null;
 
   // UI State
   loading: boolean;
   error: string | null;
   generating: boolean;
+  analyzingHealth: boolean;
+  analyzingTimeline: boolean;
+  analyzingCombined: boolean;
 
   // Actions
   fetchMeetings: () => Promise<void>;
@@ -76,6 +126,9 @@ interface MeetingState {
   uploadTranscript: (meetingId: string, rawText: string, language?: string) => Promise<void>;
   uploadAudio: (meetingId: string, audioBlob: Blob, filename?: string) => Promise<void>;
   generateReport: (meetingId: string) => Promise<MeetingReport>;
+  fetchHealth: (meetingId: string) => Promise<void>;
+  fetchTimeline: (meetingId: string) => Promise<void>;
+  runAnalysis: (meetingId: string) => Promise<void>;
   clearCurrent: () => void;
 }
 
@@ -87,9 +140,15 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
   currentMeeting: null,
   transcript: null,
   report: null,
+  health: null,
+  timeline: [],
+  analysis: null,
   loading: false,
   error: null,
   generating: false,
+  analyzingHealth: false,
+  analyzingTimeline: false,
+  analyzingCombined: false,
 
   fetchMeetings: async () => {
     set({ loading: true, error: null });
@@ -181,7 +240,6 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
     try {
       const report = await api.meetings.generateReport(meetingId);
       set({ report, generating: false });
-      // Update meeting status
       get().selectMeeting(meetingId);
       return report;
     } catch (err: any) {
@@ -190,7 +248,42 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
     }
   },
 
+  fetchHealth: async (meetingId: string) => {
+    set({ analyzingHealth: true, error: null });
+    try {
+      const health = await api.meetings.getHealth(meetingId);
+      set({ health, analyzingHealth: false });
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to fetch health analysis', analyzingHealth: false });
+    }
+  },
+
+  fetchTimeline: async (meetingId: string) => {
+    set({ analyzingTimeline: true, error: null });
+    try {
+      const data = await api.meetings.getTimeline(meetingId);
+      set({ timeline: data?.events || [], analyzingTimeline: false });
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to fetch timeline', analyzingTimeline: false });
+    }
+  },
+
+  runAnalysis: async (meetingId: string) => {
+    set({ analyzingCombined: true, error: null });
+    try {
+      const analysis = await api.meetings.analyze(meetingId);
+      set({ 
+        analysis, 
+        health: analysis?.health || null,
+        timeline: analysis?.timeline?.events || [],
+        analyzingCombined: false 
+      });
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to run analysis', analyzingCombined: false });
+    }
+  },
+
   clearCurrent: () => {
-    set({ currentMeeting: null, transcript: null, report: null });
+    set({ currentMeeting: null, transcript: null, report: null, health: null, timeline: [], analysis: null });
   },
 }));

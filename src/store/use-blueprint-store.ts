@@ -7,9 +7,22 @@ import {
   ExecutionRoadmap, 
   OrgStructure, 
   SWOTAnalysis, 
-  CostEstimation 
+  CostEstimation,
+  LegalComplianceResult,
+  CompetitiveMoatResult,
+  StressTestResult,
+  FinancialIntelligenceResult,
+  InvestmentCommitteeResult,
+  ProductExecutionResult,
+  GlobalExpansionResult
 } from '@/types/blueprint';
-import { api, mapDnaResponse, mapFeaturesResponse, mapRoadmapResponse, mapTeamResponse, mapSwotResponse, mapCostResponse } from '@/lib/api-client';
+import { 
+  api, mapDnaResponse, mapFeaturesResponse, mapRoadmapResponse, mapTeamResponse, 
+  mapSwotResponse, mapCostResponse,
+  mapLegalComplianceResponse, mapCompetitiveMoatResponse, mapStressTestResponse,
+  mapFinancialIntelligenceResponse, mapInvestmentCommitteeResponse,
+  mapProductExecutionResponse, mapGlobalExpansionResponse
+} from '@/lib/api-client';
 
 interface BlueprintState {
   projects: StartupProject[];
@@ -37,6 +50,13 @@ interface BlueprintState {
   saveTeam: (projectId: string, team: OrgStructure) => void;
   saveSWOT: (projectId: string, swot: SWOTAnalysis) => void;
   saveCost: (projectId: string, cost: CostEstimation) => void;
+  saveLegalCompliance: (projectId: string, data: LegalComplianceResult) => void;
+  saveCompetitiveMoat: (projectId: string, data: CompetitiveMoatResult) => void;
+  saveStressTest: (projectId: string, data: StressTestResult) => void;
+  saveFinancialIntelligence: (projectId: string, data: FinancialIntelligenceResult) => void;
+  saveInvestmentCommittee: (projectId: string, data: InvestmentCommitteeResult) => void;
+  saveProductExecution: (projectId: string, data: ProductExecutionResult) => void;
+  saveGlobalExpansion: (projectId: string, data: GlobalExpansionResult) => void;
 }
 
 export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
@@ -149,6 +169,13 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
       const team = mapTeamResponse(blueprintData.team_structure);
       const swot = mapSwotResponse(blueprintData.swot_analysis);
       const cost = mapCostResponse(blueprintData.financial_plan);
+      const legalCompliance = mapLegalComplianceResponse(blueprintData.legal_compliance);
+      const competitiveMoat = mapCompetitiveMoatResponse(blueprintData.competitive_moat);
+      const stressTest = mapStressTestResponse(blueprintData.stress_test);
+      const financialIntelligence = mapFinancialIntelligenceResponse(blueprintData.financial_intelligence);
+      const investmentCommittee = mapInvestmentCommitteeResponse(blueprintData.investment_committee);
+      const productExecution = mapProductExecutionResponse(blueprintData.product_execution);
+      const globalExpansion = mapGlobalExpansionResponse(blueprintData.global_expansion);
 
       // Determine the compilation completion status and current stage
       const hasFullBlueprint = !!blueprintData.executive_summary || !!blueprintData.health_indicators;
@@ -157,7 +184,22 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
       let resolvedStatus: StartupProject['status'] = 'idle';
       let resolvedCompiled = false;
 
-      if (hasFullBlueprint) {
+      // Determine highest completed stage
+      if (globalExpansion) {
+        resolvedStage = 'global-expansion';
+      } else if (productExecution) {
+        resolvedStage = 'product-execution';
+      } else if (investmentCommittee) {
+        resolvedStage = 'investment-committee';
+      } else if (financialIntelligence) {
+        resolvedStage = 'financial-intelligence';
+      } else if (stressTest) {
+        resolvedStage = 'stress-test';
+      } else if (competitiveMoat) {
+        resolvedStage = 'competitive-moat';
+      } else if (legalCompliance) {
+        resolvedStage = 'legal-compliance';
+      } else if (hasFullBlueprint) {
         resolvedStage = 'final-blueprint';
         resolvedStatus = 'completed';
         resolvedCompiled = true;
@@ -186,6 +228,13 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
             team,
             swot,
             cost,
+            legalCompliance,
+            competitiveMoat,
+            stressTest,
+            financialIntelligence,
+            investmentCommittee,
+            productExecution,
+            globalExpansion,
             status: p.status === 'completed' && !hasFullBlueprint ? 'idle' : (resolvedStatus || p.status),
             currentStage: resolvedStage,
             blueprintCompiled: resolvedCompiled
@@ -226,5 +275,33 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
   saveCost: (projectId, cost) => set((state) => ({
     projects: state.projects.map((p) => p.id === projectId ? { ...p, cost, currentStage: 'final-blueprint' } : p),
     activeStage: 'final-blueprint'
-  }))
+  })),
+
+  saveLegalCompliance: (projectId, data) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? { ...p, legalCompliance: data } : p),
+  })),
+
+  saveCompetitiveMoat: (projectId, data) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? { ...p, competitiveMoat: data } : p),
+  })),
+
+  saveStressTest: (projectId, data) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? { ...p, stressTest: data } : p),
+  })),
+
+  saveFinancialIntelligence: (projectId, data) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? { ...p, financialIntelligence: data } : p),
+  })),
+
+  saveInvestmentCommittee: (projectId, data) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? { ...p, investmentCommittee: data } : p),
+  })),
+
+  saveProductExecution: (projectId, data) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? { ...p, productExecution: data } : p),
+  })),
+
+  saveGlobalExpansion: (projectId, data) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? { ...p, globalExpansion: data } : p),
+  })),
 }));

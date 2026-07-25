@@ -3,7 +3,14 @@
 import React, { useState, useEffect, useTransition } from 'react';
 import { useBlueprintStore } from '@/store/use-blueprint-store';
 import { useAuth } from '@/components/shared/auth-provider';
-import { api, getAccessToken, mapDnaResponse, mapFeaturesResponse, mapRoadmapResponse, mapTeamResponse, mapSwotResponse, mapCostResponse } from '@/lib/api-client';
+import { 
+  api, getAccessToken, 
+  mapDnaResponse, mapFeaturesResponse, mapRoadmapResponse, mapTeamResponse, 
+  mapSwotResponse, mapCostResponse,
+  mapLegalComplianceResponse, mapCompetitiveMoatResponse, mapStressTestResponse,
+  mapFinancialIntelligenceResponse, mapInvestmentCommitteeResponse,
+  mapProductExecutionResponse, mapGlobalExpansionResponse
+} from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { useSettingsStore } from '@/store/use-settings-store';
 import { Sidebar } from '@/components/shared/sidebar';
@@ -27,9 +34,52 @@ import {
   TrendingUp,
   Award,
   ScrollText,
-  Plus
+  Plus,
+  Shield,
+  Target,
+  Zap,
+  BarChart3,
+  Users,
+  Rocket,
+  Globe,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
-import { StageName } from '@/types/blueprint';
+import { StageName, ALL_STAGES, STAGE_LABELS } from '@/types/blueprint';
+
+const STAGE_ORDER: StageName[] = [
+  'dna-analyzer',
+  'feature-extractor',
+  'roadmap',
+  'team-structure',
+  'swot',
+  'cost-estimator',
+  'final-blueprint',
+  'legal-compliance',
+  'competitive-moat',
+  'stress-test',
+  'financial-intelligence',
+  'investment-committee',
+  'product-execution',
+  'global-expansion',
+];
+
+const STAGE_ICONS: Record<StageName, any> = {
+  'dna-analyzer': Dna,
+  'feature-extractor': GitBranch,
+  'roadmap': LineChart,
+  'team-structure': Network,
+  'swot': TrendingUp,
+  'cost-estimator': Award,
+  'final-blueprint': ScrollText,
+  'legal-compliance': Shield,
+  'competitive-moat': Target,
+  'stress-test': Zap,
+  'financial-intelligence': BarChart3,
+  'investment-committee': Users,
+  'product-execution': Rocket,
+  'global-expansion': Globe,
+};
 
 const getBackendStageName = (frontendStage: string): string => {
   const mapping: Record<string, string> = {
@@ -39,20 +89,56 @@ const getBackendStageName = (frontendStage: string): string => {
     'team-structure': 'team',
     'swot': 'swot',
     'cost-estimator': 'cost',
-    'final-blueprint': 'blueprint'
+    'final-blueprint': 'blueprint',
+    'legal-compliance': 'legal_compliance',
+    'competitive-moat': 'competitive_moat',
+    'stress-test': 'stress_test',
+    'financial-intelligence': 'financial_intelligence',
+    'investment-committee': 'investment_committee',
+    'product-execution': 'product_execution',
+    'global-expansion': 'global_expansion',
   };
   return mapping[frontendStage] || 'dna';
 };
 
+const getFrontendStageName = (backendStage: string): StageName => {
+  const mapping: Record<string, StageName> = {
+    'dna': 'dna-analyzer',
+    'features': 'feature-extractor',
+    'roadmap': 'roadmap',
+    'team': 'team-structure',
+    'swot': 'swot',
+    'cost': 'cost-estimator',
+    'blueprint': 'final-blueprint',
+    'legal_compliance': 'legal-compliance',
+    'competitive_moat': 'competitive-moat',
+    'stress_test': 'stress-test',
+    'financial_intelligence': 'financial-intelligence',
+    'investment_committee': 'investment-committee',
+    'product_execution': 'product-execution',
+    'global_expansion': 'global-expansion',
+  };
+  return mapping[backendStage] || 'dna-analyzer';
+};
+
 const isStageCompleted = (stage: StageName, project: any): boolean => {
-  if (stage === 'dna-analyzer') return !!project.dna;
-  if (stage === 'feature-extractor') return !!project.features;
-  if (stage === 'roadmap') return !!project.roadmap;
-  if (stage === 'team-structure') return !!project.team;
-  if (stage === 'swot') return !!project.swot;
-  if (stage === 'cost-estimator') return !!project.cost;
-  if (stage === 'final-blueprint') return !!project.blueprintCompiled;
-  return false;
+  const checkMap: Record<StageName, () => boolean> = {
+    'dna-analyzer': () => !!project.dna,
+    'feature-extractor': () => !!project.features,
+    'roadmap': () => !!project.roadmap,
+    'team-structure': () => !!project.team,
+    'swot': () => !!project.swot,
+    'cost-estimator': () => !!project.cost,
+    'final-blueprint': () => !!project.blueprintCompiled,
+    'legal-compliance': () => !!project.legalCompliance,
+    'competitive-moat': () => !!project.competitiveMoat,
+    'stress-test': () => !!project.stressTest,
+    'financial-intelligence': () => !!project.financialIntelligence,
+    'investment-committee': () => !!project.investmentCommittee,
+    'product-execution': () => !!project.productExecution,
+    'global-expansion': () => !!project.globalExpansion,
+  };
+  return checkMap[stage]?.() ?? false;
 };
 
 export default function WorkspacePage() {
@@ -70,7 +156,14 @@ export default function WorkspacePage() {
     saveRoadmap,
     saveTeam,
     saveSWOT,
-    saveCost
+    saveCost,
+    saveLegalCompliance,
+    saveCompetitiveMoat,
+    saveStressTest,
+    saveFinancialIntelligence,
+    saveInvestmentCommittee,
+    saveProductExecution,
+    saveGlobalExpansion
   } = useBlueprintStore();
 
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -177,6 +270,13 @@ export default function WorkspacePage() {
           else if (stageName === 'team') saveTeam(projId, mapTeamResponse(result));
           else if (stageName === 'swot') saveSWOT(projId, mapSwotResponse(result));
           else if (stageName === 'cost') saveCost(projId, mapCostResponse(result));
+          else if (stageName === 'legal_compliance') saveLegalCompliance(projId, mapLegalComplianceResponse(result));
+          else if (stageName === 'competitive_moat') saveCompetitiveMoat(projId, mapCompetitiveMoatResponse(result));
+          else if (stageName === 'stress_test') saveStressTest(projId, mapStressTestResponse(result));
+          else if (stageName === 'financial_intelligence') saveFinancialIntelligence(projId, mapFinancialIntelligenceResponse(result));
+          else if (stageName === 'investment_committee') saveInvestmentCommittee(projId, mapInvestmentCommitteeResponse(result));
+          else if (stageName === 'product_execution') saveProductExecution(projId, mapProductExecutionResponse(result));
+          else if (stageName === 'global_expansion') saveGlobalExpansion(projId, mapGlobalExpansionResponse(result));
         } catch (err) {
           console.error('module:completed parse error', err);
         }
@@ -363,7 +463,44 @@ export default function WorkspacePage() {
             </div>
           ) : (
             /* ACTIVE BLUEPRINT WORKSPACE */
-            <div className="h-full flex gap-8">
+            <div className="h-full flex flex-col gap-6">
+              {/* Stage Navigation Stepper */}
+              <div className="shrink-0">
+                <div className="flex items-center gap-1 overflow-x-auto pb-2 scrollbar-thin">
+                  {STAGE_ORDER.map((stage, idx) => {
+                    const Icon = STAGE_ICONS[stage];
+                    const completed = isStageCompleted(stage, activeProject);
+                    const isCurrent = activeStage === stage;
+                    return (
+                      <React.Fragment key={stage}>
+                        <button
+                          onClick={() => setActiveStage(stage)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0",
+                            isCurrent
+                              ? "bg-accent-blue text-white shadow-lvl-1"
+                              : completed
+                              ? "bg-green-50 text-green-700 hover:bg-green-100"
+                              : "bg-white text-muted-foreground hover:bg-surface-secondary border border-border/60"
+                          )}
+                        >
+                          {completed ? (
+                            <CheckCircle className="h-3.5 w-3.5" />
+                          ) : (
+                            <Icon className="h-3.5 w-3.5" />
+                          )}
+                          <span className="hidden lg:inline">{STAGE_LABELS[stage]}</span>
+                        </button>
+                        {idx < STAGE_ORDER.length - 1 && (
+                          <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex-1 flex gap-8 overflow-hidden">
               {/* Left Column: Canvas document display */}
               <div className="flex-1 max-w-4xl space-y-6">
                 {/* ERROR STATE */}
@@ -964,6 +1101,628 @@ export default function WorkspacePage() {
                     </Button>
                   </Card>
                 )}
+
+                {/* ═══════════════════════════════════════════════════════════════════
+                    INTELLIGENCE STAGES (7-14)
+                    ═══════════════════════════════════════════════════════════════════ */}
+
+                {/* STAGE: LEGAL & COMPLIANCE */}
+                {activeStage === 'legal-compliance' && activeProject.legalCompliance && (
+                  <Card className="shadow-lvl-1 border-border bg-white">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                        Legal & Compliance Review
+                      </CardTitle>
+                      <div className={cn(
+                        "text-xs px-2.5 py-1 rounded font-medium flex items-center gap-1.5",
+                        activeProject.legalCompliance.overall_risk === 'low' ? 'bg-green-50 text-green-700' :
+                        activeProject.legalCompliance.overall_risk === 'medium' ? 'bg-yellow-50 text-yellow-700' :
+                        'bg-red-50 text-red-700'
+                      )}>
+                        <Shield className="h-3.5 w-3.5" />
+                        <span>Risk: {activeProject.legalCompliance.overall_risk}</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Compliance Checklist */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Compliance Checklist
+                        </span>
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                          {(activeProject.legalCompliance.compliance_checklist || []).map((item: any, idx: number) => (
+                            <div key={idx} className="flex items-start gap-3 p-3 rounded-lg border border-border/60 bg-white">
+                              <div className={cn(
+                                "h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5",
+                                item.status === 'compliant' ? 'bg-green-100 text-green-600' :
+                                item.status === 'pending' ? 'bg-yellow-100 text-yellow-600' :
+                                item.status === 'gap' ? 'bg-red-100 text-red-600' :
+                                'bg-gray-100 text-gray-400'
+                              )}>
+                                {item.status === 'compliant' ? '✓' : item.status === 'gap' ? '!' : '○'}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm font-medium text-primary block">{item.item}</span>
+                                {item.notes && <span className="text-xs text-muted-foreground">{item.notes}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* IP Protection & Registrations */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            IP Protection
+                          </span>
+                          {(activeProject.legalCompliance.ip_protection || []).map((ip: any, idx: number) => (
+                            <div key={idx} className="p-2 rounded bg-surface-secondary text-xs">
+                              <span className="font-medium text-primary">{ip.asset}</span>
+                              <span className="text-muted-foreground block">{ip.protection_type}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Registrations Needed
+                          </span>
+                          {(activeProject.legalCompliance.registrations_needed || []).map((reg: any, idx: number) => (
+                            <div key={idx} className="p-2 rounded bg-surface-secondary text-xs">
+                              <span className="font-medium text-primary">{reg.type}</span>
+                              <span className="text-muted-foreground block">{reg.jurisdiction} • {reg.timeline}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Grants & Incentives */}
+                      {(activeProject.legalCompliance.grants_incentives || []).length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Available Grants & Incentives
+                          </span>
+                          <div className="grid grid-cols-2 gap-2">
+                            {(activeProject.legalCompliance.grants_incentives || []).map((grant: any, idx: number) => (
+                              <div key={idx} className="p-3 rounded-lg border border-green-200 bg-green-50/50 text-xs">
+                                <span className="font-semibold text-primary block">{grant.name}</span>
+                                <span className="text-muted-foreground">{grant.eligibility} • {grant.value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recommendations */}
+                      {activeProject.legalCompliance.recommendations.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Recommendations
+                          </span>
+                          <div className="space-y-1.5 text-xs text-muted-foreground">
+                            {activeProject.legalCompliance.recommendations.map((rec: string, idx: number) => (
+                              <div key={idx}>• {rec}</div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: COMPETITIVE MOAT */}
+                {activeStage === 'competitive-moat' && activeProject.competitiveMoat && (
+                  <Card className="shadow-lvl-1 border-border bg-white">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                        Competitive Moat Analysis
+                      </CardTitle>
+                      <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
+                        <Target className="h-3.5 w-3.5" />
+                        <span>Moat Strength: {activeProject.competitiveMoat.overall_moat_strength}/100</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Competitor Landscape */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Competitor Landscape
+                        </span>
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                          {(activeProject.competitiveMoat.competitors || []).map((comp: any, idx: number) => (
+                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-white flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm font-semibold text-primary block">{comp.name}</span>
+                                <span className="text-xs text-muted-foreground block truncate">{comp.strength}</span>
+                              </div>
+                              <span className={cn(
+                                "text-[10px] font-semibold uppercase px-2 py-0.5 rounded shrink-0",
+                                comp.threat_level === 'high' ? 'bg-red-100 text-red-700' :
+                                comp.threat_level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-green-100 text-green-700'
+                              )}>
+                                {comp.threat_level}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Moat Scores */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Moat Dimensions
+                        </span>
+                        <div className="grid grid-cols-2 gap-3">
+                          {(activeProject.competitiveMoat.moat_scores || []).map((score: any, idx: number) => (
+                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-surface-secondary/50">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs font-medium text-primary">{score.dimension}</span>
+                                <span className="text-xs font-bold text-accent-blue">{score.score}/100</span>
+                              </div>
+                              <div className="h-1.5 bg-black/5 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-accent-blue rounded-full transition-all"
+                                  style={{ width: `${score.score}%` }}
+                                />
+                              </div>
+                              {score.evidence && (
+                                <span className="text-[10px] text-muted-foreground mt-1 block truncate">{score.evidence}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Recommendations */}
+                      {activeProject.competitiveMoat.strategic_recommendations.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Strategic Recommendations
+                          </span>
+                          <div className="space-y-1.5 text-xs text-muted-foreground">
+                            {activeProject.competitiveMoat.strategic_recommendations.map((rec: string, idx: number) => (
+                              <div key={idx}>• {rec}</div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: STRESS TEST */}
+                {activeStage === 'stress-test' && activeProject.stressTest && (
+                  <Card className="shadow-lvl-1 border-border bg-white">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                        Market Stress Test
+                      </CardTitle>
+                      <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
+                        <Zap className="h-3.5 w-3.5" />
+                        <span>Resilience: {activeProject.stressTest.resilience_score}/100</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Scenario Cards */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Stress Scenarios
+                        </span>
+                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                          {(activeProject.stressTest.scenarios || []).map((scenario: any, idx: number) => (
+                            <div key={idx} className="p-4 rounded-lg border border-border/60 bg-surface-secondary/50 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-semibold text-primary">{scenario.name}</span>
+                                <div className="flex gap-2">
+                                  <span className={cn(
+                                    "text-[10px] font-semibold uppercase px-2 py-0.5 rounded",
+                                    scenario.probability === 'high' ? 'bg-red-100 text-red-700' :
+                                    scenario.probability === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-green-100 text-green-700'
+                                  )}>
+                                    {scenario.probability} prob
+                                  </span>
+                                  <span className={cn(
+                                    "text-[10px] font-semibold uppercase px-2 py-0.5 rounded",
+                                    scenario.impact === 'high' ? 'bg-red-100 text-red-700' :
+                                    scenario.impact === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-green-100 text-green-700'
+                                  )}>
+                                    {scenario.impact} impact
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{scenario.description}</p>
+                              <div className="text-xs">
+                                <span className="text-muted-foreground">Mitigation: </span>
+                                <span className="text-primary">{scenario.mitigation}</span>
+                              </div>
+                              {scenario.recovery_time && (
+                                <div className="text-xs">
+                                  <span className="text-muted-foreground">Recovery: </span>
+                                  <span className="text-primary">{scenario.recovery_time}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Critical Dependencies */}
+                      {activeProject.stressTest.critical_dependencies.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Critical Dependencies
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {activeProject.stressTest.critical_dependencies.map((dep: string, idx: number) => (
+                              <span key={idx} className="text-xs px-2 py-1 rounded bg-red-50 text-red-700 border border-red-200">
+                                {dep}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: FINANCIAL INTELLIGENCE */}
+                {activeStage === 'financial-intelligence' && activeProject.financialIntelligence && (
+                  <Card className="shadow-lvl-1 border-border bg-white">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                        Financial Intelligence
+                      </CardTitle>
+                      <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
+                        <BarChart3 className="h-3.5 w-3.5" />
+                        <span>Health: {activeProject.financialIntelligence.financial_health_score}/100</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Unit Economics */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Unit Economics
+                        </span>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {(activeProject.financialIntelligence.unit_economics || []).map((item: any, idx: number) => (
+                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-surface-secondary/50 text-center">
+                              <span className="text-[10px] text-muted-foreground block">{item.metric}</span>
+                              <span className="text-lg font-bold text-primary">{item.value}</span>
+                              {item.benchmark && (
+                                <span className="text-[10px] text-muted-foreground block">Bench: {item.benchmark}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Projections Table */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Financial Projections
+                        </span>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-border">
+                                <th className="text-left py-2 font-semibold text-muted-foreground">Metric</th>
+                                <th className="text-right py-2 font-semibold text-muted-foreground">Month 1</th>
+                                <th className="text-right py-2 font-semibold text-muted-foreground">Month 6</th>
+                                <th className="text-right py-2 font-semibold text-muted-foreground">Month 12</th>
+                                <th className="text-right py-2 font-semibold text-muted-foreground">Month 24</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(activeProject.financialIntelligence.projections || []).map((proj: any, idx: number) => (
+                                <tr key={idx} className="border-b border-border/50">
+                                  <td className="py-2 text-primary font-medium">{proj.metric}</td>
+                                  <td className="py-2 text-right text-muted-foreground">{proj.month_1}</td>
+                                  <td className="py-2 text-right text-muted-foreground">{proj.month_6}</td>
+                                  <td className="py-2 text-right text-muted-foreground">{proj.month_12}</td>
+                                  <td className="py-2 text-right text-muted-foreground">{proj.month_24}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: INVESTMENT COMMITTEE */}
+                {activeStage === 'investment-committee' && activeProject.investmentCommittee && (
+                  <Card className="shadow-lvl-1 border-border bg-white">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                        Investment Committee
+                      </CardTitle>
+                      <div className={cn(
+                        "text-xs px-2.5 py-1 rounded font-medium flex items-center gap-1.5",
+                        activeProject.investmentCommittee.overall_score >= 70 ? 'bg-green-50 text-green-700' :
+                        activeProject.investmentCommittee.overall_score >= 50 ? 'bg-yellow-50 text-yellow-700' :
+                        'bg-red-50 text-red-700'
+                      )}>
+                        <Users className="h-3.5 w-3.5" />
+                        <span>Score: {activeProject.investmentCommittee.overall_score}/100</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Partner Cards */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Partner Votes
+                        </span>
+                        <div className="space-y-3">
+                          {(activeProject.investmentCommittee.partner_cards || []).map((partner: any, idx: number) => (
+                            <div key={idx} className="p-4 rounded-lg border border-border/60 bg-surface-secondary/50 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <span className="text-sm font-semibold text-primary">{partner.name}</span>
+                                  <span className="text-xs text-muted-foreground ml-2">{partner.role}</span>
+                                </div>
+                                <span className={cn(
+                                  "text-[10px] font-bold uppercase px-2 py-1 rounded",
+                                  partner.vote === 'approve' ? 'bg-green-100 text-green-700' :
+                                  partner.vote === 'conditional' ? 'bg-yellow-100 text-yellow-700' :
+                                  partner.vote === 'reject' ? 'bg-red-100 text-red-700' :
+                                  'bg-gray-100 text-gray-600'
+                                )}>
+                                  {partner.vote}
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{partner.reasoning}</p>
+                              {partner.concerns?.length > 0 && (
+                                <div className="space-y-1">
+                                  {partner.concerns.map((concern: string, cIdx: number) => (
+                                    <span key={cIdx} className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-50 text-yellow-700 block">
+                                      ⚠ {concern}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Recommendation */}
+                      <div className="p-4 rounded-lg border border-accent-blue/20 bg-accent-blue/5">
+                        <span className="text-xs font-semibold text-accent-blue block mb-2">Investment Recommendation</span>
+                        <p className="text-sm text-primary">{activeProject.investmentCommittee.investment_recommendation}</p>
+                      </div>
+
+                      {/* Due Diligence */}
+                      {(activeProject.investmentCommittee.due_diligence || []).length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Due Diligence
+                          </span>
+                          <div className="space-y-1.5">
+                            {activeProject.investmentCommittee.due_diligence.map((dd: any, idx: number) => (
+                              <div key={idx} className="flex items-center gap-2 text-xs">
+                                <span className={cn(
+                                  "h-2 w-2 rounded-full shrink-0",
+                                  dd.status === 'pass' ? 'bg-green-500' :
+                                  dd.status === 'flag' ? 'bg-yellow-500' : 'bg-red-500'
+                                )} />
+                                <span className="text-primary font-medium">{dd.area}</span>
+                                <span className="text-muted-foreground">— {dd.notes}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: PRODUCT EXECUTION */}
+                {activeStage === 'product-execution' && activeProject.productExecution && (
+                  <Card className="shadow-lvl-1 border-border bg-white">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                        Product Execution Plan
+                      </CardTitle>
+                      <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
+                        <Rocket className="h-3.5 w-3.5" />
+                        <span>Launch Readiness: {activeProject.productExecution.launch_readiness}%</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* PRD Summary */}
+                      <div className="p-4 rounded-lg bg-surface-secondary border border-border/80">
+                        <span className="text-xs font-semibold text-muted-foreground block mb-2">PRD Summary</span>
+                        <p className="text-sm text-primary leading-relaxed">{activeProject.productExecution.prd_summary}</p>
+                      </div>
+
+                      {/* Sprint Plan */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Sprint Plan
+                        </span>
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                          {(activeProject.productExecution.sprint_plan || []).map((sprint: any, idx: number) => (
+                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-white flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm font-semibold text-primary block">
+                                  Sprint {sprint.sprint}: {sprint.name}
+                                </span>
+                                <span className="text-xs text-muted-foreground">{sprint.duration_weeks} weeks</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
+                                {(sprint.goals || []).slice(0, 2).map((goal: string, gIdx: number) => (
+                                  <span key={gIdx} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">
+                                    {goal}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Architecture */}
+                      {(activeProject.productExecution.architecture || []).length > 0 && (
+                        <div className="space-y-3">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Architecture
+                          </span>
+                          <div className="space-y-2">
+                            {activeProject.productExecution.architecture.map((arch: any, idx: number) => (
+                              <div key={idx} className="p-3 rounded-lg border border-border/60 bg-surface-secondary/50 flex items-center justify-between">
+                                <div>
+                                  <span className="text-sm font-medium text-primary block">{arch.component}</span>
+                                  <span className="text-xs text-muted-foreground">{arch.rationale}</span>
+                                </div>
+                                <span className="text-xs font-semibold text-accent-blue">{arch.technology}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: GLOBAL EXPANSION */}
+                {activeStage === 'global-expansion' && activeProject.globalExpansion && (
+                  <Card className="shadow-lvl-1 border-border bg-white">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                        Global Expansion Strategy
+                      </CardTitle>
+                      <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
+                        <Globe className="h-3.5 w-3.5" />
+                        <span>TAM: {activeProject.globalExpansion.total_addressable_market_global || 'N/A'}</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Target Markets */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Target Markets
+                        </span>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {(activeProject.globalExpansion.target_markets || []).map((market: any, idx: number) => (
+                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-surface-secondary/50">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-semibold text-primary">{market.country}</span>
+                                <span className={cn(
+                                  "text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded",
+                                  market.priority === 'high' ? 'bg-green-100 text-green-700' :
+                                  market.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-gray-100 text-gray-600'
+                                )}>
+                                  {market.priority}
+                                </span>
+                              </div>
+                              <div className="space-y-1 text-xs">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Market Size</span>
+                                  <span className="text-primary font-medium">{market.market_size}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Growth</span>
+                                  <span className="text-primary font-medium">{market.growth_rate}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Entry</span>
+                                  <span className="text-primary font-medium capitalize">{market.entry_difficulty}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Expansion Waves */}
+                      {(activeProject.globalExpansion.expansion_waves || []).length > 0 && (
+                        <div className="space-y-3">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Expansion Waves
+                          </span>
+                          <div className="space-y-3">
+                            {activeProject.globalExpansion.expansion_waves.map((wave: any, idx: number) => (
+                              <div key={idx} className="p-3 rounded-lg border border-border/60 bg-white">
+                                <div className="flex justify-between items-center mb-2">
+                                  <span className="text-sm font-semibold text-primary">Wave {wave.wave}</span>
+                                  <span className="text-xs text-muted-foreground">{wave.timeline}</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {(wave.markets || []).map((m: string, mIdx: number) => (
+                                    <span key={mIdx} className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700">
+                                      {m}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recommendations */}
+                      {activeProject.globalExpansion.recommendations.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Recommendations
+                          </span>
+                          <div className="space-y-1.5 text-xs text-muted-foreground">
+                            {activeProject.globalExpansion.recommendations.map((rec: string, idx: number) => (
+                              <div key={idx}>• {rec}</div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* ═══════════════════════════════════════════════════════════════════
+                    EMPTY STATES FOR INTELLIGENCE STAGES
+                    ═══════════════════════════════════════════════════════════════════ */}
+
+                {['legal-compliance', 'competitive-moat', 'stress-test', 'financial-intelligence', 'investment-committee', 'product-execution', 'global-expansion'].map((stage) => {
+                  const stageKey = stage.replace('-', '') as keyof typeof isStageCompleted;
+                  const hasData = isStageCompleted(stage as StageName, activeProject);
+                  const Icon = STAGE_ICONS[stage as StageName] || Shield;
+                  const labels: Record<string, { title: string; desc: string; btn: string }> = {
+                    'legal-compliance': { title: 'Legal & Compliance Review', desc: 'Analyze regulatory requirements, IP protection strategy, compliance checklist, and available grants or incentives.', btn: 'Run Legal Analysis' },
+                    'competitive-moat': { title: 'Competitive Moat Analysis', desc: 'Map competitor landscape, score moat dimensions, assess copy difficulty, and identify strategic positioning.', btn: 'Analyze Competitive Moat' },
+                    'stress-test': { title: 'Market Stress Test', desc: 'Simulate adverse market scenarios, evaluate resilience, identify critical dependencies, and plan mitigations.', btn: 'Run Stress Test' },
+                    'financial-intelligence': { title: 'Financial Intelligence', desc: 'Project revenue metrics, unit economics, funding requirements, and valuation scenarios.', btn: 'Generate Financial Intelligence' },
+                    'investment-committee': { title: 'Investment Committee', desc: 'Simulate partner votes, evaluate investment readiness, due diligence, and term sheet recommendations.', btn: 'Run Investment Committee' },
+                    'product-execution': { title: 'Product Execution Plan', desc: 'Define PRD, sprint plan, architecture decisions, API endpoints, and launch readiness.', btn: 'Create Execution Plan' },
+                    'global-expansion': { title: 'Global Expansion Strategy', desc: 'Identify target markets, plan expansion waves, localize strategy, and assess global risks.', btn: 'Plan Global Expansion' },
+                  };
+                  const info = labels[stage] || { title: stage, desc: '', btn: 'Run' };
+
+                  if (activeStage === stage && !hasData && activeProject.status !== 'generating' && activeProject.status !== 'error') {
+                    return (
+                      <Card key={stage} className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
+                        <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
+                          <Icon className="h-7 w-7" />
+                        </div>
+                        <div className="space-y-2 max-w-md">
+                          <h3 className="text-lg font-bold text-primary">{info.title}</h3>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{info.desc}</p>
+                        </div>
+                        <Button 
+                          onClick={() => handleStartGeneration(activeProject.id, getBackendStageName(stage))}
+                          className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" />
+                          <span>{info.btn}</span>
+                        </Button>
+                      </Card>
+                    );
+                  }
+                  return null;
+                })}
               </div>
 
               {/* Right Column: AI Reasoning copilot stream */}
@@ -989,6 +1748,7 @@ export default function WorkspacePage() {
                     )}
                   </div>
                 </GlassPanel>
+              </div>
               </div>
             </div>
           )}

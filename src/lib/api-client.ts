@@ -381,6 +381,147 @@ function mapCostCategory(cat: string): string {
   return 'misc';
 }
 
+export function mapLegalComplianceResponse(data: any): any {
+  if (!data) return null;
+  return {
+    compliance_checklist: (data.compliance_checklist || []).map((c: any) => ({
+      item: c.item || c.name || '',
+      status: (c.status || 'pending').toLowerCase(),
+      notes: c.notes || '',
+    })),
+    ip_protection: data.ip_protection || [],
+    regulatory_requirements: data.regulatory_requirements || [],
+    grants_incentives: data.grants_incentives || [],
+    registrations_needed: data.registrations_needed || [],
+    overall_risk: data.overall_risk || 'medium',
+    recommendations: data.recommendations || [],
+  };
+}
+
+export function mapCompetitiveMoatResponse(data: any): any {
+  if (!data) return null;
+  return {
+    competitors: (data.competitor_landscape || data.competitors || []).map((c: any) => ({
+      name: c.name || '',
+      strength: c.strength || c.description || '',
+      weakness: c.weakness || '',
+      threat_level: (c.threat_level || 'medium').toLowerCase(),
+    })),
+    moat_scores: (data.moat_scores || data.scores || []).map((s: any) => ({
+      dimension: s.dimension || s.name || '',
+      score: s.score || 0,
+      evidence: s.evidence || '',
+    })),
+    positioning: data.positioning || [],
+    copy_difficulty: data.copy_difficulty || [],
+    overall_moat_strength: data.overall_moat_strength || data.moat_score || 50,
+    strategic_recommendations: data.strategic_recommendations || data.recommendations || [],
+  };
+}
+
+export function mapStressTestResponse(data: any): any {
+  if (!data) return null;
+  return {
+    scenarios: (data.scenarios || []).map((s: any) => ({
+      name: s.name || '',
+      description: s.description || '',
+      probability: (s.probability || 'medium').toLowerCase(),
+      impact: (s.impact || 'medium').toLowerCase(),
+      mitigation: s.mitigation || '',
+      recovery_time: s.recovery_time || s.recovery || '',
+    })),
+    risk_scores: (data.risk_scores || data.risks || []).map((r: any) => ({
+      risk: r.risk || r.name || '',
+      score: r.score || 0,
+      probability: (r.probability || 'medium').toLowerCase(),
+      impact: (r.impact || 'medium').toLowerCase(),
+    })),
+    resilience_score: data.resilience_score || data.resilience || 50,
+    critical_dependencies: data.critical_dependencies || [],
+    recommendations: data.recommendations || [],
+  };
+}
+
+export function mapFinancialIntelligenceResponse(data: any): any {
+  if (!data) return null;
+  return {
+    projections: (data.projections || data.financial_projections || []).map((p: any) => ({
+      metric: p.metric || p.name || '',
+      month_1: p.month_1 || p.m1 || 0,
+      month_6: p.month_6 || p.m6 || 0,
+      month_12: p.month_12 || p.m12 || 0,
+      month_24: p.month_24 || p.m24 || 0,
+    })),
+    unit_economics: (data.unit_economics || []).map((u: any) => ({
+      metric: u.metric || u.name || '',
+      value: u.value || 0,
+      benchmark: u.benchmark || '',
+    })),
+    funding_analysis: data.funding_analysis || [],
+    valuation_model: data.valuation_model || [],
+    financial_health_score: data.financial_health_score || data.health_score || 50,
+    recommendations: data.recommendations || [],
+  };
+}
+
+export function mapInvestmentCommitteeResponse(data: any): any {
+  if (!data) return null;
+  return {
+    partner_cards: (data.partner_cards || data.partners || []).map((p: any) => ({
+      name: p.name || '',
+      role: p.role || '',
+      vote: (p.vote || 'abstain').toLowerCase(),
+      reasoning: p.reasoning || p.analysis || '',
+      concerns: p.concerns || [],
+    })),
+    investment_recommendation: data.investment_recommendation || data.recommendation || '',
+    term_sheet: data.term_sheet || [],
+    due_diligence: data.due_diligence || [],
+    overall_score: data.overall_score || data.score || 50,
+    conditions: data.conditions || [],
+  };
+}
+
+export function mapProductExecutionResponse(data: any): any {
+  if (!data) return null;
+  return {
+    prd_summary: data.prd_summary || data.summary || '',
+    sprint_plan: (data.sprint_plan || data.sprints || []).map((s: any) => ({
+      sprint: s.sprint || s.number || 0,
+      name: s.name || '',
+      goals: s.goals || [],
+      duration_weeks: s.duration_weeks || 2,
+    })),
+    architecture: (data.architecture || []).map((a: any) => ({
+      component: a.component || a.name || '',
+      technology: a.technology || a.tech || '',
+      rationale: a.rationale || a.reason || '',
+    })),
+    api_endpoints: data.api_endpoints || [],
+    technical_debt: data.technical_debt || [],
+    launch_readiness: data.launch_readiness || data.readiness_score || 50,
+    recommendations: data.recommendations || [],
+  };
+}
+
+export function mapGlobalExpansionResponse(data: any): any {
+  if (!data) return null;
+  return {
+    target_markets: (data.target_markets || data.markets || []).map((m: any) => ({
+      country: m.country || m.name || '',
+      market_size: m.market_size || m.size || '',
+      growth_rate: m.growth_rate || m.growth || '',
+      entry_difficulty: (m.entry_difficulty || m.difficulty || 'medium').toLowerCase(),
+      priority: (m.priority || 'medium').toLowerCase(),
+    })),
+    expansion_waves: data.expansion_waves || data.waves || [],
+    localization: data.localization || [],
+    global_risks: data.global_risks || data.risks || [],
+    total_addressable_market_global: data.total_addressable_market_global || data.tam_global || '',
+    recommendations: data.recommendations || [],
+  };
+}
+
 // API REQUEST ENDPOINTS
 
 export const api = {
@@ -455,5 +596,8 @@ export const api = {
     generateReport: (meetingId: string) =>
       request(`/api/v1/meetings/${meetingId}/report/generate`, { method: 'POST' }),
     getReport: (meetingId: string) => request(`/api/v1/meetings/${meetingId}/report`),
+    getHealth: (meetingId: string) => request(`/api/v1/meetings/${meetingId}/health`),
+    getTimeline: (meetingId: string) => request(`/api/v1/meetings/${meetingId}/timeline`),
+    analyze: (meetingId: string) => request(`/api/v1/meetings/${meetingId}/analyze`, { method: 'POST' }),
   },
 };
