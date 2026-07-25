@@ -42,14 +42,21 @@ from backend.models.workflow import GenerationSession, WorkflowEvent
 # Maps stage name → SQLAlchemy model class for cache queries
 
 STAGE_RESULT_MODEL_MAP: dict[str, type] = {
-    "dna":               DNAResult,
-    "features":          FeatureResult,
-    "roadmap":           RoadmapResult,
-    "team":              TeamResult,
-    "swot":              SWOTResult,
-    "cost":              CostResult,
-    "blueprint":         Blueprint,
-    "legal_compliance":  LegalComplianceResult,
+    "dna":                      DNAResult,
+    "features":                 FeatureResult,
+    "roadmap":                  RoadmapResult,
+    "team":                     TeamResult,
+    "swot":                     SWOTResult,
+    "cost":                     CostResult,
+    "blueprint":                Blueprint,
+    "legal_compliance":         LegalComplianceResult,
+    # Intelligence modules (stored in workflow events, not separate models)
+    "competitive_moat":         None,
+    "stress_test":              None,
+    "financial_intelligence":   None,
+    "investment_committee":     None,
+    "product_execution":        None,
+    "global_expansion":         None,
 }
 
 
@@ -145,18 +152,38 @@ class WorkflowOrchestrator:
         the LLM call is skipped entirely and the cached data is used.
     """
 
-    STAGES_ORDER: list[str] = ["dna", "features", "roadmap", "team", "swot", "cost", "blueprint", "legal_compliance"]
+    STAGES_ORDER: list[str] = [
+        # Core pipeline (stages 1-8)
+        "dna", "features", "roadmap", "team", "swot", "cost", "blueprint", "legal_compliance",
+        # Intelligence pipeline (stages 9-14) — runs after core pipeline
+        "competitive_moat", "stress_test", "financial_intelligence",
+        "investment_committee", "product_execution", "global_expansion",
+    ]
 
     STAGES_CONFIG: dict[str, tuple[int, bool]] = {
-        "dna":               (1, True),
-        "features":          (2, True),
-        "roadmap":           (3, True),
-        "team":              (4, True),
-        "swot":              (5, False),   # SWOT failure is non-critical
-        "cost":              (6, True),
-        "blueprint":         (7, True),
-        "legal_compliance":  (8, True),    # Post-blueprint legal doc pack
+        # Core pipeline
+        "dna":                      (1, True),
+        "features":                 (2, True),
+        "roadmap":                  (3, True),
+        "team":                     (4, True),
+        "swot":                     (5, False),   # SWOT failure is non-critical
+        "cost":                     (6, True),
+        "blueprint":                (7, True),
+        "legal_compliance":         (8, True),    # Post-blueprint legal doc pack
+        # Intelligence pipeline — all non-critical (graceful degradation)
+        "competitive_moat":         (9, False),
+        "stress_test":              (10, False),
+        "financial_intelligence":   (11, False),
+        "investment_committee":     (12, False),
+        "product_execution":        (13, False),
+        "global_expansion":         (14, False),
     }
+
+    # Intelligence modules run in parallel after core pipeline completes
+    INTELLIGENCE_STAGES: list[str] = [
+        "competitive_moat", "stress_test", "financial_intelligence",
+        "investment_committee", "product_execution", "global_expansion",
+    ]
 
     def __init__(self) -> None:
         self.modules: dict[str, BaseModule] = {}
@@ -257,6 +284,7 @@ class WorkflowOrchestrator:
         # ── Parallel execution groups ─────────────────────────────
         # After team (stage 4) completes: swot + cost can run in parallel
         # After cost completes: blueprint + legal_compliance can run in parallel
+        # After core pipeline: intelligence modules run in parallel
         PARALLEL_GROUPS: list[list[str]] = [
             ["dna"],                          # Stage 1
             ["features"],                     # Stage 2
@@ -264,6 +292,9 @@ class WorkflowOrchestrator:
             ["team"],                         # Stage 4
             ["swot", "cost"],                 # Stages 5+6: parallel
             ["blueprint", "legal_compliance"], # Stages 7+8: parallel
+            # Intelligence pipeline — all 6 modules run in parallel
+            ["competitive_moat", "stress_test", "financial_intelligence",
+             "investment_committee", "product_execution", "global_expansion"],
         ]
 
         # Flatten for progress tracking, but execute in groups
