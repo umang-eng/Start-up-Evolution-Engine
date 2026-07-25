@@ -33,18 +33,18 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-canvas font-sans relative overflow-hidden">
+    <div className="h-screen w-screen flex items-center justify-center bg-background font-sans relative overflow-hidden">
       {/* Dynamic Background Glowing Accents */}
       <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-accent-blue/10 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-accent-blue/5 blur-[120px] pointer-events-none" />
 
       <div className="w-full max-w-md px-4 z-10">
-        <Card className="border-border bg-white/70 backdrop-blur-xl shadow-lvl-3">
+        <Card className="border-border bg-card shadow-xl">
           <CardHeader className="space-y-2 text-center pb-6">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden border border-border bg-white shadow-lvl-1">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden border border-border bg-card shadow-sm">
               <img src="/logo.png" alt="Evolution Engine Logo" className="h-full w-full object-cover" />
             </div>
-            <CardTitle className="text-2xl font-bold tracking-tight text-primary">Reset Password</CardTitle>
+            <CardTitle className="text-2xl font-bold tracking-tight text-foreground">Reset Password</CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
               Enter your email to receive recovery authorization credentials
             </CardDescription>
@@ -103,7 +103,7 @@ export default function ForgotPasswordPage() {
                 <div className="text-center pt-4 border-t border-border/50">
                   <Link
                     href="/login"
-                    className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-primary transition-all"
+                    className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-all"
                   >
                     <ArrowLeft className="h-3.5 w-3.5" />
                     <span>Cancel and return</span>

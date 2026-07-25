@@ -3,26 +3,24 @@ import { cn } from '@/lib/utils';
 
 interface GlassPanelProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
-  opacity?: number;
-  blur?: string;
-  shadow?: 'lvl-1' | 'lvl-2' | 'lvl-3' | 'lvl-4';
+  shadow?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 export function GlassPanel({
   children,
   className,
-  shadow = 'lvl-1',
+  shadow = 'sm',
   ...props
 }: GlassPanelProps) {
   return (
     <div
       className={cn(
-        'liquid-glass rounded-lg transition-all duration-200',
+        'rounded-xl bg-card border border-border transition-all duration-200',
         {
-          'shadow-lvl-1': shadow === 'lvl-1',
-          'shadow-lvl-2': shadow === 'lvl-2',
-          'shadow-lvl-3': shadow === 'lvl-3',
-          'shadow-lvl-4': shadow === 'lvl-4',
+          'shadow-sm': shadow === 'sm',
+          'shadow-md': shadow === 'md',
+          'shadow-lg': shadow === 'lg',
+          'shadow-xl': shadow === 'xl',
         },
         className
       )}

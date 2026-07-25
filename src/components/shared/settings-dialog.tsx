@@ -57,7 +57,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px] bg-card/95 backdrop-blur-md border border-border shadow-lvl-3 rounded-xl p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[520px] bg-card border border-border shadow-xl rounded-xl p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2">
           <DialogTitle className="text-xl font-bold tracking-tight text-primary flex items-center gap-2">
             <Sliders className="h-5 w-5 text-primary" />
@@ -120,7 +120,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs border rounded-lg transition-all cursor-pointer ${
                         settings.theme === 'light'
                           ? 'bg-primary/5 border-primary/50 text-primary font-medium'
-                          : 'border-border/60 bg-card hover:bg-muted/40'
+                          : 'border-border bg-card hover:bg-muted/40'
                       }`}
                     >
                       <Sun className="h-4 w-4" />
@@ -131,7 +131,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs border rounded-lg transition-all cursor-pointer ${
                         settings.theme === 'dark'
                           ? 'bg-primary/10 border-primary/50 text-primary font-medium'
-                          : 'border-border/60 bg-card hover:bg-muted/40'
+                          : 'border-border bg-card hover:bg-muted/40'
                       }`}
                     >
                       <Moon className="h-4 w-4" />

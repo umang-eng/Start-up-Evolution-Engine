@@ -29,18 +29,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-canvas font-sans relative overflow-hidden">
+    <div className="h-screen w-screen flex items-center justify-center bg-background font-sans relative overflow-hidden">
       {/* Dynamic Background Glowing Accents */}
       <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-accent-blue/10 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-accent-blue/5 blur-[120px] pointer-events-none" />
 
       <div className="w-full max-w-md px-4 z-10">
-        <Card className="border-border bg-white/70 backdrop-blur-xl shadow-lvl-3">
+        <Card className="border-border bg-card shadow-xl">
           <CardHeader className="space-y-2 text-center pb-6">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden border border-border bg-white shadow-lvl-1">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden border border-border bg-card shadow-sm">
               <img src="/logo.png" alt="Evolution Engine Logo" className="h-full w-full object-cover" />
             </div>
-            <CardTitle className="text-2xl font-bold tracking-tight text-primary">Welcome Back</CardTitle>
+            <CardTitle className="text-2xl font-bold tracking-tight text-foreground">Welcome Back</CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
               Sign in to manage your startup blueprints and pipeline
             </CardDescription>

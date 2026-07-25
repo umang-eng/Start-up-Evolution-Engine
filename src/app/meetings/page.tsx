@@ -85,9 +85,9 @@ export default function MeetingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 dark:from-slate-950 dark:via-indigo-950/20 dark:to-slate-950">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-10 backdrop-blur-xl bg-white/80 dark:bg-slate-950/80 border-b border-slate-200/60 dark:border-slate-800/60">
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-card/80 border-b border-border">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -102,18 +102,18 @@ export default function MeetingsPage() {
               </Button>
               <div className="h-6 w-px bg-slate-200 dark:bg-slate-800" />
               <div>
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2.5">
+                <h1 className="text-xl font-bold text-foreground flex items-center gap-2.5">
                   <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-purple-500/25">
                     <Brain className="h-4 w-4 text-white" />
                   </div>
                   Conversation Intelligence
                 </h1>
-                <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
+                <p className="text-muted-foreground text-sm mt-0.5">
                   Record, transcribe, and extract actionable insights from meetings
                 </p>
               </div>
             </div>
-            <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
               <Zap className="h-3.5 w-3.5" />
               <span>Powered by Whisper + AI</span>
             </div>
@@ -132,45 +132,45 @@ export default function MeetingsPage() {
           {/* Main Panel */}
           <div className="lg:col-span-8 xl:col-span-9">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="w-full justify-start bg-slate-100/80 dark:bg-slate-900/80 p-1 rounded-xl flex-wrap">
+              <TabsList className="w-full justify-start bg-muted p-1 rounded-xl flex-wrap">
                 <TabsTrigger
                   value="record"
-                  className="flex-1 sm:flex-none data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-slate-900 dark:data-[state=active]:text-white rounded-lg transition-all"
+                  className="flex-1 sm:flex-none data-[state=active]:bg-card data-[state=active]:border data-[state=active]:border-border data-[state=active]:shadow-sm data-[state=active]:text-foreground rounded-lg transition-all"
                 >
                   <Mic className="h-4 w-4 mr-1.5" />
                   Record
                 </TabsTrigger>
                 <TabsTrigger
                   value="upload"
-                  className="flex-1 sm:flex-none data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-slate-900 dark:data-[state=active]:text-white rounded-lg transition-all"
+                  className="flex-1 sm:flex-none data-[state=active]:bg-card data-[state=active]:border data-[state=active]:border-border data-[state=active]:shadow-sm data-[state=active]:text-foreground rounded-lg transition-all"
                 >
                   <FileText className="h-4 w-4 mr-1.5" />
                   Upload
                 </TabsTrigger>
                 <TabsTrigger
                   value="report"
-                  className="flex-1 sm:flex-none data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-slate-900 dark:data-[state=active]:text-white rounded-lg transition-all"
+                  className="flex-1 sm:flex-none data-[state=active]:bg-card data-[state=active]:border data-[state=active]:border-border data-[state=active]:shadow-sm data-[state=active]:text-foreground rounded-lg transition-all"
                 >
                   <Sparkles className="h-4 w-4 mr-1.5" />
                   Report
                 </TabsTrigger>
                 <TabsTrigger
                   value="health"
-                  className="flex-1 sm:flex-none data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-slate-900 dark:data-[state=active]:text-white rounded-lg transition-all"
+                  className="flex-1 sm:flex-none data-[state=active]:bg-card data-[state=active]:border data-[state=active]:border-border data-[state=active]:shadow-sm data-[state=active]:text-foreground rounded-lg transition-all"
                 >
                   <Heart className="h-4 w-4 mr-1.5" />
                   Health
                 </TabsTrigger>
                 <TabsTrigger
                   value="timeline"
-                  className="flex-1 sm:flex-none data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-slate-900 dark:data-[state=active]:text-white rounded-lg transition-all"
+                  className="flex-1 sm:flex-none data-[state=active]:bg-card data-[state=active]:border data-[state=active]:border-border data-[state=active]:shadow-sm data-[state=active]:text-foreground rounded-lg transition-all"
                 >
                   <Clock className="h-4 w-4 mr-1.5" />
                   Timeline
                 </TabsTrigger>
                 <TabsTrigger
                   value="combined"
-                  className="flex-1 sm:flex-none data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-slate-900 dark:data-[state=active]:text-white rounded-lg transition-all"
+                  className="flex-1 sm:flex-none data-[state=active]:bg-card data-[state=active]:border data-[state=active]:border-border data-[state=active]:shadow-sm data-[state=active]:text-foreground rounded-lg transition-all"
                 >
                   <Layers className="h-4 w-4 mr-1.5" />
                   Combined
@@ -189,13 +189,13 @@ export default function MeetingsPage() {
                       onComplete={() => selectMeeting(selectedMeetingId)}
                     />
                   ) : (
-                    <Card className="border-dashed border-2 border-slate-200 dark:border-slate-800 bg-transparent">
+                    <Card className="border-dashed border-2 border-border bg-transparent">
                       <CardContent className="p-16 text-center">
-                        <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-slate-100 dark:bg-slate-900 mx-auto mb-4">
-                          <FileText className="h-7 w-7 text-slate-300 dark:text-slate-600" />
+                        <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-muted mx-auto mb-4">
+                          <FileText className="h-7 w-7 text-muted-foreground/50" />
                         </div>
-                        <p className="text-slate-600 dark:text-slate-400 font-medium">Select a meeting first</p>
-                        <p className="text-slate-400 dark:text-slate-500 text-sm mt-1.5 max-w-xs mx-auto">
+                        <p className="text-foreground font-medium">Select a meeting first</p>
+                        <p className="text-muted-foreground text-sm mt-1.5 max-w-xs mx-auto">
                           Choose a meeting from the history panel to upload a transcript
                         </p>
                       </CardContent>
@@ -213,7 +213,7 @@ export default function MeetingsPage() {
                 {/* Health Dashboard Tab */}
                 <TabsContent value="health" className="mt-0">
                   {selectedMeetingId ? (
-                    <Card className="shadow-lvl-1 border-border bg-white">
+                    <Card className="border-border">
                       <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle className="text-lg font-bold text-primary flex items-center gap-2">
                           <Heart className="h-5 w-5 text-accent-blue" />
@@ -314,7 +314,7 @@ export default function MeetingsPage() {
                 {/* Timeline Tab */}
                 <TabsContent value="timeline" className="mt-0">
                   {selectedMeetingId ? (
-                    <Card className="shadow-lvl-1 border-border bg-white">
+                    <Card className="border-border">
                       <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle className="text-lg font-bold text-primary flex items-center gap-2">
                           <Clock className="h-5 w-5 text-accent-blue" />
@@ -393,7 +393,7 @@ export default function MeetingsPage() {
                 {/* Combined Analysis Tab */}
                 <TabsContent value="combined" className="mt-0">
                   {selectedMeetingId ? (
-                    <Card className="shadow-lvl-1 border-border bg-white">
+                    <Card className="border-border">
                       <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle className="text-lg font-bold text-primary flex items-center gap-2">
                           <Layers className="h-5 w-5 text-accent-blue" />

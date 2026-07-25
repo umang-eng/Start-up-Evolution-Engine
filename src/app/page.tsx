@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ExecutiveDashboard } from '@/components/dashboard/executive-dashboard';
 import { 
   Sparkles, 
   ArrowRight, 
@@ -364,7 +365,7 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden bg-background font-sans select-none">
+    <div className="h-screen w-screen flex overflow-hidden bg-background">
       {/* Sidebar Navigation */}
       <Sidebar />
 
@@ -373,94 +374,10 @@ export default function WorkspacePage() {
         <Navbar />
 
         {/* Focus Viewport */}
-        <main className="flex-1 overflow-y-auto bg-canvas p-8">
+        <main className="flex-1 overflow-y-auto p-8">
           {!activeProject ? (
-            /* INITIAL EMPTY STATE UI */
-            <div className="max-w-3xl mx-auto py-12 space-y-10">
-              {/* Welcome Banner */}
-              <div className="space-y-3">
-                <h1 className="text-3xl font-bold tracking-tight text-primary">
-                  Co-Author Your Next Venture.
-                </h1>
-                <p className="text-sm text-muted-foreground max-w-xl leading-relaxed">
-                  Provide a startup concept below. Our AI co-founder will analyze your market viability, structure product requirements, map development timelines, and forecast runway costs.
-                </p>
-              </div>
-
-              {/* Startup Prompt Box Input */}
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="relative rounded-lg border border-border bg-white shadow-lvl-1 focus-within:border-accent-blue transition-all">
-                  <textarea
-                    value={inputVal}
-                    onChange={(e) => setInputVal(e.target.value)}
-                    placeholder="Describe your startup idea in detail..."
-                    className="w-full h-32 px-4 py-3 bg-transparent text-sm resize-none outline-none text-primary placeholder-muted-foreground/60"
-                  />
-                  <div className="flex items-center justify-between px-3 py-2 border-t border-border/60">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={handleEnhance}
-                      disabled={isEnhancing || !inputVal}
-                      className="h-8 text-xs gap-1.5 hover:bg-black/5 text-muted-foreground"
-                    >
-                      <Sparkles className="h-3.5 w-3.5 text-accent-blue" />
-                      <span>{isEnhancing ? 'Enhancing...' : 'Enhance Idea'}</span>
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={!inputVal.trim() || isPending}
-                      className="h-8 text-xs gap-1.5 rounded-md px-4"
-                    >
-                      <span>Evolve Idea</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </form>
-
-              {/* Prompt Suggestions Category Chips */}
-              <div className="space-y-3">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-                  Starter Templates
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    "An AI-powered automated fitness coach for busy urban professionals",
-                    "A localized peer-to-peer drone delivery marketplace for farms",
-                    "A B2B SaaS analytics tracker measuring ESG compliance footprints"
-                  ].map((tpl, i) => (
-                    <button
-                      key={i}
-                      onClick={() => insertPrompt(tpl)}
-                      className="px-3 py-1.5 rounded-md border border-border/80 bg-white hover:border-standard text-xs text-muted-foreground text-left transition-all max-w-[340px] truncate"
-                    >
-                      {tpl}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Workflow Roadmap Introduction */}
-              <div className="pt-6 border-t border-border/50">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-4">
-                  AI Architecture Pipeline
-                </span>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[
-                    { title: "1. DNA Analyzer", desc: "Viability metrics & target positioning." },
-                    { title: "2. Feature Extractor", desc: "System PRD & dependency graphs." },
-                    { title: "3. Timeline Roadmap", desc: "Phase milestones & project KPIs." },
-                    { title: "4. Resource Org Plan", desc: "Team hierarchies & salaries." }
-                  ].map((step, i) => (
-                    <div key={i} className="p-4 rounded-lg border border-border/60 bg-white shadow-lvl-1">
-                      <span className="text-xs font-semibold text-primary block mb-1">{step.title}</span>
-                      <span className="text-[11px] text-muted-foreground leading-relaxed">{step.desc}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            /* EXECUTIVE DASHBOARD */
+            <ExecutiveDashboard />
           ) : (
             /* ACTIVE BLUEPRINT WORKSPACE */
             <div className="h-full flex flex-col gap-6">
@@ -478,16 +395,16 @@ export default function WorkspacePage() {
                           className={cn(
                             "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0",
                             isCurrent
-                              ? "bg-accent-blue text-white shadow-lvl-1"
+                              ? "bg-primary text-primary-foreground shadow-sm"
                               : completed
-                              ? "bg-green-50 text-green-700 hover:bg-green-100"
-                              : "bg-white text-muted-foreground hover:bg-surface-secondary border border-border/60"
+                              ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400"
+                              : "bg-card text-muted-foreground hover:bg-muted border border-border"
                           )}
                         >
                           {completed ? (
-                            <CheckCircle className="h-3.5 w-3.5" />
+                            <CheckCircle className="h-4 w-4" />
                           ) : (
-                            <Icon className="h-3.5 w-3.5" />
+                            <Icon className="h-4 w-4" />
                           )}
                           <span className="hidden lg:inline">{STAGE_LABELS[stage]}</span>
                         </button>
@@ -505,30 +422,30 @@ export default function WorkspacePage() {
               <div className="flex-1 max-w-4xl space-y-6">
                 {/* ERROR STATE */}
                 {activeProject.status === 'error' && (
-                  <Card className="shadow-lvl-1 border-red-200 bg-red-50/50">
+                  <Card className="border-red-200 bg-red-50/50 dark:bg-red-900/10 dark:border-red-800/30">
                     <CardHeader>
-                      <CardTitle className="text-base font-semibold text-red-700 flex items-center gap-2">
+                      <CardTitle className="text-base font-semibold text-red-700 dark:text-red-400 flex items-center gap-2">
                         <AlertTriangle className="h-4 w-4" />
                         Generation Failed
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <p className="text-xs text-red-600 leading-relaxed">
-                        The AI pipeline encountered an error. This is often caused by Gemini API rate limits (the free tier has per-minute quotas).
+                      <p className="text-sm text-red-600 dark:text-red-400/80 leading-relaxed">
+                        The AI pipeline encountered an error. This is often caused by Gemini API rate limits.
                         <br /><strong>Wait 1-2 minutes</strong> and retry — the system will automatically try backup models.
                       </p>
                       <div className="flex gap-2">
                         <Button
                           onClick={() => handleStartGeneration(activeProject.id, getBackendStageName(activeStage))}
-                          className="h-8 text-xs gap-1.5 bg-red-600 hover:bg-red-700"
+                          className="gap-1.5 bg-red-600 hover:bg-red-700 text-white"
                         >
-                          <RefreshCw className="h-3.5 w-3.5" />
+                          <RefreshCw className="h-4 w-4" />
                           <span>Retry Generation</span>
                         </Button>
                         <Button
                           variant="outline"
                           onClick={() => loadBlueprint(activeProject.id)}
-                          className="h-8 text-xs gap-1.5"
+                          className="gap-1.5"
                         >
                           <span>Load Partial Results</span>
                         </Button>
@@ -539,19 +456,19 @@ export default function WorkspacePage() {
 
                 {/* Generation state skeletons */}
                 {activeProject.status === 'generating' && !isStageCompleted(activeStage, activeProject) && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader>
-                      <CardTitle className="text-lg font-semibold text-primary flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-accent-blue animate-pulse" />
+                      <CardTitle className="text-lg font-semibold text-foreground flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                         Architecting Venture Blueprint...
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="h-4 bg-black/5 rounded w-3/4 animate-pulse" />
-                      <div className="h-4 bg-black/5 rounded w-1/2 animate-pulse" />
-                      <div className="h-32 bg-black/5 rounded w-full animate-pulse" />
-                      <p className="text-xs text-muted-foreground">
-                        AI models are working through each stage. Gemini free-tier may take 2-5 minutes with rate limiting. Check the AI Feed →
+                      <div className="skeleton h-4 w-3/4" />
+                      <div className="skeleton h-4 w-1/2" />
+                      <div className="skeleton h-32 w-full" />
+                      <p className="text-sm text-muted-foreground">
+                        AI models are working through each stage. This may take 2-5 minutes with rate limiting.
                       </p>
                     </CardContent>
                   </Card>
@@ -560,83 +477,83 @@ export default function WorkspacePage() {
 
                 {/* STAGE: DNA ANALYZER */}
                 {activeStage === 'dna-analyzer' && activeProject.dna && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                      <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
                         Business DNA Report
                       </CardTitle>
-                      <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
-                        <Dna className="h-3.5 w-3.5" />
+                      <div className="badge-primary gap-1.5">
+                        <Dna className="h-4 w-4" />
                         <span>Confidence {activeProject.dna.confidence}%</span>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-6">
                       {/* Overview grids */}
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 rounded-lg bg-surface-secondary border border-border/80 text-xs">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 rounded-lg bg-muted text-sm">
                         <div>
-                          <span className="text-muted-foreground block mb-0.5">Category</span>
-                          <span className="font-semibold text-primary">{activeProject.dna.category}</span>
+                          <span className="text-muted-foreground block mb-0.5 text-xs">Category</span>
+                          <span className="font-semibold text-foreground">{activeProject.dna.category}</span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground block mb-0.5">Business Model</span>
-                          <span className="font-semibold text-primary">{activeProject.dna.businessModel}</span>
+                          <span className="text-muted-foreground block mb-0.5 text-xs">Business Model</span>
+                          <span className="font-semibold text-foreground">{activeProject.dna.businessModel}</span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground block mb-0.5">Target Market</span>
-                          <span className="font-semibold text-primary">{activeProject.dna.targetMarket}</span>
+                          <span className="text-muted-foreground block mb-0.5 text-xs">Target Market</span>
+                          <span className="font-semibold text-foreground">{activeProject.dna.targetMarket}</span>
                         </div>
                       </div>
 
                       {/* Score metrics */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                         <div className="space-y-3">
-                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-                            Strategic Score Vectors
+                          <span className="text-overline block">
+                            Strategic Scores
                           </span>
                           {Object.entries(activeProject.dna.scores).map(([key, val]: any) => (
-                            <div key={key} className="flex justify-between items-center text-sm border-b border-border/50 pb-1.5">
+                            <div key={key} className="flex justify-between items-center text-sm border-b border-border pb-2">
                               <span className="capitalize text-muted-foreground">{key.replace('_', ' ')}</span>
-                              <span className="font-semibold text-primary">{val}/100</span>
+                              <span className="font-semibold text-foreground">{val}/100</span>
                             </div>
                           ))}
                         </div>
-                        <div className="h-48 border border-border/60 rounded-lg bg-surface-secondary flex items-center justify-center relative overflow-hidden">
-                          <div className="h-32 w-32 rounded-full border-2 border-accent-blue/20 flex items-center justify-center">
-                            <div className="h-20 w-20 rounded-full border border-accent-blue flex items-center justify-center text-xs font-semibold text-accent-blue bg-white shadow-lvl-1">
+                        <div className="h-48 border border-border rounded-lg bg-muted flex items-center justify-center relative overflow-hidden">
+                          <div className="h-32 w-32 rounded-full border-2 border-primary/20 flex items-center justify-center">
+                            <div className="h-20 w-20 rounded-full border border-primary flex items-center justify-center text-sm font-semibold text-primary bg-card shadow-sm">
                               {Math.round(Object.values(activeProject.dna.scores).reduce((a: any, b: any) => a + b, 0) / 6)} Avg
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Action tab lists */}
+                      {/* Tabs */}
                       <div className="space-y-3">
                         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-                          <TabsList className="bg-surface-secondary border border-border">
+                          <TabsList className="bg-muted border border-border">
                             <TabsTrigger value="model" className="text-xs">Value Proposition</TabsTrigger>
-                            <TabsTrigger value="target" className="text-xs">USP Differentiators</TabsTrigger>
-                            <TabsTrigger value="usp" className="text-xs">Strategic Context</TabsTrigger>
+                            <TabsTrigger value="target" className="text-xs">USP</TabsTrigger>
+                            <TabsTrigger value="usp" className="text-xs">Summary</TabsTrigger>
                           </TabsList>
-                          <TabsContent value="model" className="p-3 bg-surface-secondary/50 rounded-lg text-sm leading-relaxed text-muted-foreground border border-border/40">
+                          <TabsContent value="model" className="p-4 bg-muted/50 rounded-lg text-sm leading-relaxed text-muted-foreground border border-border">
                             {activeProject.dna.valueProposition}
                           </TabsContent>
-                          <TabsContent value="target" className="p-3 bg-surface-secondary/50 rounded-lg text-sm leading-relaxed text-muted-foreground border border-border/40">
+                          <TabsContent value="target" className="p-4 bg-muted/50 rounded-lg text-sm leading-relaxed text-muted-foreground border border-border">
                             {activeProject.dna.usp}
                           </TabsContent>
-                          <TabsContent value="usp" className="p-3 bg-surface-secondary/50 rounded-lg text-sm leading-relaxed text-muted-foreground border border-border/40">
+                          <TabsContent value="usp" className="p-4 bg-muted/50 rounded-lg text-sm leading-relaxed text-muted-foreground border border-border">
                             {activeProject.dna.summary}
                           </TabsContent>
                         </Tabs>
                       </div>
 
                       {/* Handoff CTA */}
-                      <div className="pt-4 border-t border-border/50 flex justify-end">
+                      <div className="pt-4 border-t border-border flex justify-end">
                         <Button 
                           onClick={() => setActiveStage('feature-extractor')}
-                          className="h-8 text-xs gap-1.5"
+                          className="gap-1.5"
                         >
                           <span>Proceed to Feature Extraction</span>
-                          <ArrowRight className="h-3.5 w-3.5" />
+                          <ArrowRight className="h-4 w-4" />
                         </Button>
                       </div>
                     </CardContent>
@@ -645,21 +562,21 @@ export default function WorkspacePage() {
 
                 {/* STAGE: DNA ANALYZER EMPTY STATE */}
                 {activeStage === 'dna-analyzer' && !activeProject.dna && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
-                  <Card className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
-                    <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
-                      <Dna className="h-7 w-7" />
+                  <Card className="border-border p-12 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                      <Dna className="h-8 w-8" />
                     </div>
                     <div className="space-y-2 max-w-md">
-                      <h3 className="text-lg font-bold text-primary">Business DNA Analyzer</h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
+                      <h3 className="text-xl font-semibold text-foreground">Business DNA Analyzer</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         Evaluate market viability, validate user demographics, map value propositions, and outline key competitive advantages for your concept.
                       </p>
                     </div>
                     <Button 
                       onClick={() => handleStartGeneration(activeProject.id, 'dna')}
-                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                      className="gap-2 px-6"
                     >
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Sparkles className="h-4 w-4" />
                       <span>Analyze Concept DNA</span>
                     </Button>
                   </Card>
@@ -667,40 +584,40 @@ export default function WorkspacePage() {
 
                 {/* STAGE: FEATURE EXTRACTOR */}
                 {activeStage === 'feature-extractor' && activeProject.features && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader>
-                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                      <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
                         Feature Architecture Spec
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      <div className="grid grid-cols-3 gap-4 text-center p-4 bg-surface-secondary border border-border/80 rounded-lg">
+                      <div className="grid grid-cols-3 gap-4 text-center p-4 bg-muted rounded-lg">
                         <div>
-                          <span className="text-[10px] text-muted-foreground block">Total Features</span>
-                          <span className="text-lg font-bold text-primary">{activeProject.features.totalFeatures}</span>
+                          <span className="text-xs text-muted-foreground block">Total Features</span>
+                          <span className="text-lg font-bold text-foreground">{activeProject.features.totalFeatures}</span>
                         </div>
                         <div>
-                          <span className="text-[10px] text-muted-foreground block">MVP Selected</span>
-                          <span className="text-lg font-bold text-accent-blue">{activeProject.features.mvpFeatureIds.length}</span>
+                          <span className="text-xs text-muted-foreground block">MVP Selected</span>
+                          <span className="text-lg font-bold text-primary">{activeProject.features.mvpFeatureIds.length}</span>
                         </div>
                         <div>
-                          <span className="text-[10px] text-muted-foreground block">Complexity Rating</span>
-                          <span className="text-lg font-bold text-primary capitalize">{activeProject.features.complexityScore}</span>
+                          <span className="text-xs text-muted-foreground block">Complexity</span>
+                          <span className="text-lg font-bold text-foreground capitalize">{activeProject.features.complexityScore}</span>
                         </div>
                       </div>
 
                       <div className="space-y-4">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-                          Extracted Architecture
+                        <span className="text-overline block">
+                          Extracted Features
                         </span>
                         <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                           {activeProject.features.features.map((feature: any) => (
-                            <div key={feature.id} className="p-3 rounded-lg border border-border/60 bg-white flex items-center justify-between hover:border-standard transition-all">
+                            <div key={feature.id} className="p-3 rounded-lg border border-border bg-card flex items-center justify-between hover:bg-muted/50 transition-colors">
                               <div>
-                                <span className="text-sm font-semibold text-primary block">{feature.name}</span>
+                                <span className="text-sm font-medium text-foreground block">{feature.name}</span>
                                 <span className="text-xs text-muted-foreground leading-relaxed">{feature.description}</span>
                               </div>
-                              <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-black/5 text-muted-foreground">
+                              <span className="badge-default text-[10px]">
                                 {feature.priority}
                               </span>
                             </div>
@@ -709,13 +626,13 @@ export default function WorkspacePage() {
                       </div>
 
                       {/* Handoff CTA */}
-                      <div className="pt-4 border-t border-border/50 flex justify-end">
+                      <div className="pt-4 border-t border-border flex justify-end">
                         <Button 
                           onClick={() => setActiveStage('roadmap')}
-                          className="h-8 text-xs gap-1.5"
+                          className="gap-1.5"
                         >
                           <span>Generate Timeline Roadmap</span>
-                          <ArrowRight className="h-3.5 w-3.5" />
+                          <ArrowRight className="h-4 w-4" />
                         </Button>
                       </div>
                     </CardContent>
@@ -724,21 +641,21 @@ export default function WorkspacePage() {
 
                 {/* STAGE: FEATURE EXTRACTOR EMPTY STATE */}
                 {activeStage === 'feature-extractor' && !activeProject.features && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
-                  <Card className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
-                    <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
-                      <GitBranch className="h-7 w-7" />
+                  <Card className="border-border p-12 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                      <GitBranch className="h-8 w-8" />
                     </div>
                     <div className="space-y-2 max-w-md">
-                      <h3 className="text-lg font-bold text-primary">Technical Feature Extractor</h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Convert your business DNA and target market specifications into a structured Product Requirement Document (PRD), feature lists, and MVP scoped items.
+                      <h3 className="text-xl font-semibold text-foreground">Technical Feature Extractor</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Convert your business DNA into a structured PRD, feature lists, and MVP scoped items.
                       </p>
                     </div>
                     <Button 
                       onClick={() => handleStartGeneration(activeProject.id, 'features')}
-                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                      className="gap-2 px-6"
                     >
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Sparkles className="h-4 w-4" />
                       <span>Extract MVP Features</span>
                     </Button>
                   </Card>
@@ -746,21 +663,21 @@ export default function WorkspacePage() {
 
                 {/* STAGE: ROADMAP */}
                 {activeStage === 'roadmap' && activeProject.roadmap && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader>
-                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                      <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
                         Timeline Execution Roadmap
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
                         {activeProject.roadmap.phases.map((phase: any) => (
-                          <div key={phase.id} className="p-4 rounded-lg border border-border/60 bg-surface-secondary/50 space-y-3">
+                          <div key={phase.id} className="p-4 rounded-lg border border-border bg-muted/50 space-y-3">
                             <div className="flex justify-between items-center">
-                              <span className="text-sm font-semibold text-primary">{phase.name}</span>
-                              <span className="text-xs text-accent-blue font-medium">Weeks {phase.startWeek} - {phase.endWeek}</span>
+                              <span className="text-sm font-semibold text-foreground">{phase.name}</span>
+                              <span className="badge-primary">Weeks {phase.startWeek} - {phase.endWeek}</span>
                             </div>
-                            <div className="space-y-1.5 pl-3 border-l-2 border-accent-blue/30 text-xs">
+                            <div className="space-y-1.5 pl-3 border-l-2 border-primary/30 text-sm">
                               {phase.tasks.map((task: any) => (
                                 <div key={task.id} className="text-muted-foreground">
                                   • {task.name} ({task.durationWeeks} weeks)
@@ -772,13 +689,13 @@ export default function WorkspacePage() {
                       </div>
 
                       {/* Handoff CTA */}
-                      <div className="pt-4 border-t border-border/50 flex justify-end">
+                      <div className="pt-4 border-t border-border flex justify-end">
                         <Button 
                           onClick={() => setActiveStage('team-structure')}
-                          className="h-8 text-xs gap-1.5"
+                          className="gap-1.5"
                         >
                           <span>Define Team Hires</span>
-                          <ArrowRight className="h-3.5 w-3.5" />
+                          <ArrowRight className="h-4 w-4" />
                         </Button>
                       </div>
                     </CardContent>
@@ -787,21 +704,21 @@ export default function WorkspacePage() {
 
                 {/* STAGE: ROADMAP EMPTY STATE */}
                 {activeStage === 'roadmap' && !activeProject.roadmap && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
-                  <Card className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
-                    <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
-                      <LineChart className="h-7 w-7" />
+                  <Card className="border-border p-12 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                      <LineChart className="h-8 w-8" />
                     </div>
                     <div className="space-y-2 max-w-md">
-                      <h3 className="text-lg font-bold text-primary">Execution Roadmap Compiler</h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Translate your technical feature spec and complexity ratings into a multi-phase, week-by-week development roadmap with key task durations.
+                      <h3 className="text-xl font-semibold text-foreground">Execution Roadmap Compiler</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Translate your feature spec into a multi-phase, week-by-week development roadmap.
                       </p>
                     </div>
                     <Button 
                       onClick={() => handleStartGeneration(activeProject.id, 'roadmap')}
-                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                      className="gap-2 px-6"
                     >
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Sparkles className="h-4 w-4" />
                       <span>Generate Timeline Roadmap</span>
                     </Button>
                   </Card>
@@ -809,21 +726,21 @@ export default function WorkspacePage() {
 
                 {/* STAGE: TEAM STRUCTURE */}
                 {activeStage === 'team-structure' && activeProject.team && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader>
-                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                      <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
                         Resource Org Structure
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
                         {activeProject.team.roles.map((role: any) => (
-                          <div key={role.id} className="p-4 rounded-lg border border-border/60 bg-white flex items-center justify-between hover:border-standard transition-all">
+                          <div key={role.id} className="p-4 rounded-lg border border-border bg-card flex items-center justify-between hover:bg-muted/50 transition-colors">
                             <div>
-                              <span className="text-sm font-semibold text-primary block">{role.name}</span>
-                              <span className="text-xs text-muted-foreground font-medium capitalize">{role.department.replace('_', ' ')} • Stage: {role.hiringStage}</span>
+                              <span className="text-sm font-medium text-foreground block">{role.name}</span>
+                              <span className="text-xs text-muted-foreground capitalize">{role.department.replace('_', ' ')} • Stage: {role.hiringStage}</span>
                             </div>
-                            <span className="text-xs font-semibold text-accent-blue">
+                            <span className="text-sm font-semibold text-primary">
                               {formatCost(role.monthlyCost)}/mo
                             </span>
                           </div>
@@ -831,13 +748,13 @@ export default function WorkspacePage() {
                       </div>
 
                       {/* Handoff CTA */}
-                      <div className="pt-4 border-t border-border/50 flex justify-end">
+                      <div className="pt-4 border-t border-border flex justify-end">
                         <Button 
                           onClick={() => setActiveStage('swot')}
-                          className="h-8 text-xs gap-1.5"
+                          className="gap-1.5"
                         >
                           <span>Assess Strategic Risks</span>
-                          <ArrowRight className="h-3.5 w-3.5" />
+                          <ArrowRight className="h-4 w-4" />
                         </Button>
                       </div>
                     </CardContent>
@@ -846,21 +763,21 @@ export default function WorkspacePage() {
 
                 {/* STAGE: TEAM STRUCTURE EMPTY STATE */}
                 {activeStage === 'team-structure' && !activeProject.team && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
-                  <Card className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
-                    <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
-                      <Network className="h-7 w-7" />
+                  <Card className="border-border p-12 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                      <Network className="h-8 w-8" />
                     </div>
                     <div className="space-y-2 max-w-md">
-                      <h3 className="text-lg font-bold text-primary">Resource & Team Allocator</h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Forecast and structure hiring requirements, define team roles, allocate departments, and calculate optimal monthly role salaries based on development scope.
+                      <h3 className="text-xl font-semibold text-foreground">Resource & Team Allocator</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Forecast hiring requirements, define team roles, and calculate monthly salaries.
                       </p>
                     </div>
                     <Button 
                       onClick={() => handleStartGeneration(activeProject.id, 'team')}
-                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                      className="gap-2 px-6"
                     >
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Sparkles className="h-4 w-4" />
                       <span>Plan Team Hires</span>
                     </Button>
                   </Card>
@@ -868,45 +785,45 @@ export default function WorkspacePage() {
 
                 {/* STAGE: SWOT ANALYSIS */}
                 {activeStage === 'swot' && activeProject.swot && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader>
-                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                      <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
                         Strategic SWOT Board
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <div className="grid grid-cols-2 gap-4">
                         {/* Strengths */}
-                        <div className="p-4 rounded-lg border border-border bg-surface-secondary/40 space-y-2">
-                          <span className="text-xs font-bold text-primary block">S - Strengths</span>
-                          <div className="space-y-1.5 text-xs text-muted-foreground max-h-[120px] overflow-y-auto">
+                        <div className="p-4 rounded-lg border border-border bg-muted/50 space-y-2">
+                          <span className="text-sm font-semibold text-foreground block">S - Strengths</span>
+                          <div className="space-y-1.5 text-sm text-muted-foreground max-h-[120px] overflow-y-auto">
                             {activeProject.swot.items.filter((i: any) => i.type === 'strength').map((item: any) => (
                               <div key={item.id}>• {item.content}</div>
                             ))}
                           </div>
                         </div>
                         {/* Weaknesses */}
-                        <div className="p-4 rounded-lg border border-border bg-surface-secondary/40 space-y-2">
-                          <span className="text-xs font-bold text-primary block">W - Weaknesses</span>
-                          <div className="space-y-1.5 text-xs text-muted-foreground max-h-[120px] overflow-y-auto">
+                        <div className="p-4 rounded-lg border border-border bg-muted/50 space-y-2">
+                          <span className="text-sm font-semibold text-foreground block">W - Weaknesses</span>
+                          <div className="space-y-1.5 text-sm text-muted-foreground max-h-[120px] overflow-y-auto">
                             {activeProject.swot.items.filter((i: any) => i.type === 'weakness').map((item: any) => (
                               <div key={item.id}>• {item.content}</div>
                             ))}
                           </div>
                         </div>
                         {/* Opportunities */}
-                        <div className="p-4 rounded-lg border border-border bg-surface-secondary/40 space-y-2">
-                          <span className="text-xs font-bold text-primary block">O - Opportunities</span>
-                          <div className="space-y-1.5 text-xs text-muted-foreground max-h-[120px] overflow-y-auto">
+                        <div className="p-4 rounded-lg border border-border bg-muted/50 space-y-2">
+                          <span className="text-sm font-semibold text-foreground block">O - Opportunities</span>
+                          <div className="space-y-1.5 text-sm text-muted-foreground max-h-[120px] overflow-y-auto">
                             {activeProject.swot.items.filter((i: any) => i.type === 'opportunity').map((item: any) => (
                               <div key={item.id}>• {item.content}</div>
                             ))}
                           </div>
                         </div>
                         {/* Threats */}
-                        <div className="p-4 rounded-lg border border-border bg-surface-secondary/40 space-y-2">
-                          <span className="text-xs font-bold text-primary block">T - Threats</span>
-                          <div className="space-y-1.5 text-xs text-muted-foreground max-h-[120px] overflow-y-auto">
+                        <div className="p-4 rounded-lg border border-border bg-muted/50 space-y-2">
+                          <span className="text-sm font-semibold text-foreground block">T - Threats</span>
+                          <div className="space-y-1.5 text-sm text-muted-foreground max-h-[120px] overflow-y-auto">
                             {activeProject.swot.items.filter((i: any) => i.type === 'threat').map((item: any) => (
                               <div key={item.id}>• {item.content}</div>
                             ))}
@@ -915,13 +832,13 @@ export default function WorkspacePage() {
                       </div>
 
                       {/* Handoff CTA */}
-                      <div className="pt-4 border-t border-border/50 flex justify-end">
+                      <div className="pt-4 border-t border-border flex justify-end">
                         <Button 
                           onClick={() => setActiveStage('cost-estimator')}
-                          className="h-8 text-xs gap-1.5"
+                          className="gap-1.5"
                         >
                           <span>Calculate Runway Costs</span>
-                          <ArrowRight className="h-3.5 w-3.5" />
+                          <ArrowRight className="h-4 w-4" />
                         </Button>
                       </div>
                     </CardContent>
@@ -930,21 +847,21 @@ export default function WorkspacePage() {
 
                 {/* STAGE: SWOT EMPTY STATE */}
                 {activeStage === 'swot' && !activeProject.swot && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
-                  <Card className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
-                    <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
-                      <TrendingUp className="h-7 w-7" />
+                  <Card className="border-border p-12 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                      <TrendingUp className="h-8 w-8" />
                     </div>
                     <div className="space-y-2 max-w-md">
-                      <h3 className="text-lg font-bold text-primary">Strategic SWOT Board</h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Compile strategic Strengths, Weaknesses, Opportunities, and Threats using your market positioning and timeline requirements.
+                      <h3 className="text-xl font-semibold text-foreground">Strategic SWOT Board</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Compile strategic Strengths, Weaknesses, Opportunities, and Threats.
                       </p>
                     </div>
                     <Button 
                       onClick={() => handleStartGeneration(activeProject.id, 'swot')}
-                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                      className="gap-2 px-6"
                     >
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Sparkles className="h-4 w-4" />
                       <span>Conduct SWOT Analysis</span>
                     </Button>
                   </Card>
@@ -952,31 +869,31 @@ export default function WorkspacePage() {
 
                 {/* STAGE: COST ESTIMATOR */}
                 {activeStage === 'cost-estimator' && activeProject.cost && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader>
-                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                      <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
                         Startup Financial Projections
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      <div className="grid grid-cols-3 gap-4 text-center p-4 bg-surface-secondary border border-border/80 rounded-lg">
+                      <div className="grid grid-cols-3 gap-4 text-center p-4 bg-muted rounded-lg">
                         <div>
-                          <span className="text-[10px] text-muted-foreground block">Estimated MVP Cost</span>
-                          <span className="text-lg font-bold text-primary">{formatCost(activeProject.cost.mvpCost)}</span>
+                          <span className="text-xs text-muted-foreground block">MVP Cost</span>
+                          <span className="text-lg font-bold text-foreground">{formatCost(activeProject.cost.mvpCost)}</span>
                         </div>
                         <div>
-                          <span className="text-[10px] text-muted-foreground block">Year 1 Projection</span>
-                          <span className="text-lg font-bold text-primary">{formatCost(activeProject.cost.year1Cost)}</span>
+                          <span className="text-xs text-muted-foreground block">Year 1</span>
+                          <span className="text-lg font-bold text-foreground">{formatCost(activeProject.cost.year1Cost)}</span>
                         </div>
                         <div>
-                          <span className="text-[10px] text-muted-foreground block">Funding Required</span>
-                          <span className="text-lg font-bold text-accent-blue">{formatCost(activeProject.cost.fundingRequirement)}</span>
+                          <span className="text-xs text-muted-foreground block">Funding Required</span>
+                          <span className="text-lg font-bold text-primary">{formatCost(activeProject.cost.fundingRequirement)}</span>
                         </div>
                       </div>
 
                       <div className="space-y-3">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-                          Budget Scenarios Simulator
+                        <span className="text-overline block">
+                          Budget Scenarios
                         </span>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           {activeProject.cost.scenarios.map((scen: any) => (
@@ -986,26 +903,26 @@ export default function WorkspacePage() {
                               className={cn(
                                 "p-4 rounded-lg border text-left transition-all space-y-2",
                                 selectedScenario === scen.id 
-                                  ? "border-accent-blue bg-accent-foreground/5 shadow-lvl-1" 
-                                  : "border-border/60 bg-white hover:border-standard"
+                                  ? "border-primary bg-primary/5 shadow-sm" 
+                                  : "border-border bg-card hover:bg-muted/50"
                               )}
                             >
-                              <span className="text-xs font-bold text-primary block uppercase">{scen.name}</span>
-                              <span className="text-lg font-bold text-accent-blue block">{formatCost(scen.mvpCost)} MVP</span>
-                              <span className="text-[11px] text-muted-foreground leading-relaxed block">{scen.description}</span>
+                              <span className="text-xs font-semibold text-foreground block uppercase">{scen.name}</span>
+                              <span className="text-lg font-bold text-primary block">{formatCost(scen.mvpCost)} MVP</span>
+                              <span className="text-xs text-muted-foreground leading-relaxed block">{scen.description}</span>
                             </button>
                           ))}
                         </div>
                       </div>
 
                       {/* Handoff CTA */}
-                      <div className="pt-4 border-t border-border/50 flex justify-end">
+                      <div className="pt-4 border-t border-border flex justify-end">
                         <Button 
                           onClick={() => setActiveStage('final-blueprint')}
-                          className="h-8 text-xs gap-1.5"
+                          className="gap-1.5"
                         >
                           <span>Reveal Final Blueprint</span>
-                          <ArrowRight className="h-3.5 w-3.5" />
+                          <ArrowRight className="h-4 w-4" />
                         </Button>
                       </div>
                     </CardContent>
@@ -1014,21 +931,21 @@ export default function WorkspacePage() {
 
                 {/* STAGE: COST ESTIMATOR EMPTY STATE */}
                 {activeStage === 'cost-estimator' && !activeProject.cost && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
-                  <Card className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
-                    <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
-                      <Award className="h-7 w-7" />
+                  <Card className="border-border p-12 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                      <Award className="h-8 w-8" />
                     </div>
                     <div className="space-y-2 max-w-md">
-                      <h3 className="text-lg font-bold text-primary">Financial Plan & Cost Estimator</h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Model MVP development costs, first-year burn rates, runway forecasts, and strategic funding requirements for lean, balanced, and aggressive scenarios.
+                      <h3 className="text-xl font-semibold text-foreground">Financial Plan & Cost Estimator</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Model MVP costs, burn rates, runway forecasts, and funding requirements.
                       </p>
                     </div>
                     <Button 
                       onClick={() => handleStartGeneration(activeProject.id, 'cost')}
-                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                      className="gap-2 px-6"
                     >
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Sparkles className="h-4 w-4" />
                       <span>Calculate Runway Costs</span>
                     </Button>
                   </Card>
@@ -1036,25 +953,25 @@ export default function WorkspacePage() {
 
                 {/* STAGE: FINAL BLUEPRINT */}
                 {activeStage === 'final-blueprint' && activeProject.blueprintCompiled && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader>
-                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                      <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
                         Compiled Startup Blueprint
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      <div className="p-8 rounded-xl border border-dashed border-border bg-surface-secondary flex flex-col items-center justify-center text-center space-y-4">
-                        <div className="h-12 w-12 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue font-bold">
+                      <div className="p-8 rounded-xl border border-dashed border-border bg-muted flex flex-col items-center justify-center text-center space-y-4">
+                        <div className="h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-lg">
                           ✓
                         </div>
                         <div className="space-y-1">
-                          <span className="text-base font-bold text-primary block">Your Operating Blueprint is Complete</span>
-                          <span className="text-xs text-muted-foreground">The compiled strategy plan has been generated and validated. Ready for export.</span>
+                          <span className="text-base font-semibold text-foreground block">Your Operating Blueprint is Complete</span>
+                          <span className="text-sm text-muted-foreground">The compiled strategy plan has been generated and validated.</span>
                         </div>
                         <div className="flex gap-2">
                           <Button 
                             onClick={() => window.open(api.exports.pdf(activeProject.id), '_blank')}
-                            className="h-8 text-xs"
+                            className="gap-1.5"
                           >
                             Download PDF Package
                           </Button>
@@ -1094,9 +1011,9 @@ export default function WorkspacePage() {
                     </div>
                     <Button 
                       onClick={() => handleStartGeneration(activeProject.id, 'blueprint')}
-                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-sm"
                     >
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Sparkles className="h-4 w-4" />
                       <span>Compile Final Blueprint</span>
                     </Button>
                   </Card>
@@ -1108,7 +1025,7 @@ export default function WorkspacePage() {
 
                 {/* STAGE: LEGAL & COMPLIANCE */}
                 {activeStage === 'legal-compliance' && activeProject.legalCompliance && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-xl font-bold tracking-tight text-primary">
                         Legal & Compliance Review
@@ -1119,7 +1036,7 @@ export default function WorkspacePage() {
                         activeProject.legalCompliance.overall_risk === 'medium' ? 'bg-yellow-50 text-yellow-700' :
                         'bg-red-50 text-red-700'
                       )}>
-                        <Shield className="h-3.5 w-3.5" />
+                        <Shield className="h-4 w-4" />
                         <span>Risk: {activeProject.legalCompliance.overall_risk}</span>
                       </div>
                     </CardHeader>
@@ -1157,7 +1074,7 @@ export default function WorkspacePage() {
                             IP Protection
                           </span>
                           {(activeProject.legalCompliance.ip_protection || []).map((ip: any, idx: number) => (
-                            <div key={idx} className="p-2 rounded bg-surface-secondary text-xs">
+                            <div key={idx} className="p-2 rounded bg-muted text-xs">
                               <span className="font-medium text-primary">{ip.asset}</span>
                               <span className="text-muted-foreground block">{ip.protection_type}</span>
                             </div>
@@ -1168,7 +1085,7 @@ export default function WorkspacePage() {
                             Registrations Needed
                           </span>
                           {(activeProject.legalCompliance.registrations_needed || []).map((reg: any, idx: number) => (
-                            <div key={idx} className="p-2 rounded bg-surface-secondary text-xs">
+                            <div key={idx} className="p-2 rounded bg-muted text-xs">
                               <span className="font-medium text-primary">{reg.type}</span>
                               <span className="text-muted-foreground block">{reg.jurisdiction} • {reg.timeline}</span>
                             </div>
@@ -1212,13 +1129,13 @@ export default function WorkspacePage() {
 
                 {/* STAGE: COMPETITIVE MOAT */}
                 {activeStage === 'competitive-moat' && activeProject.competitiveMoat && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-xl font-bold tracking-tight text-primary">
                         Competitive Moat Analysis
                       </CardTitle>
                       <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
-                        <Target className="h-3.5 w-3.5" />
+                        <Target className="h-4 w-4" />
                         <span>Moat Strength: {activeProject.competitiveMoat.overall_moat_strength}/100</span>
                       </div>
                     </CardHeader>
@@ -1255,7 +1172,7 @@ export default function WorkspacePage() {
                         </span>
                         <div className="grid grid-cols-2 gap-3">
                           {(activeProject.competitiveMoat.moat_scores || []).map((score: any, idx: number) => (
-                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-surface-secondary/50">
+                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-muted/50">
                               <div className="flex justify-between items-center mb-2">
                                 <span className="text-xs font-medium text-primary">{score.dimension}</span>
                                 <span className="text-xs font-bold text-accent-blue">{score.score}/100</span>
@@ -1293,13 +1210,13 @@ export default function WorkspacePage() {
 
                 {/* STAGE: STRESS TEST */}
                 {activeStage === 'stress-test' && activeProject.stressTest && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-xl font-bold tracking-tight text-primary">
                         Market Stress Test
                       </CardTitle>
                       <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
-                        <Zap className="h-3.5 w-3.5" />
+                        <Zap className="h-4 w-4" />
                         <span>Resilience: {activeProject.stressTest.resilience_score}/100</span>
                       </div>
                     </CardHeader>
@@ -1311,7 +1228,7 @@ export default function WorkspacePage() {
                         </span>
                         <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                           {(activeProject.stressTest.scenarios || []).map((scenario: any, idx: number) => (
-                            <div key={idx} className="p-4 rounded-lg border border-border/60 bg-surface-secondary/50 space-y-2">
+                            <div key={idx} className="p-4 rounded-lg border border-border/60 bg-muted/50 space-y-2">
                               <div className="flex justify-between items-center">
                                 <span className="text-sm font-semibold text-primary">{scenario.name}</span>
                                 <div className="flex gap-2">
@@ -1370,13 +1287,13 @@ export default function WorkspacePage() {
 
                 {/* STAGE: FINANCIAL INTELLIGENCE */}
                 {activeStage === 'financial-intelligence' && activeProject.financialIntelligence && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-xl font-bold tracking-tight text-primary">
                         Financial Intelligence
                       </CardTitle>
                       <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
-                        <BarChart3 className="h-3.5 w-3.5" />
+                        <BarChart3 className="h-4 w-4" />
                         <span>Health: {activeProject.financialIntelligence.financial_health_score}/100</span>
                       </div>
                     </CardHeader>
@@ -1388,7 +1305,7 @@ export default function WorkspacePage() {
                         </span>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                           {(activeProject.financialIntelligence.unit_economics || []).map((item: any, idx: number) => (
-                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-surface-secondary/50 text-center">
+                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-muted/50 text-center">
                               <span className="text-[10px] text-muted-foreground block">{item.metric}</span>
                               <span className="text-lg font-bold text-primary">{item.value}</span>
                               {item.benchmark && (
@@ -1435,7 +1352,7 @@ export default function WorkspacePage() {
 
                 {/* STAGE: INVESTMENT COMMITTEE */}
                 {activeStage === 'investment-committee' && activeProject.investmentCommittee && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-xl font-bold tracking-tight text-primary">
                         Investment Committee
@@ -1446,7 +1363,7 @@ export default function WorkspacePage() {
                         activeProject.investmentCommittee.overall_score >= 50 ? 'bg-yellow-50 text-yellow-700' :
                         'bg-red-50 text-red-700'
                       )}>
-                        <Users className="h-3.5 w-3.5" />
+                        <Users className="h-4 w-4" />
                         <span>Score: {activeProject.investmentCommittee.overall_score}/100</span>
                       </div>
                     </CardHeader>
@@ -1458,7 +1375,7 @@ export default function WorkspacePage() {
                         </span>
                         <div className="space-y-3">
                           {(activeProject.investmentCommittee.partner_cards || []).map((partner: any, idx: number) => (
-                            <div key={idx} className="p-4 rounded-lg border border-border/60 bg-surface-secondary/50 space-y-2">
+                            <div key={idx} className="p-4 rounded-lg border border-border/60 bg-muted/50 space-y-2">
                               <div className="flex justify-between items-center">
                                 <div>
                                   <span className="text-sm font-semibold text-primary">{partner.name}</span>
@@ -1522,19 +1439,19 @@ export default function WorkspacePage() {
 
                 {/* STAGE: PRODUCT EXECUTION */}
                 {activeStage === 'product-execution' && activeProject.productExecution && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-xl font-bold tracking-tight text-primary">
                         Product Execution Plan
                       </CardTitle>
                       <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
-                        <Rocket className="h-3.5 w-3.5" />
+                        <Rocket className="h-4 w-4" />
                         <span>Launch Readiness: {activeProject.productExecution.launch_readiness}%</span>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-6">
                       {/* PRD Summary */}
-                      <div className="p-4 rounded-lg bg-surface-secondary border border-border/80">
+                      <div className="p-4 rounded-lg bg-muted">
                         <span className="text-xs font-semibold text-muted-foreground block mb-2">PRD Summary</span>
                         <p className="text-sm text-primary leading-relaxed">{activeProject.productExecution.prd_summary}</p>
                       </div>
@@ -1573,7 +1490,7 @@ export default function WorkspacePage() {
                           </span>
                           <div className="space-y-2">
                             {activeProject.productExecution.architecture.map((arch: any, idx: number) => (
-                              <div key={idx} className="p-3 rounded-lg border border-border/60 bg-surface-secondary/50 flex items-center justify-between">
+                              <div key={idx} className="p-3 rounded-lg border border-border/60 bg-muted/50 flex items-center justify-between">
                                 <div>
                                   <span className="text-sm font-medium text-primary block">{arch.component}</span>
                                   <span className="text-xs text-muted-foreground">{arch.rationale}</span>
@@ -1590,13 +1507,13 @@ export default function WorkspacePage() {
 
                 {/* STAGE: GLOBAL EXPANSION */}
                 {activeStage === 'global-expansion' && activeProject.globalExpansion && (
-                  <Card className="shadow-lvl-1 border-border bg-white">
+                  <Card className="border-border">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-xl font-bold tracking-tight text-primary">
                         Global Expansion Strategy
                       </CardTitle>
                       <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
-                        <Globe className="h-3.5 w-3.5" />
+                        <Globe className="h-4 w-4" />
                         <span>TAM: {activeProject.globalExpansion.total_addressable_market_global || 'N/A'}</span>
                       </div>
                     </CardHeader>
@@ -1608,7 +1525,7 @@ export default function WorkspacePage() {
                         </span>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                           {(activeProject.globalExpansion.target_markets || []).map((market: any, idx: number) => (
-                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-surface-secondary/50">
+                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-muted/50">
                               <div className="flex justify-between items-center mb-2">
                                 <span className="text-sm font-semibold text-primary">{market.country}</span>
                                 <span className={cn(
@@ -1713,9 +1630,9 @@ export default function WorkspacePage() {
                         </div>
                         <Button 
                           onClick={() => handleStartGeneration(activeProject.id, getBackendStageName(stage))}
-                          className="h-9 text-xs gap-1.5 px-6 font-medium shadow-lvl-1"
+                          className="h-9 text-xs gap-1.5 px-6 font-medium shadow-sm"
                         >
-                          <Sparkles className="h-3.5 w-3.5" />
+                          <Sparkles className="h-4 w-4" />
                           <span>{info.btn}</span>
                         </Button>
                       </Card>
@@ -1727,7 +1644,7 @@ export default function WorkspacePage() {
 
               {/* Right Column: AI Reasoning copilot stream */}
               <div className="w-[320px] shrink-0 space-y-6">
-                <GlassPanel shadow="lvl-2" className="p-4 bg-white/70 h-[480px] flex flex-col">
+                <GlassPanel shadow="md" className="p-4 bg-card h-[480px] flex flex-col">
                   <span className="text-xs font-semibold text-primary flex items-center gap-1.5 mb-3 border-b border-border/60 pb-2">
                     <Sparkles className="h-4 w-4 text-accent-blue animate-pulse" />
                     AI Reasoning Feed

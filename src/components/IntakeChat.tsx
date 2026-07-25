@@ -120,7 +120,7 @@ export function IntakeChat({ onComplete, onSkip }: IntakeChatProps) {
   return (
     <div className="flex flex-col h-full max-w-2xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border/60">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-accent-blue/10 flex items-center justify-center">
             <MessageSquare className="h-4 w-4 text-accent-blue" />
@@ -189,7 +189,7 @@ export function IntakeChat({ onComplete, onSkip }: IntakeChatProps) {
               className={cn(
                 'rounded-xl px-4 py-3 text-sm leading-relaxed',
                 msg.role === 'ai'
-                  ? 'bg-white border border-border/60 shadow-lvl-1 text-foreground'
+                  ? 'bg-card border border-border shadow-sm text-foreground'
                   : 'bg-accent-blue text-white',
                 msg.category === 'extraction' && 'border-accent-blue/30 bg-accent-blue/5',
                 msg.category === 'system' && 'border-dashed bg-transparent text-muted-foreground italic text-xs',
@@ -230,7 +230,7 @@ export function IntakeChat({ onComplete, onSkip }: IntakeChatProps) {
             <div className="h-7 w-7 rounded-full bg-accent-blue/10 flex items-center justify-center shrink-0">
               <Bot className="h-3.5 w-3.5 text-accent-blue" />
             </div>
-            <div className="rounded-xl px-4 py-3 bg-white border border-border/60 shadow-lvl-1">
+            <div className="rounded-xl px-4 py-3 bg-card border border-border shadow-sm">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin text-accent-blue" />
                 <span>Analyzing your concept...</span>
@@ -245,7 +245,7 @@ export function IntakeChat({ onComplete, onSkip }: IntakeChatProps) {
             <div className="h-7 w-7 rounded-full bg-accent-blue/10 flex items-center justify-center shrink-0">
               <Bot className="h-3.5 w-3.5 text-accent-blue" />
             </div>
-            <div className="rounded-xl px-4 py-3 bg-white border border-border/60 shadow-lvl-1">
+            <div className="rounded-xl px-4 py-3 bg-card border border-border shadow-sm">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin text-accent-blue" />
                 <span>Compiling your concept brief...</span>
@@ -286,7 +286,7 @@ export function IntakeChat({ onComplete, onSkip }: IntakeChatProps) {
       )}
 
       {/* Input Area */}
-      <div className="px-4 py-3 border-t border-border/60 bg-white/50 backdrop-blur-sm">
+      <div className="px-4 py-3 border-t border-border bg-card/50 backdrop-blur-sm">
         {phase === 'idle' && (
           <form
             onSubmit={(e) => {
