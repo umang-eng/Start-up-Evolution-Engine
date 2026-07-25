@@ -13,6 +13,7 @@ from arq.connections import RedisSettings
 
 from backend.core.config import settings
 from backend.core.logging import logger
+from backend.cache.redis import redis_manager
 
 
 # Lazy singleton for the Redis connection pool
@@ -43,8 +44,32 @@ async def enqueue_compilation(
     Enqueue a compilation pipeline job onto the worker-engine queue.
 
     Returns the ARQ job ID (can be used for status polling if needed).
+    
+    If a job is already running for this project, it will clean the stuck
+    job and enqueue a fresh one.
     """
     pool = await get_arq_pool()
+    
+    # Try to clean any stuck jobs for this project first
+    job_key = f"compile:{project_id}:"
+    try:
+        # Find and clean stuck jobs for this project
+        if redis_manager.client:
+            cursor = 0
+            while True:
+                cursor, keys = await redis_manager.client.scan(
+                    cursor, match=f"arq:job:compile:{project_id}:*", count=100
+                )
+                for key in keys:
+                    job_data = await redis_manager.client.hgetall(key)
+                    if job_data and job_data.get("status") == "running":
+                        logger.info(f"Cleaning stuck job for project {project_id}: {key}")
+                        await redis_manager.client.delete(key)
+                if cursor == 0:
+                    break
+    except Exception as e:
+        logger.warning(f"Failed to clean stuck jobs: {e}")
+    
     job_id = await pool.enqueue_job(
         "run_compilation_pipeline",
         str(project_id),

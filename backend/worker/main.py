@@ -38,6 +38,11 @@ async def startup(ctx: dict[str, Any]) -> None:
     redis_manager.initialize()
     await redis_manager.is_healthy()
 
+    # Clean any stuck jobs from previous worker crashes
+    cleaned = await redis_manager.clean_stuck_jobs()
+    if cleaned > 0:
+        logger.info(f"[Worker-Engine] Cleaned {cleaned} stuck job(s)")
+
     ctx["redis_manager"] = redis_manager
     logger.info("[Worker-Engine] Startup complete — ready to consume jobs.")
 

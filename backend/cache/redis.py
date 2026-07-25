@@ -145,5 +145,47 @@ class RedisManager:
             raise RuntimeError("Redis Client not initialized")
         return await self.client.publish(channel, message)
 
+    async def clean_stuck_jobs(self, queue_name: str = "see:queue") -> int:
+        """
+        Clean stuck ARQ jobs that are marked as "running" but have no active worker.
+        
+        ARQ stores job locks in Redis with keys like: arq:job:<job_id>
+        When a worker crashes, these locks remain and prevent new jobs from running.
+        
+        Returns the number of stuck jobs cleaned.
+        """
+        if not self.client or isinstance(self.client, MockRedis):
+            return 0
+            
+        cleaned = 0
+        try:
+            # Find all job keys in the queue
+            cursor = 0
+            pattern = f"arq:job:*"
+            
+            while True:
+                cursor, keys = await self.client.scan(cursor, match=pattern, count=100)
+                
+                for key in keys:
+                    # Check if the job is stuck (has a lock but no result)
+                    job_data = await self.client.hgetall(key)
+                    if job_data and job_data.get("status") == "running":
+                        # Check if the job lock is older than job_timeout (600s)
+                        # ARQ stores the enqueued time in the job data
+                        logger.info(f"Found stuck job: {key} - removing lock")
+                        await self.client.delete(key)
+                        cleaned += 1
+                
+                if cursor == 0:
+                    break
+                    
+            if cleaned > 0:
+                logger.info(f"Cleaned {cleaned} stuck job(s) from Redis")
+                
+        except Exception as e:
+            logger.warning(f"Failed to clean stuck jobs: {e}")
+            
+        return cleaned
+
 
 redis_manager = RedisManager()
