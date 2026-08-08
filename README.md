@@ -17,6 +17,7 @@
 
 - [Overview](#overview)
 - [Architecture](#architecture)
+- [User Navigation](#user-navigation)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [14-Stage Pipeline](#14-stage-pipeline)
@@ -34,6 +35,7 @@
 - [Environment Variables](#environment-variables)
 - [API Reference](#api-reference)
 - [Database Schema](#database-schema)
+- [ER Diagram](#er-diagram)
 - [Running Tests](#running-tests)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
@@ -109,6 +111,90 @@ Every stage uses **structured Pydantic output schemas** validated against the LL
                     |  LLM (Gemini)    | | Evidence      | | Search        |
                     |  Structured JSON  | | Collector     | | (Tavily/Google)|
                     +------------------+ +---------------+ +---------------+
+```
+
+### User Navigation
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Top Navbar                                    │
+│  [Evolution Engine]  [Search]  [New Idea]  [Mic]  [User Avatar ▼]  │
+│                              │              │         │             │
+│                              │              │     ┌───┴────┐       │
+│                              │              │     │Profile  │       │
+│                              │              │     │Settings │       │
+│                              │              │     │Logout   │       │
+│                              │              │     └────────┘       │
+│                              │              │                      │
+│                    ┌─────────▼──────────┐  │                      │
+│                    │  New Idea Dialog   │  │                      │
+│                    │  (type or paste)   │  │                      │
+│                    │  → AI Assistant    │  │                      │
+│                    │  → Or Direct Run   │  │                      │
+│                    └────────────────────┘  │                      │
+└─────────────────────────────────────────────────────────────────────┘
+        │
+┌───────▼───────────────────────────────────────────────────────────────┐
+│                        Sidebar (collapsible)                          │
+│  [≡] [Dashboard]  [Mic]                                              │
+│                                                                       │
+│  YOUR PROJECTS                                                        │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ ● Project A   ← click to switch workspace                      │  │
+│  │   Project B                                                    │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+│                                                                       │
+│  STAGES (per selected project)                                        │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ 1 ● DNA Analyzer        ← click to view stage results          │  │
+│  │ 2 ● Feature Extractor                                         │  │
+│  │ 3 ● Roadmap                                                  │  │
+│  │ 4 ● Team Structure                                            │  │
+│  │ 5 ● SWOT Analysis  (parallel)                                 │  │
+│  │ 6 ● Cost Estimator   (parallel)                               │  │
+│  │ 7 ● Blueprint        (parallel)                               │  │
+│  │ 8 ● Legal & Compliance (parallel)                             │  │
+│  │ 9-14 Intelligence stages (auto-runs after core)               │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+│                                                                       │
+│  QUICK ACTIONS                                                        │
+│  [+ New Startup]  [Settings ⚙]  [Help ?]                             │
+└───────────────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌───────────────────────────────────────────────────────────────────────┐
+│                        Main Workspace (single scroll)                 │
+│                                                                       │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ Workspace Header: Project Name + Industry + Status              │  │
+│  │ [▶ Run Pipeline]  [Stop]  [View Blueprint]                     │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+│                                                                       │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ Pipeline Progress (live SSE stream)                             │  │
+│  │ ████░░░░░░░░░░  Stage 3/8 — Roadmap Generator                  │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+│                                                                       │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ Stage Detail (expanded on click)                                │  │
+│  │  - Results (JSON cards, charts, tables)                        │  │
+│  │  - Evidence & Confidence scores                                │  │
+│  │  - [Retry] [Export PDF]                                        │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+│                                                                       │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ Executive Dashboard (portfolio overview)                        │  │
+│  │  - Total Projects | Avg Health | Total Investment               │  │
+│  │  - Portfolio Health ring chart                                  │  │
+│  │  - Quick Actions: View Analytics | Team Review | Financial      │  │
+│  └─────────────────────────────────────────────────────────────────┘  │
+└───────────────────────────────────────────────────────────────────────┘
+
+Page Routing:
+  /              → Main workspace (sidebar + project stages)
+  /login         → Login (email + password)
+  /signup        → Register (email + password)
+  /meetings      → Conversation Intelligence (record/upload/manage meetings)
 ```
 
 ### 5-Tier Docker Deployment
@@ -1051,6 +1137,178 @@ docker compose up -d --build api-gateway worker-engine
 ---
 
 ## Database Schema
+
+### ER Diagram
+
+```
+┌──────────────────┐       ┌──────────────────────┐
+│      users       │       │    project_versions   │
+├──────────────────┤       ├──────────────────────┤
+│ id          (PK) │◄──┐   │ id              (PK) │
+│ email            │   │   │ project_id      (FK) │────┐
+│ hashed_password  │   │   │ version_label        │    │
+│ role             │   │   │ snapshot_data (JSONB)│    │
+│ is_active        │   │   │ dna_result_id   (FK) │    │
+│ created_at       │   │   │ feature_result_id(FK)│    │
+│ updated_at       │   │   │ roadmap_result_id(FK)│    │
+└──────┬───────────┘   │   │ team_result_id   (FK)│    │
+       │               │   │ swot_result_id   (FK)│    │
+       │               │   │ cost_result_id   (FK)│    │
+       │               │   │ blueprint_result_id(FK)   │
+       │               │   │ checksum_snapshot(JSONB)   │
+       │               │   └──────────────────────┘    │
+       │               │                               │
+       │ 1:N          │                               │
+       │               │   ┌──────────────────────┐    │
+       ▼               │   │    generation_sessions│    │
+┌──────────────────┐   │   ├──────────────────────┤    │
+│     projects     │   │   │ id              (PK) │    │
+├──────────────────┤   │   │ project_id      (FK) │◄───┘
+│ id          (PK) │◄──┼───┤ status                │
+│ user_id     (FK) │   │   │ correlation_id        │
+│ title            │   │   │ current_stage         │
+│ description      │   │   │ progress_percentage   │
+│ industry         │   │   │ stage_cache_map(JSONB)│
+│ region           │   │   │ cache_hits            │
+│ created_at       │   │   │ cache_misses          │
+│ updated_at       │   │   └──────────┬───────────┘
+└──┬──┬──┬──┬──┬───┘   │              │
+   │  │  │  │  │       │              │ 1:N
+   │  │  │  │  │       │              ▼
+   │  │  │  │  │       │   ┌──────────────────────┐
+   │  │  │  │  │       │   │   workflow_events     │
+   │  │  │  │  │       │   ├──────────────────────┤
+   │  │  │  │  │       │   │ id              (PK) │
+   │  │  │  │  │       │   │ session_id      (FK) │
+   │  │  │  │  │       │   │ event_type           │
+   │  │  │  │  │       │   │ stage                │
+   │  │  │  │  │       │   │ payload       (JSONB)│
+   │  │  │  │  │       │   └──────────────────────┘
+   │  │  │  │  │
+   │  │  │  │  │  1:1 (each FK is unique, cascade delete)
+   │  │  │  │  │
+   │  │  │  │  ├───┌──────────────────────────┐
+   │  │  │  │  │   │     dna_results           │
+   │  │  │  │  │   ├──────────────────────────┤
+   │  │  │  │  └──►│ project_id (FK, unique)   │
+   │  │  │  │      │ data            (JSONB)   │
+   │  │  │  │      │ hash_checksum        │
+   │  │  │  │      └──────────────────────────┘
+   │  │  │  │
+   │  │  │  ├───┌──────────────────────────┐
+   │  │  │  │   │    feature_results        │
+   │  │  │  │   ├──────────────────────────┤
+   │  │  │  └──►│ project_id (FK, unique)   │
+   │  │  │      │ data            (JSONB)   │
+   │  │  │      │ hash_checksum        │
+   │  │  │      └──────────────────────────┘
+   │  │  │
+   │  │  ├───┌──────────────────────────┐
+   │  │  │   │    roadmap_results        │
+   │  │  │   ├──────────────────────────┤
+   │  │  └──►│ project_id (FK, unique)   │
+   │  │      │ data            (JSONB)   │
+   │  │      │ hash_checksum        │
+   │  │      └──────────────────────────┘
+   │  │
+   │  ├───┌──────────────────────────┐
+   │  │   │     team_results          │
+   │  │   ├──────────────────────────┤
+   │  └──►│ project_id (FK, unique)   │
+   │      │ data            (JSONB)   │
+   │      │ hash_checksum        │
+   │      └──────────────────────────┘
+   │
+   ├───┌──────────────────────────┐
+   │   │     swot_results          │
+   │   ├──────────────────────────┤
+   └──►│ project_id (FK, unique)   │
+       │ data            (JSONB)   │
+       │ hash_checksum        │
+       └──────────────────────────┘
+
+   ┌──────────────────────────┐     ┌──────────────────────────┐
+   │     cost_results         │     │  legal_compliance_results │
+   ├──────────────────────────┤     ├──────────────────────────┤
+   │ project_id (FK, unique)  │     │ project_id (FK, unique)  │
+   │ data            (JSONB)  │     │ data            (JSONB)  │
+   │ hash_checksum        │     │ hash_checksum        │
+   └──────────────────────────┘     └──────────────────────────┘
+
+   ┌──────────────────────────┐
+   │      blueprints          │
+   ├──────────────────────────┤
+   │ project_id (FK, unique)  │
+   │ data            (JSONB)  │
+   │ health_score             │
+   │ version                  │
+   │ hash_checksum        │
+   └──────────────────────────┘
+
+   ┌──────────────────────────┐     ┌──────────────────────────┐
+   │       meetings           │     │    meeting_segments       │
+   ├──────────────────────────┤     ├──────────────────────────┤
+   │ id                (PK)   │◄──┐ │ meeting_id       (FK)    │
+   │ user_id           (FK)   │   │ │ speaker                  │
+   │ project_id        (FK)   │   │ │ text              (Text) │
+   │ title                    │   │ │ start_time_ms            │
+   │ status                   │   │ │ end_time_ms              │
+   │ duration_seconds         │   │ │ confidence               │
+   │ speaker_count            │   │ │ is_final                 │
+   │ language                 │   │ └──────────────────────────┘
+   └──────┬───────┬───────────┘   │
+          │       │               │  1:1
+          │       │               ├───┌──────────────────────────┐
+          │       │               │   │      transcripts         │
+          │       │               │   ├──────────────────────────┤
+          │       │               └──►│ meeting_id (FK, unique)   │
+          │       │                   │ raw_text        (Text)   │
+          │       │                   │ word_count              │
+          │       │                   │ language_detected       │
+          │       │                   └──────────────────────────┘
+          │       │
+          │       │  1:1
+          │       ├───┌──────────────────────────┐
+          │       │   │    meeting_reports        │
+          │       │   ├──────────────────────────┤
+          │       └──►│ meeting_id (FK, unique)   │
+          │           │ status                    │
+          │           │ executive_summary  (Text) │
+          │           │ key_points         (JSONB)│
+          │           │ decisions          (JSONB)│
+          │           │ action_items       (JSONB)│
+          │           │ risks_concerns     (JSONB)│
+          │           │ ... (12 JSONB columns)    │
+          │           └──────────────────────────┘
+          │
+          │  1:N
+          ├───┌──────────────────────────┐
+          │   │      analytics_logs       │
+          │   ├──────────────────────────┤
+          └──►│ project_id       (FK)     │
+              │ module_name              │
+              │ prompt_tokens            │
+              │ completion_tokens        │
+              │ latency_ms               │
+              │ estimated_cost_usd       │
+              └──────────────────────────┘
+
+   ┌──────────────────────────┐
+   │       audit_logs         │
+   ├──────────────────────────┤
+   │ user_id           (FK)   │
+   │ action                   │
+   │ resource_type            │
+   │ resource_id              │
+   │ data            (JSONB)  │
+   └──────────────────────────┘
+
+Legend:
+  PK = Primary Key    FK = Foreign Key
+  (FK, unique) = 1:1 relationship via unique FK constraint
+  Cascade: DELETE users → deletes all projects + results + sessions
+  Set Null: project_versions FKs use SET NULL (preserve history)
+```
 
 ### Core Tables
 
