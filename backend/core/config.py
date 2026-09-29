@@ -1,4 +1,3 @@
-import os
 from typing import Literal
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -15,6 +14,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Start-up Evolution Engine"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: Literal["development", "staging", "production"] = "development"
+    SERVICE_ROLE: Literal["api-gateway", "worker-engine"] = "api-gateway"
 
     # CORS — tighten in production via ALLOWED_ORIGINS env var
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
@@ -40,8 +40,26 @@ class Settings(BaseSettings):
 
     # AI Configuration
     GEMINI_API_KEY: str = ""
-    OLLAMA_HOST: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "nemotron-3-super:cloud"
+    OLLAMA_HOST: str = "http://127.0.0.1:11434"
+    OLLAMA_MODEL: str = "gemma2:2b"
+    OLLAMA_API_KEY: str = ""
+    OLLAMA_TEMPERATURE: float = 0.2
+    OLLAMA_NUM_CTX: int = 2048
+    OLLAMA_NUM_PREDICT: int = 2048
+    OLLAMA_KEEP_ALIVE: str = "10m"
+    PIPELINE_STAGE_RETRIES: int = 1
+    # Local Ollama profile: avoid redundant web-search and multi-agent calls.
+    PIPELINE_FAST_MODE: bool = True
+
+    # Whisper (speech-to-text)
+    WHISPER_HOST: str = "http://localhost:8080"
+    WHISPER_TIMEOUT_SECONDS: float = 180.0
+    FFMPEG_BINARY: str = "ffmpeg"
+
+    # Real-Time Search (at least one provider required for live market grounding)
+    TAVILY_API_KEY: str = ""
+    GOOGLE_SEARCH_API_KEY: str = ""
+    GOOGLE_CSE_ID: str = ""
 
     @field_validator("SECRET_KEY")
     @classmethod

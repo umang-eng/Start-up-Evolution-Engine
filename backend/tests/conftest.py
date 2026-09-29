@@ -1,5 +1,7 @@
 from typing import Any
 import asyncio
+import os
+import tempfile
 from collections.abc import AsyncGenerator, Generator
 import pytest
 import pytest_asyncio
@@ -18,9 +20,13 @@ def compile_jsonb_sqlite(element, compiler, **kw):
     return "JSON"
 
 # Async SQLite engine for database-related unit testing in-memory
-TEST_SQLITE_URL = "sqlite+aiosqlite:///:memory:"
+TEST_DB_PATH = tempfile.NamedTemporaryFile(prefix="startup-evolution-tests-", suffix=".db", delete=False).name
+TEST_SQLITE_URL = f"sqlite+aiosqlite:///{TEST_DB_PATH}"
 
-test_engine = create_async_engine(TEST_SQLITE_URL, echo=False)
+test_engine = create_async_engine(
+    TEST_SQLITE_URL,
+    echo=False,
+)
 TestSessionLocal = async_sessionmaker(
     bind=test_engine,
     class_=AsyncSession,
@@ -100,6 +106,8 @@ async def setup_test_db() -> AsyncGenerator[None, None]:
     yield
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+    await test_engine.dispose()
+    os.unlink(TEST_DB_PATH)
 
 
 @pytest_asyncio.fixture
@@ -191,5 +199,3 @@ def mock_gemini_adapter() -> Generator[None, None, None]:
             
         mock_structured.side_effect = mock_generate
         yield
-
-

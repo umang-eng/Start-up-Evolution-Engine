@@ -7,9 +7,22 @@ import {
   ExecutionRoadmap, 
   OrgStructure, 
   SWOTAnalysis, 
-  CostEstimation 
+  CostEstimation,
+  LegalComplianceResult,
+  CompetitiveMoatResult,
+  StressTestResult,
+  FinancialIntelligenceResult,
+  InvestmentCommitteeResult,
+  ProductExecutionResult,
+  GlobalExpansionResult
 } from '@/types/blueprint';
-import { api, mapDnaResponse, mapFeaturesResponse, mapRoadmapResponse, mapTeamResponse, mapSwotResponse, mapCostResponse } from '@/lib/api-client';
+import { 
+  api, mapDnaResponse, mapFeaturesResponse, mapRoadmapResponse, mapTeamResponse, 
+  mapSwotResponse, mapCostResponse,
+  mapLegalComplianceResponse, mapCompetitiveMoatResponse, mapStressTestResponse,
+  mapFinancialIntelligenceResponse, mapInvestmentCommitteeResponse,
+  mapProductExecutionResponse, mapGlobalExpansionResponse
+} from '@/lib/api-client';
 
 interface BlueprintState {
   projects: StartupProject[];
@@ -22,10 +35,9 @@ interface BlueprintState {
   // Actions
   toggleSidebar: () => void;
   setActiveStage: (stage: StageName) => void;
-  setActiveProject: (id: string) => void;
+  setActiveProject: (id: string | null) => void;
   loadProjects: () => Promise<void>;
   createNewProject: (name: string, prompt: string) => Promise<StartupProject>;
-  renameProject: (id: string, newName: string) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   updateProjectStatus: (id: string, status: StartupProject['status']) => void;
   updateProjectStage: (id: string, stage: StageName) => void;
@@ -38,6 +50,14 @@ interface BlueprintState {
   saveTeam: (projectId: string, team: OrgStructure) => void;
   saveSWOT: (projectId: string, swot: SWOTAnalysis) => void;
   saveCost: (projectId: string, cost: CostEstimation) => void;
+  saveLegalCompliance: (projectId: string, data: LegalComplianceResult) => void;
+  saveCompetitiveMoat: (projectId: string, data: CompetitiveMoatResult) => void;
+  saveStressTest: (projectId: string, data: StressTestResult) => void;
+  saveFinancialIntelligence: (projectId: string, data: FinancialIntelligenceResult) => void;
+  saveInvestmentCommittee: (projectId: string, data: InvestmentCommitteeResult) => void;
+  saveProductExecution: (projectId: string, data: ProductExecutionResult) => void;
+  saveGlobalExpansion: (projectId: string, data: GlobalExpansionResult) => void;
+  completeBlueprint: (projectId: string) => void;
 }
 
 export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
@@ -50,9 +70,45 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
   
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   
-  setActiveStage: (stage) => set({ activeStage: stage }),
+  setActiveStage: (stage) => set((state) => {
+    const project = state.projects.find((p) => p.id === state.activeProjectId);
+    if (!project) return { activeStage: stage };
+
+    const completed: Record<StageName, boolean> = {
+      'dna-analyzer': !!project.dna,
+      'feature-extractor': !!project.features,
+      'roadmap': !!project.roadmap,
+      'team-structure': !!project.team,
+      'swot': !!project.swot,
+      'cost-estimator': !!project.cost,
+      'legal-compliance': !!project.legalCompliance,
+      'competitive-moat': !!project.competitiveMoat,
+      'stress-test': !!project.stressTest,
+      'financial-intelligence': !!project.financialIntelligence,
+      'investment-committee': !!project.investmentCommittee,
+      'product-execution': !!project.productExecution,
+      'global-expansion': !!project.globalExpansion,
+      'final-blueprint': !!project.blueprintCompiled,
+    };
+    const order: StageName[] = [
+      'dna-analyzer', 'feature-extractor', 'roadmap', 'team-structure',
+      'swot', 'cost-estimator', 'legal-compliance',
+      'competitive-moat', 'stress-test', 'financial-intelligence',
+      'investment-committee', 'product-execution', 'global-expansion',
+      'final-blueprint',
+    ];
+    const targetIndex = order.indexOf(stage);
+    const unlocked = targetIndex <= 0 || order.slice(0, targetIndex).every((previous) => completed[previous]);
+    return unlocked ? { activeStage: stage } : state;
+  }),
   
   setActiveProject: (id) => set((state) => {
+    if (!id) {
+      return {
+        activeProjectId: null,
+        activeStage: 'dna-analyzer',
+      };
+    }
     const proj = state.projects.find((p) => p.id === id);
     return {
       activeProjectId: id,
@@ -64,8 +120,7 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const result = await api.projects.list();
-      // Result data returned is direct ProjectResponse list
-      const projects: StartupProject[] = result.map((p: any) => ({
+      const metadataProjects: StartupProject[] = result.map((p: any) => ({
         id: p.id,
         name: p.title,
         ideaPrompt: p.description || '',
@@ -73,6 +128,33 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
         status: 'idle',
         createdAt: p.created_at,
       }));
+
+      const projects = await Promise.all(metadataProjects.map(async (project) => {
+        try {
+          const data = await api.blueprints.get(project.id, true);
+          return {
+            ...project,
+            dna: mapDnaResponse(data?.startup_dna),
+            features: mapFeaturesResponse(data?.product_architecture),
+            roadmap: mapRoadmapResponse(data?.execution_roadmap),
+            team: mapTeamResponse(data?.team_structure),
+            swot: mapSwotResponse(data?.swot_analysis),
+            cost: mapCostResponse(data?.financial_plan),
+            legalCompliance: mapLegalComplianceResponse(data?.legal_compliance),
+            competitiveMoat: mapCompetitiveMoatResponse(data?.competitive_moat),
+            stressTest: mapStressTestResponse(data?.stress_test),
+            financialIntelligence: mapFinancialIntelligenceResponse(data?.financial_intelligence),
+            investmentCommittee: mapInvestmentCommitteeResponse(data?.investment_committee),
+            productExecution: mapProductExecutionResponse(data?.product_execution),
+            globalExpansion: mapGlobalExpansionResponse(data?.global_expansion),
+            blueprintCompiled: Boolean(data?.executive_summary && data?.health_indicators),
+          };
+        } catch (err) {
+          console.error(`Failed to load dashboard progress for project ${project.id}:`, err);
+          return project;
+        }
+      }));
+
       set({ projects, isLoading: false });
     } catch (err: any) {
       set({ error: err.message || 'Failed to load projects', isLoading: false });
@@ -80,11 +162,17 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
   },
   
   createNewProject: async (name, prompt) => {
+    const trimmedPrompt = prompt.trim();
+    if (trimmedPrompt.length < 10) {
+      const error = 'Enter at least 10 characters describing the startup idea before creating a project.';
+      set({ error });
+      throw new Error(error);
+    }
     set({ isLoading: true, error: null });
     try {
       const response = await api.projects.create({
-        title: name || 'My Startup Project',
-        description: prompt,
+        title: name,
+        description: trimmedPrompt,
         industry: 'Tech'
       });
 
@@ -111,19 +199,6 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
     }
   },
 
-  renameProject: async (id, newName) => {
-    try {
-      await api.projects.update(id, { title: newName });
-      set((state) => ({
-        projects: state.projects.map((p) =>
-          p.id === id ? { ...p, name: newName } : p
-        ),
-      }));
-    } catch (err: any) {
-      console.error('Failed to rename project', err);
-    }
-  },
-  
   deleteProject: async (id) => {
     set({ isLoading: true, error: null });
     try {
@@ -163,20 +238,61 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
       const team = mapTeamResponse(blueprintData.team_structure);
       const swot = mapSwotResponse(blueprintData.swot_analysis);
       const cost = mapCostResponse(blueprintData.financial_plan);
+      const legalCompliance = mapLegalComplianceResponse(blueprintData.legal_compliance);
+      const competitiveMoat = mapCompetitiveMoatResponse(blueprintData.competitive_moat);
+      const stressTest = mapStressTestResponse(blueprintData.stress_test);
+      const financialIntelligence = mapFinancialIntelligenceResponse(blueprintData.financial_intelligence);
+      const investmentCommittee = mapInvestmentCommitteeResponse(blueprintData.investment_committee);
+      const productExecution = mapProductExecutionResponse(blueprintData.product_execution);
+      const globalExpansion = mapGlobalExpansionResponse(blueprintData.global_expansion);
 
       // Determine the compilation completion status and current stage
-      const hasFullBlueprint = !!blueprintData.executive_summary || !!blueprintData.health_indicators;
+      // A final Blueprint is valid only when the terminal stage and every
+      // prerequisite stage are present. Older partial records can contain
+      // executive-summary fields and must not redirect a fresh session.
+      const hasFullBlueprint = Boolean(
+        blueprintData.executive_summary &&
+        blueprintData.health_indicators &&
+        dna &&
+        features &&
+        roadmap &&
+        team &&
+        swot &&
+        cost &&
+        legalCompliance &&
+        competitiveMoat &&
+        stressTest &&
+        financialIntelligence &&
+        investmentCommittee &&
+        productExecution &&
+        globalExpansion
+      );
       
       let resolvedStage: StageName = 'dna-analyzer';
       let resolvedStatus: StartupProject['status'] = 'idle';
       let resolvedCompiled = false;
 
+      // Determine highest completed stage
       if (hasFullBlueprint) {
         resolvedStage = 'final-blueprint';
         resolvedStatus = 'completed';
         resolvedCompiled = true;
+      } else if (globalExpansion) {
+        resolvedStage = 'global-expansion';
+      } else if (productExecution) {
+        resolvedStage = 'product-execution';
+      } else if (investmentCommittee) {
+        resolvedStage = 'investment-committee';
+      } else if (financialIntelligence) {
+        resolvedStage = 'financial-intelligence';
+      } else if (stressTest) {
+        resolvedStage = 'stress-test';
+      } else if (competitiveMoat) {
+        resolvedStage = 'competitive-moat';
+      } else if (legalCompliance) {
+        resolvedStage = 'legal-compliance';
       } else if (cost) {
-        resolvedStage = 'final-blueprint';
+        resolvedStage = 'legal-compliance';
       } else if (swot) {
         resolvedStage = 'cost-estimator';
       } else if (team) {
@@ -191,6 +307,8 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
 
       set((state) => {
         const isCurrentlyActive = state.activeProjectId === projectId;
+        const project = state.projects.find((p) => p.id === projectId);
+        const isGenerating = project?.status === 'generating';
         return {
           projects: state.projects.map((p) => p.id === projectId ? {
             ...p,
@@ -200,11 +318,20 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
             team,
             swot,
             cost,
-            status: p.status === 'completed' && !hasFullBlueprint ? 'idle' : (resolvedStatus || p.status),
-            currentStage: resolvedStage,
-            blueprintCompiled: resolvedCompiled
+            legalCompliance,
+            competitiveMoat,
+            stressTest,
+            financialIntelligence,
+            investmentCommittee,
+            productExecution,
+            globalExpansion,
+            status: !isGenerating && hasFullBlueprint
+              ? 'completed'
+              : (p.status === 'generating' ? 'generating' : (resolvedStatus || p.status)),
+            currentStage: isGenerating ? p.currentStage : resolvedStage,
+            blueprintCompiled: isGenerating ? p.blueprintCompiled : resolvedCompiled
           } : p),
-          activeStage: isCurrentlyActive ? resolvedStage : state.activeStage
+          activeStage: isCurrentlyActive && !isGenerating ? resolvedStage : state.activeStage
         };
       });
     } catch (err) {
@@ -238,7 +365,66 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
   })),
   
   saveCost: (projectId, cost) => set((state) => ({
-    projects: state.projects.map((p) => p.id === projectId ? { ...p, cost, currentStage: 'final-blueprint' } : p),
+    projects: state.projects.map((p) => p.id === projectId ? { ...p, cost, currentStage: 'legal-compliance' } : p),
+    activeStage: 'legal-compliance'
+  })),
+
+  saveLegalCompliance: (projectId, data) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? {
+      ...p, legalCompliance: data, currentStage: 'competitive-moat'
+    } : p),
+    activeStage: 'competitive-moat'
+  })),
+
+  saveCompetitiveMoat: (projectId, data) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? {
+      ...p, competitiveMoat: data, currentStage: 'stress-test'
+    } : p),
+    activeStage: 'stress-test'
+  })),
+
+  saveStressTest: (projectId, data) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? {
+      ...p, stressTest: data, currentStage: 'financial-intelligence'
+    } : p),
+    activeStage: 'financial-intelligence'
+  })),
+
+  saveFinancialIntelligence: (projectId, data) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? {
+      ...p, financialIntelligence: data, currentStage: 'investment-committee'
+    } : p),
+    activeStage: 'investment-committee'
+  })),
+
+  saveInvestmentCommittee: (projectId, data) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? {
+      ...p, investmentCommittee: data, currentStage: 'product-execution'
+    } : p),
+    activeStage: 'product-execution'
+  })),
+
+  saveProductExecution: (projectId, data) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? {
+      ...p, productExecution: data, currentStage: 'global-expansion'
+    } : p),
+    activeStage: 'global-expansion'
+  })),
+
+  saveGlobalExpansion: (projectId, data) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? {
+      ...p, globalExpansion: data, currentStage: 'final-blueprint'
+    } : p),
     activeStage: 'final-blueprint'
-  }))
+  })),
+
+  completeBlueprint: (projectId) => set((state) => ({
+    projects: state.projects.map((p) => p.id === projectId ? {
+      ...p,
+      blueprintCompiled: true,
+      status: 'completed',
+      currentStage: 'final-blueprint',
+    } : p),
+    activeStage: 'final-blueprint',
+  })),
 }));

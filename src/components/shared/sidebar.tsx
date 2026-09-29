@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState } from 'react';
+import Link from 'next/link';
 import { useBlueprintStore } from '@/store/use-blueprint-store';
 import { cn } from '@/lib/utils';
 import { 
@@ -8,12 +9,16 @@ import {
   Plus, 
   Activity, 
   ChevronLeft, 
+  ChevronRight,
   Sparkles,
-  Trash2,
-  Circle,
-  Pencil
+  Mic,
+  LayoutDashboard,
+  Settings,
+  HelpCircle,
+  Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SettingsDialog } from './settings-dialog';
 import {
   Dialog,
   DialogContent,
@@ -25,10 +30,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
-const MIN_WIDTH = 180;
-const MAX_WIDTH = 400;
-const COLLAPSED_WIDTH = 56;
-
 export function Sidebar() {
   const { 
     projects, 
@@ -36,53 +37,15 @@ export function Sidebar() {
     sidebarOpen, 
     toggleSidebar, 
     createNewProject,
-    setActiveProject,
-    deleteProject,
-    renameProject
+    setActiveProject
   } = useBlueprintStore();
 
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [projectName, setProjectName] = useState('');
   const [projectPrompt, setProjectPrompt] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  
-  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
-  const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null);
-  const [newProjectName, setNewProjectName] = useState('');
-
-  const [sidebarWidth, setSidebarWidth] = useState(220);
-  const [isResizing, setIsResizing] = useState(false);
-  const sidebarRef = useRef<HTMLElement>(null);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isResizing) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX));
-      setSidebarWidth(newWidth);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-  }, [isResizing]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const handleNewProject = () => {
     setProjectName('');
@@ -104,44 +67,36 @@ export function Sidebar() {
     }
   };
 
-  const handleRenameSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!renamingProjectId || !newProjectName.trim()) return;
-    await renameProject(renamingProjectId, newProjectName.trim());
-    setRenameDialogOpen(false);
-  };
-
-  const openRenameDialog = (e: React.MouseEvent, proj: any) => {
-    e.stopPropagation();
-    setRenamingProjectId(proj.id);
-    setNewProjectName(proj.name);
-    setRenameDialogOpen(true);
-  };
-
   return (
     <aside
-      ref={sidebarRef}
       className={cn(
-        "h-full flex flex-col bg-card/60 backdrop-blur-xl border-r border-white/[0.04] transition-[width] duration-150 z-30 relative shrink-0",
-        !sidebarOpen && "w-[56px]"
+        "h-full flex flex-col bg-card border-r border-border transition-all duration-300 z-30",
+        sidebarOpen ? "w-[260px]" : "w-[68px]"
       )}
-      style={sidebarOpen ? { width: sidebarWidth } : undefined}
     >
       {/* Header */}
-      <div className="h-14 flex items-center justify-between px-3 border-b border-white/[0.04]">
-        {sidebarOpen && (
-          <span className="font-sans font-semibold text-sm tracking-tight text-foreground flex items-center gap-2.5">
-            <img src="/logo.png" alt="Evolution Engine Logo" className="h-5 w-5 object-contain rounded-md" />
-            <span className="gradient-text font-bold">IdeaForgeAI</span>
-          </span>
+      <div className="h-14 flex items-center justify-between px-4 border-b border-border">
+        {sidebarOpen ? (
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-primary-foreground" />
+            </div>
+            <span className="font-semibold text-sm text-foreground">
+              Evolution Engine
+            </span>
+          </div>
+        ) : (
+          <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center mx-auto">
+            <Sparkles className="h-4 w-4 text-primary-foreground" />
+          </div>
         )}
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-sm"
           onClick={toggleSidebar}
-          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          className={cn(!sidebarOpen && "mx-auto")}
         >
-          {sidebarOpen ? <ChevronLeft className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </Button>
       </div>
 
@@ -149,198 +104,168 @@ export function Sidebar() {
       <div className="p-3">
         <Button
           onClick={handleNewProject}
-          variant="outline"
+          variant="default"
           className={cn(
-            "w-full flex items-center justify-center gap-2 rounded-lg transition-all duration-200 border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-cyan-500/20",
-            sidebarOpen ? "px-4 h-9" : "p-2 h-9 w-9"
+            "w-full gap-2",
+            !sidebarOpen && "px-0 justify-center"
           )}
         >
-          <Plus className="h-5 w-5 text-cyan-400" />
-          {sidebarOpen && <span className="text-sm font-medium text-foreground">New Startup</span>}
+          <Plus className="h-4 w-4" />
+          {sidebarOpen && <span>New Startup</span>}
         </Button>
       </div>
 
-      {/* Projects List */}
-      <div className="flex-1 overflow-y-auto px-2 scrollbar-thin">
-        <div className="py-2">
-          {sidebarOpen && (
-            <span className="text-sm font-semibold tracking-widest text-muted-foreground/90 uppercase px-2 block mb-2">
-              Recent Projects
-            </span>
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto px-3 space-y-1">
+        {/* Dashboard Link */}
+        <Link
+          href="/"
+          onClick={() => setActiveProject(null)}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+            "text-muted-foreground hover:text-foreground hover:bg-muted",
           )}
-          <div className="space-y-0.5">
-            {projects.map((proj) => {
-              const isActive = activeProjectId === proj.id;
-              return (
-                <div key={proj.id} className="relative group w-full">
-                  <button
-                    onClick={() => setActiveProject(proj.id)}
-                    className={cn(
-                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all duration-200 text-sm cursor-pointer border border-transparent overflow-hidden",
-                      isActive
-                        ? "bg-white/[0.06] border-cyan-500/15 text-foreground font-medium pr-20"
-                        : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground group-hover:pr-20"
-                    )}
-                  >
-                    <div className={cn(
-                      "h-5 w-5 rounded-md flex items-center justify-center shrink-0",
-                      isActive ? "bg-cyan-500/15" : "bg-white/[0.04]"
-                    )}>
-                      <Activity className={cn("h-5 w-5", isActive ? "text-cyan-400" : "text-muted-foreground/90")} />
-                    </div>
-                    {sidebarOpen && <span className="truncate flex-1">{proj.name}</span>}
-                  </button>
-                  {sidebarOpen && (
-                    <div className={cn(
-                      "absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity",
-                      isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                    )}>
-                      <button
-                        onClick={(e) => openRenameDialog(e, proj)}
-                        className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-white/[0.05] rounded-md transition-colors"
-                        title="Rename Project"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm('Are you sure you want to delete this startup idea?')) {
-                            deleteProject(proj.id);
-                          }
-                        }}
-                        className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
-                        title="Delete project"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {projects.length === 0 && sidebarOpen && (
-              <span className="text-sm text-muted-foreground/80 italic px-2.5 block py-4 text-center">
-                No active projects.
-              </span>
-            )}
+        >
+          <LayoutDashboard className="h-4 w-4 shrink-0" />
+          {sidebarOpen && <span>Dashboard</span>}
+        </Link>
+
+        {/* Conversation Intelligence */}
+        {sidebarOpen && (
+          <div className="pt-4">
+            <span className="text-overline px-3 block mb-2">Intelligence</span>
+            <a
+              href="/meetings"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <div className="h-6 w-6 rounded-md bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                <Mic className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+              </div>
+              <span>Meetings</span>
+            </a>
           </div>
+        )}
+
+        {/* Projects List */}
+        {sidebarOpen && projects.length > 0 && (
+          <div className="pt-4">
+            <span className="text-overline px-3 block mb-2">Recent Projects</span>
+            <div className="space-y-0.5">
+              {projects.slice(0, 5).map((proj) => (
+                <button
+                  key={proj.id}
+                  onClick={() => setActiveProject(proj.id)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors text-sm",
+                    activeProjectId === proj.id 
+                      ? "bg-muted text-foreground font-medium" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}
+                >
+                  <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center shrink-0">
+                    <Activity className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="truncate">{proj.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </nav>
+
+      {/* Bottom Actions */}
+      <div className="p-3 border-t border-border">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon-sm" className="flex-1" onClick={() => setSettingsOpen(true)}>
+            <Settings className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" className="flex-1" onClick={() => setHelpOpen(true)}>
+            <HelpCircle className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
       {/* New Startup Dialog */}
       <Dialog open={newProjectOpen} onOpenChange={setNewProjectOpen}>
-        <DialogContent className="sm:max-w-[420px] bg-card/95 backdrop-blur-xl border border-white/[0.08] shadow-lvl-3 rounded-xl p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleCreateProject}>
-            <DialogHeader className="p-6 pb-2">
-              <DialogTitle className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-cyan-400" />
-                <span>Initialize Startup Concept</span>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                Create New Startup
               </DialogTitle>
-              <DialogDescription className="text-sm text-muted-foreground">
-                Set up a new venture workspace. The engine will compile strategic blueprints step-by-step.
+              <DialogDescription>
+                Set up a new venture workspace. The engine will compile your strategic blueprints step-by-step.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="px-6 py-3 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Startup Name</label>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Startup Name</label>
                 <Input
                   required
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                   placeholder="e.g. Solarify Maintenance"
-                  className="h-9 text-sm bg-white/[0.03] border-white/[0.06]"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Core Vision / Concept</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Core Vision</label>
                 <Textarea
                   required
                   value={projectPrompt}
                   onChange={(e) => setProjectPrompt(e.target.value)}
                   placeholder="Describe your startup concept, target audience, pricing model, and competitive edge..."
-                  className="text-sm min-h-[90px] bg-white/[0.03] border-white/[0.06]"
+                  className="min-h-[100px]"
                 />
               </div>
             </div>
 
-            <DialogFooter className="mt-4 border-t border-white/[0.04] p-4 bg-white/[0.02] flex justify-end gap-2">
+            <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setNewProjectOpen(false)}
-                className="text-sm h-8 px-4 border-white/[0.06]"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={isCreating || !projectName.trim() || !projectPrompt.trim()}
-                className="text-sm h-8 px-4"
               >
-                {isCreating ? 'Creating Workspace...' : 'Launch Workspace'}
+                {isCreating ? 'Creating...' : 'Create Workspace'}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Rename Dialog */}
-      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
-        <DialogContent className="sm:max-w-[420px] bg-card/95 backdrop-blur-xl border border-white/[0.08] shadow-lvl-3 rounded-xl p-0 overflow-hidden">
-          <form onSubmit={handleRenameSubmit}>
-            <DialogHeader className="p-6 pb-2">
-              <DialogTitle className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
-                <Pencil className="h-5 w-5 text-cyan-400" />
-                <span>Rename Workspace</span>
-              </DialogTitle>
-            </DialogHeader>
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
 
-            <div className="px-6 py-3 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">New Name</label>
-                <Input
-                  required
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder="Workspace Name"
-                  className="h-9 text-sm bg-white/[0.03] border-white/[0.06]"
-                />
-              </div>
-            </div>
-
-            <DialogFooter className="mt-4 border-t border-white/[0.04] p-4 bg-white/[0.02] flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setRenameDialogOpen(false)}
-                className="text-sm h-8 px-4 border-white/[0.06]"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={!newProjectName.trim()}
-                className="text-sm h-8 px-4"
-              >
-                Save
-              </Button>
-            </DialogFooter>
-          </form>
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 text-primary" />
+              Help & Keyboard Shortcuts
+            </DialogTitle>
+            <DialogDescription>
+              Quick reference for navigating the Evolution Engine.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4 text-sm">
+            <div className="flex justify-between"><span className="text-muted-foreground">Create new project</span><kbd className="px-2 py-0.5 rounded bg-muted text-xs font-mono">Sidebar + button</kbd></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Navigate stages</span><kbd className="px-2 py-0.5 rounded bg-muted text-xs font-mono">Click stage in sidebar</kbd></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Collapse sidebar</span><kbd className="px-2 py-0.5 rounded bg-muted text-xs font-mono">Chevron icon</kbd></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Open settings</span><kbd className="px-2 py-0.5 rounded bg-muted text-xs font-mono">Gear icon (bottom)</kbd></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Record meeting</span><kbd className="px-2 py-0.5 rounded bg-muted text-xs font-mono">Mic icon in navbar</kbd></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHelpOpen(false)}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Resize Handle */}
-      {sidebarOpen && (
-        <div
-          onMouseDown={handleMouseDown}
-          className={cn(
-            "absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-cyan-500/30 transition-colors z-50",
-            isResizing && "bg-cyan-500/50"
-          )}
-        />
-      )}
     </aside>
   );
 }

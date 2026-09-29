@@ -14,29 +14,29 @@ from backend.orchestrator.engine import BaseModule
 class RoadmapModule(BaseModule):
     """Generates execution plan timelines and milestone stages from feature architecture mappings."""
 
-    SYSTEM_INSTRUCTION = """You are an expert Technical Program Manager (TPM) and Agile Coach who has managed large-scale engineering integrations at AWS and Netflix. You convert product feature specifications into highly execution-oriented, logical, deeply detailed, and phased delivery roadmaps."""
+    SYSTEM_INSTRUCTION = """You are a concise Technical Program Manager. Convert the startup feature specification into a practical phased roadmap.
 
-    PROMPT_TEMPLATE = """Design a highly expansive, phased, and logical development roadmap for the startup.
-Predecessor Stage Outputs (DNA Context):
+Use exactly 3 phases and 2 short tasks per phase for speed. Keep every string brief.
+Every task must have an ID, title, duration, role, risk, and critical-path flag."""
+
+    PROMPT_TEMPLATE = """    Design a concise phased development roadmap for the startup.
+
+Predecessor Stage Outputs:
 Startup Concept: {{ startup_idea }}
 DNA Details: {{ dna }}
+Feature Catalog: {{ features }}
 
-You must structure the roadmap into chronological execution phases (e.g., Phase 1: MVP Core Launch, Phase 2: Strategic Scale, Phase 3: Future Ecosystem Expansion).
-For each phase, define highly detailed, action-oriented engineering tasks. DO NOT keep descriptions brief. Provide exhaustive context for every task.
-For each phase, define:
-1. Specific, verbose, action-oriented engineering tasks (e.g. "Configure PostgreSQL database schema with high-availability replication", "Integrate Stripe billing API Webhooks for robust subscription management").
-2. Exact feature mappings (linking each task back to the specific FEAT-XXX feature IDs).
-3. Timeline estimations (in weeks).
-4. Specific, clear milestones that act as deployment gates.
-5. Critical path risks and extensive, multi-step mitigations.
+The feature catalog above contains {{ features.features | length }} features. Scale the roadmap accordingly:
 
-Do NOT limit your text length. Ensure the output conforms strictly to the requested JSON schema, providing highly descriptive, professional milestones."""
+Return exactly 3 phases with exactly 2 tasks per phase. Use short descriptions and one acceptance criterion per task.
+Include total duration, critical path, dependencies, and a short launch checklist.
+Return only the requested JSON object."""
 
     async def run(
-        self, 
-        db: AsyncSession, 
-        project: Project, 
-        context: dict[str, Any]
+        self,
+        db: AsyncSession,
+        project: Project,
+        context: dict[str, Any],
     ) -> dict[str, Any]:
         """Validates predecessor scopes, renders prompts, executes AI timeline models, and persists records."""
         logger.info(f"Running Roadmap Generator Module for project: {project.id}")
@@ -48,28 +48,28 @@ Do NOT limit your text length. Ensure the output conforms strictly to the reques
             raise BaseBusinessException(
                 message="DNA and Feature context inputs are required to run the Roadmap Generator.",
                 code="DEPENDENCY_MISSING_ERROR",
-                status_code=400
+                status_code=400,
             )
 
         # 2. Compile templates variables
         variables = {
             "startup_idea": project.title,
             "dna": dna_context,
-            "features": features_context
+            "features": features_context,
         }
 
-        # 3. Render system instructions and prompt templates owned by this module
+        # 3. Render system instructions and prompt templates
         system_instruction, rendered_prompt = self.render_prompt(
             system_template=self.SYSTEM_INSTRUCTION,
             user_template=self.PROMPT_TEMPLATE,
-            variables=variables
+            variables=variables,
         )
 
         # 4. Call LLM structured validation client
         roadmap_output: RoadmapOutput = await gemini_adapter.generate(
             prompt=rendered_prompt,
             schema=RoadmapOutput,
-            system_instruction=system_instruction
+            system_instruction=system_instruction,
         )
 
         output_dict = roadmap_output.model_dump()
@@ -82,10 +82,7 @@ Do NOT limit your text length. Ensure the output conforms strictly to the reques
         if roadmap_record:
             roadmap_record.data = output_dict
         else:
-            roadmap_record = RoadmapResult(
-                project_id=project.id,
-                data=output_dict
-            )
+            roadmap_record = RoadmapResult(project_id=project.id, data=output_dict)
             db.add(roadmap_record)
 
         await db.commit()

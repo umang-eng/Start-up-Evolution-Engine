@@ -145,5 +145,4 @@ class RedisManager:
             raise RuntimeError("Redis Client not initialized")
         return await self.client.publish(channel, message)
 
-
 redis_manager = RedisManager()

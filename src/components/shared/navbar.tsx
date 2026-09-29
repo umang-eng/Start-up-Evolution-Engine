@@ -10,6 +10,7 @@ import {
   Bell, 
   Share2, 
   Download, 
+  ChevronDown,
   LogOut,
   User,
   Check,
@@ -18,11 +19,13 @@ import {
   DollarSign,
   TrendingUp,
   Settings,
-  Folder
+  Folder,
+  Command
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SettingsDialog } from './settings-dialog';
 import { useSettingsStore } from '@/store/use-settings-store';
+import { Badge } from '@/components/ui/badge';
 
 export function Navbar() {
   const { projects, activeProjectId, setActiveStage, setActiveProject } = useBlueprintStore();
@@ -30,7 +33,6 @@ export function Navbar() {
   
   const activeProject = projects.find(p => p.id === activeProjectId);
 
-  // UI States
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settings = useSettingsStore();
@@ -41,7 +43,6 @@ export function Navbar() {
   const [shareStatus, setShareStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [exportStatus, setExportStatus] = useState<'idle' | 'loading'>('idle');
 
-  // Refs for closing dropdowns when clicking outside
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +59,6 @@ export function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Keyboard shortcut for Search (⌘K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -73,7 +73,6 @@ export function Navbar() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Handle Share link generation
   const handleShare = async () => {
     if (!activeProject) return;
     setShareStatus('loading');
@@ -90,7 +89,6 @@ export function Navbar() {
     }
   };
 
-  // Handle PDF Export
   const handleExport = () => {
     if (!activeProject) return;
     setExportStatus('loading');
@@ -98,7 +96,6 @@ export function Navbar() {
     setTimeout(() => setExportStatus('idle'), 1500);
   };
 
-  // Generate dynamic search results
   const getSearchResults = () => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
@@ -109,7 +106,6 @@ export function Navbar() {
       subtitle: string;
       stage: StageName;
       type: 'project' | 'dna' | 'feature' | 'task' | 'role' | 'cost';
-      matchLabel?: string;
     }> = [];
 
     projects.forEach((proj) => {
@@ -118,41 +114,23 @@ export function Navbar() {
           id: `${proj.id}-project`,
           projectId: proj.id,
           title: proj.name,
-          subtitle: `Startup Idea: ${proj.ideaPrompt || 'No prompt info'}`,
+          subtitle: proj.ideaPrompt || 'No description',
           stage: 'dna-analyzer',
           type: 'project',
-          matchLabel: 'Project'
-        });
-      } else if (proj.ideaPrompt.toLowerCase().includes(q)) {
-        results.push({
-          id: `${proj.id}-prompt`,
-          projectId: proj.id,
-          title: proj.name,
-          subtitle: `Idea Prompt Match: "${proj.ideaPrompt}"`,
-          stage: 'dna-analyzer',
-          type: 'project',
-          matchLabel: 'Prompt Match'
         });
       }
-
       if (proj.dna) {
-        if (
-          proj.dna.category.toLowerCase().includes(q) ||
-          proj.dna.valueProposition.toLowerCase().includes(q) ||
-          proj.dna.usp.toLowerCase().includes(q)
-        ) {
+        if (proj.dna.category.toLowerCase().includes(q) || proj.dna.usp.toLowerCase().includes(q)) {
           results.push({
             id: `${proj.id}-dna`,
             projectId: proj.id,
             title: proj.name,
-            subtitle: `DNA / USP Match: "${proj.dna.usp}"`,
+            subtitle: `DNA: ${proj.dna.usp}`,
             stage: 'dna-analyzer',
             type: 'dna',
-            matchLabel: 'DNA / USP'
           });
         }
       }
-
       if (proj.features?.features) {
         proj.features.features.forEach((f) => {
           if (f.name.toLowerCase().includes(q) || f.description.toLowerCase().includes(q)) {
@@ -160,15 +138,13 @@ export function Navbar() {
               id: `${proj.id}-feat-${f.id}`,
               projectId: proj.id,
               title: `${proj.name} › ${f.name}`,
-              subtitle: `Feature: ${f.description} (${f.priority} priority)`,
+              subtitle: f.description,
               stage: 'feature-extractor',
               type: 'feature',
-              matchLabel: 'Feature'
             });
           }
         });
       }
-
       if (proj.roadmap?.phases) {
         proj.roadmap.phases.forEach((phase) => {
           phase.tasks.forEach((t) => {
@@ -177,45 +153,12 @@ export function Navbar() {
                 id: `${proj.id}-task-${t.id}`,
                 projectId: proj.id,
                 title: `${proj.name} › ${t.name}`,
-                subtitle: `Roadmap Task: Phase "${phase.name}"`,
+                subtitle: `Phase: ${phase.name}`,
                 stage: 'roadmap',
                 type: 'task',
-                matchLabel: 'Roadmap'
               });
             }
           });
-        });
-      }
-
-      if (proj.team?.roles) {
-        proj.team.roles.forEach((r) => {
-          if (r.name.toLowerCase().includes(q) || r.department.toLowerCase().includes(q)) {
-            results.push({
-              id: `${proj.id}-role-${r.id}`,
-              projectId: proj.id,
-              title: `${proj.name} › ${r.name}`,
-              subtitle: `Role: ${r.department.replace('_', ' ')} ($${r.monthlyCost.toLocaleString()}/mo)`,
-              stage: 'team-structure',
-              type: 'role',
-              matchLabel: 'Org Role'
-            });
-          }
-        });
-      }
-
-      if (proj.cost?.costItems) {
-        proj.cost.costItems.forEach((c, idx) => {
-          if (c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q)) {
-            results.push({
-              id: `${proj.id}-cost-${idx}`,
-              projectId: proj.id,
-              title: `${proj.name} › ${c.name}`,
-              subtitle: `Cost Item: Category "${c.category}" • $${c.amount.toLocaleString()}`,
-              stage: 'cost-estimator',
-              type: 'cost',
-              matchLabel: 'Finance'
-            });
-          }
         });
       }
     });
@@ -225,61 +168,76 @@ export function Navbar() {
 
   const searchResults = getSearchResults();
 
-  // Create notifications derived from active project stages completed
   const getNotifications = () => {
     if (!activeProject) return [];
     const logs: Array<{ id: string; text: string; time: string; stage: StageName }> = [];
     if (activeProject.dna) {
-      logs.push({ id: 'n1', text: 'Startup blueprint generated.', time: 'Stage 1 Complete', stage: 'dna-analyzer' });
+      logs.push({ id: 'n1', text: 'Venture DNA structured', time: 'Stage 1', stage: 'dna-analyzer' });
     }
     if (activeProject.features) {
-      logs.push({ id: 'n2', text: 'PRD technical features spec compiled.', time: 'Stage 2 Complete', stage: 'feature-extractor' });
+      logs.push({ id: 'n2', text: 'Features spec compiled', time: 'Stage 2', stage: 'feature-extractor' });
     }
     if (activeProject.roadmap) {
-      logs.push({ id: 'n3', text: 'Week-by-week execution roadmap created.', time: 'Stage 3 Complete', stage: 'roadmap' });
+      logs.push({ id: 'n3', text: 'Roadmap created', time: 'Stage 3', stage: 'roadmap' });
     }
     if (activeProject.team) {
-      logs.push({ id: 'n4', text: 'Resource salary model and chart defined.', time: 'Stage 4 Complete', stage: 'team-structure' });
+      logs.push({ id: 'n4', text: 'Team structure defined', time: 'Stage 4', stage: 'team-structure' });
     }
     if (activeProject.swot) {
-      logs.push({ id: 'n5', text: 'Business insights compiled.', time: 'Stage 5 Complete', stage: 'swot' });
+      logs.push({ id: 'n5', text: 'SWOT analysis complete', time: 'Stage 5', stage: 'swot' });
     }
     if (activeProject.cost) {
-      logs.push({ id: 'n6', text: 'Financial burn scenarios projected.', time: 'Stage 6 Complete', stage: 'cost-estimator' });
+      logs.push({ id: 'n6', text: 'Cost estimation done', time: 'Stage 6', stage: 'cost-estimator' });
     }
-    return logs.reverse(); // Newest first
+    return logs.reverse();
   };
 
   const notifications = getNotifications();
 
   return (
     <>
-      <header className="h-14 w-full flex items-center justify-between px-5 bg-card/40 backdrop-blur-xl border-b border-white/[0.04] z-20">
-        {/* Left Workspace Switcher */}
+      <header className="h-14 w-full flex items-center justify-between px-6 bg-card border-b border-border z-20">
+        {/* Left: Workspace */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md">
-            <span className="text-sm font-semibold text-foreground">
-              {activeProject ? activeProject.name : 'Personal Workspace'}
+          {activeProject ? (
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                <span className="text-xs font-bold text-primary">
+                  {activeProject.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div>
+                <span className="text-sm font-semibold text-foreground block leading-none">
+                  {activeProject.name}
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  {activeProject.status || 'Draft'}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <span className="text-sm font-medium text-muted-foreground">
+              Select a workspace
             </span>
-          </div>
+          )}
         </div>
 
-        {/* Center Search */}
+        {/* Center: Search */}
         <div className="flex-1 max-w-md mx-6 hidden md:block">
-          <div 
+          <button
             onClick={() => setSearchOpen(true)}
-            className="relative flex items-center w-full h-8 px-3 rounded-lg border border-white/[0.06] bg-white/[0.02] text-muted-foreground hover:border-white/[0.1] cursor-pointer transition-all"
+            className="flex items-center w-full h-9 px-3 rounded-lg border border-border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
           >
-            <Search className="h-3.5 w-3.5 mr-2" />
-            <span className="text-sm flex-1 text-left">Search blueprint features, costs...</span>
-            <kbd className="h-5 px-1.5 rounded bg-white/[0.04] border border-white/[0.06] text-sm font-mono flex items-center text-muted-foreground/90">
-              ⌘K
+            <Search className="h-4 w-4 mr-2 shrink-0" />
+            <span className="text-sm flex-1 text-left">Search...</span>
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-background border border-border text-[10px] font-mono">
+              <Command className="h-2.5 w-2.5" />K
             </kbd>
-          </div>
+          </button>
         </div>
 
-        {/* Right Controls */}
-        <div className="flex items-center gap-1.5">
+        {/* Right: Actions */}
+        <div className="flex items-center gap-1">
           {activeProject && (
             <>
               <Button
@@ -287,17 +245,17 @@ export function Navbar() {
                 size="sm"
                 onClick={handleShare}
                 disabled={shareStatus === 'loading'}
-                className="h-8 text-sm gap-1.5 text-muted-foreground hover:text-foreground"
+                className="gap-1.5"
               >
                 {shareStatus === 'loading' ? (
-                  <span className="h-3.5 w-3.5 rounded-full border border-cyan-400 border-t-transparent animate-spin" />
+                  <span className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                 ) : shareStatus === 'success' ? (
-                  <Check className="h-3.5 w-3.5 text-emerald-400 animate-pulse" />
+                  <Check className="h-4 w-4 text-emerald-500" />
                 ) : (
-                  <Share2 className="h-3.5 w-3.5 text-cyan-400" />
+                  <Share2 className="h-4 w-4" />
                 )}
                 <span className="hidden sm:inline">
-                  {shareStatus === 'success' ? 'Copied!' : shareStatus === 'error' ? 'Failed' : 'Share'}
+                  {shareStatus === 'success' ? 'Copied!' : 'Share'}
                 </span>
               </Button>
               <Button
@@ -305,81 +263,79 @@ export function Navbar() {
                 size="sm"
                 onClick={handleExport}
                 disabled={exportStatus === 'loading'}
-                className="h-8 text-sm gap-1.5 text-muted-foreground hover:text-foreground"
+                className="gap-1.5"
               >
                 {exportStatus === 'loading' ? (
-                  <span className="h-3.5 w-3.5 rounded-full border border-muted-foreground border-t-transparent animate-spin" />
+                  <span className="h-4 w-4 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
                 ) : (
-                  <Download className="h-3.5 w-3.5" />
+                  <Download className="h-4 w-4" />
                 )}
-                <span className="hidden sm:inline">
-                  {exportStatus === 'loading' ? 'Exporting...' : 'Export'}
-                </span>
+                <span className="hidden sm:inline">Export</span>
               </Button>
             </>
           )}
 
-          {/* Notifications Dropdown */}
+          {/* Notifications */}
           <div className="relative" ref={notificationsRef}>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setNotificationsOpen(!notificationsOpen)}
-              className="h-8 w-8 text-muted-foreground hover:text-foreground relative"
+              className="relative"
             >
-              <Bell className="h-5 w-5" />
+              <Bell className="h-4 w-4" />
               {notifications.length > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
               )}
             </Button>
 
             {notificationsOpen && (
-              <div className="absolute right-0 mt-2 w-80 bg-card/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-lvl-3 py-2 z-30 animate-in fade-in slide-in-from-top-2 duration-150">
-                <span className="text-sm font-bold text-muted-foreground/90 uppercase px-4 pb-2 border-b border-white/[0.04] block tracking-widest">
-                  Activity Logs
-                </span>
-                <div className="max-h-60 overflow-y-auto mt-2 scrollbar-thin">
+              <div className="absolute right-0 mt-2 w-80 bg-card border border-border rounded-xl shadow-xl py-2 z-30 animate-slide-down">
+                <div className="px-4 py-2 border-b border-border">
+                  <span className="text-overline">Activity</span>
+                </div>
+                <div className="max-h-64 overflow-y-auto">
                   {notifications.map(n => (
-                    <div 
+                    <button
                       key={n.id}
                       onClick={() => {
                         setActiveStage(n.stage);
                         setNotificationsOpen(false);
                       }}
-                      className="px-4 py-2.5 hover:bg-white/[0.04] cursor-pointer transition-colors border-b border-white/[0.03] last:border-0"
+                      className="w-full px-4 py-3 hover:bg-muted transition-colors text-left border-b border-border/50 last:border-0"
                     >
-                      <span className="text-sm text-foreground block font-medium">{n.text}</span>
-                      <span className="text-sm text-muted-foreground/90 block mt-0.5">{n.time}</span>
-                    </div>
+                      <span className="text-sm text-foreground block">{n.text}</span>
+                      <span className="text-xs text-muted-foreground mt-0.5 block">{n.time}</span>
+                    </button>
                   ))}
                   {notifications.length === 0 && (
-                    <span className="text-sm text-muted-foreground/80 italic text-center block py-8">
-                      No startup components evolved yet.
-                    </span>
+                    <div className="py-8 text-center text-sm text-muted-foreground">
+                      No activity yet
+                    </div>
                   )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* User Profile Avatar Dropdown */}
+          {/* Profile */}
           <div className="relative" ref={profileRef}>
-            <div 
+            <button
               onClick={() => setProfileOpen(!profileOpen)}
-              className="h-8 w-8 rounded-full border border-white/[0.08] overflow-hidden cursor-pointer hover:border-cyan-500/30 hover:scale-105 active:scale-95 transition-all"
+              className="h-8 w-8 rounded-full bg-muted border border-border overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all"
             >
               <img
                 src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
                 alt="User avatar"
                 className="h-full w-full object-cover"
               />
-            </div>
+            </button>
 
             {profileOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-card/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-lvl-3 py-2 z-30 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="px-4 py-2.5 border-b border-white/[0.04]">
-                  <span className="text-sm font-semibold text-foreground block truncate">{settings.founderName}</span>
-                  <span className="text-sm text-muted-foreground/90 block truncate">{settings.founderTitle}</span>
+              <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-xl shadow-xl py-2 z-30 animate-slide-down">
+                <div className="px-4 py-3 border-b border-border">
+                  <span className="text-sm font-semibold text-foreground block">{settings.founderName}</span>
+                  <span className="text-xs text-muted-foreground block">{settings.founderTitle}</span>
                 </div>
                 <div className="py-1">
                   <button
@@ -387,20 +343,20 @@ export function Navbar() {
                       setProfileOpen(false);
                       setSettingsOpen(true);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:bg-white/[0.04] hover:text-foreground flex items-center gap-2 transition-colors border-0 cursor-pointer"
+                    className="w-full text-left px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground flex items-center gap-2 transition-colors"
                   >
-                    <Settings className="h-3.5 w-3.5" />
-                    <span>Settings</span>
+                    <Settings className="h-4 w-4" />
+                    Settings
                   </button>
                   <button
                     onClick={() => {
                       logout();
                       setProfileOpen(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition-colors border-0 cursor-pointer"
+                    className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors"
                   >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>Log Out</span>
+                    <LogOut className="h-4 w-4" />
+                    Log Out
                   </button>
                 </div>
               </div>
@@ -409,36 +365,34 @@ export function Navbar() {
         </div>
       </header>
 
-      {/* Command Palette Search Overlay */}
+      {/* Command Palette */}
       {searchOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center pt-24 px-4 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center pt-[20vh] px-4 animate-fade-in"
           onClick={() => setSearchOpen(false)}
         >
           <div 
-            className="w-full max-w-lg bg-card/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-lvl-3 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
             onClick={e => e.stopPropagation()}
           >
-            {/* Search Input */}
-            <div className="flex items-center px-4 border-b border-white/[0.04]">
+            <div className="flex items-center px-4 border-b border-border">
               <Search className="h-5 w-5 text-muted-foreground mr-3" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search projects by title, prompt, or internal topic keywords..."
+                placeholder="Search projects, features, tasks..."
                 autoFocus
-                className="w-full h-12 bg-transparent text-sm outline-none text-foreground placeholder-muted-foreground/40 border-0"
+                className="w-full h-14 bg-transparent text-base outline-none text-foreground placeholder-muted-foreground border-0"
               />
-              <span className="text-sm text-muted-foreground/80 border border-white/[0.06] px-1.5 py-0.5 rounded bg-white/[0.03] select-none">
+              <kbd className="text-xs text-muted-foreground border border-border px-2 py-1 rounded bg-muted">
                 ESC
-              </span>
+              </kbd>
             </div>
 
-            {/* Results Body */}
-            <div className="max-h-[350px] overflow-y-auto p-2 space-y-1 scrollbar-thin">
+            <div className="max-h-[400px] overflow-y-auto p-2">
               {searchResults.map(res => (
-                <div
+                <button
                   key={res.id}
                   onClick={() => {
                     setActiveProject(res.projectId);
@@ -446,44 +400,38 @@ export function Navbar() {
                     setSearchOpen(false);
                     setSearchQuery('');
                   }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/[0.04] cursor-pointer transition-colors"
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-muted transition-colors text-left"
                 >
-                  <div className="h-7 w-7 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 shrink-0">
-                    {res.type === 'project' && <Folder className="h-3.5 w-3.5" />}
-                    {res.type === 'feature' && <Cpu className="h-3.5 w-3.5" />}
-                    {res.type === 'task' && <Clock className="h-3.5 w-3.5" />}
-                    {res.type === 'role' && <User className="h-3.5 w-3.5" />}
-                    {res.type === 'cost' && <DollarSign className="h-3.5 w-3.5" />}
-                    {res.type === 'dna' && <TrendingUp className="h-3.5 w-3.5" />}
+                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                    {res.type === 'project' && <Folder className="h-4 w-4" />}
+                    {res.type === 'feature' && <Cpu className="h-4 w-4" />}
+                    {res.type === 'task' && <Clock className="h-4 w-4" />}
+                    {res.type === 'dna' && <TrendingUp className="h-4 w-4" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm font-semibold text-foreground block truncate text-left">{res.title}</span>
-                    <span className="text-sm text-muted-foreground/90 block truncate mt-0.5 text-left">{res.subtitle}</span>
+                    <span className="text-sm font-medium text-foreground block truncate">{res.title}</span>
+                    <span className="text-xs text-muted-foreground block truncate">{res.subtitle}</span>
                   </div>
-                  <span className="text-sm uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] text-muted-foreground/90 select-none shrink-0">
-                    {res.matchLabel || res.stage.replace('-', ' ')}
-                  </span>
-                </div>
+                </button>
               ))}
 
               {searchQuery && searchResults.length === 0 && (
-                <span className="text-sm text-muted-foreground/80 italic text-center block py-12">
-                  No matching workspace records found.
-                </span>
+                <div className="py-12 text-center text-sm text-muted-foreground">
+                  No results found
+                </div>
               )}
 
               {!searchQuery && (
-                <div className="py-8 text-center text-sm text-muted-foreground space-y-3">
-                  <span className="block font-medium text-foreground/60">Quick Navigation</span>
+                <div className="py-8 text-center">
+                  <span className="text-xs text-muted-foreground block mb-3">Quick Access</span>
                   <div className="flex flex-wrap gap-2 justify-center px-4">
                     {[
-                      { name: 'Startup Blueprint', stage: 'dna-analyzer' },
-                      { name: 'Feature Studio', stage: 'feature-extractor' },
-                      { name: 'Launch Roadmap', stage: 'roadmap' },
-                      { name: 'Team Builder', stage: 'team-structure' },
-                      { name: 'Business Insights', stage: 'swot' },
-                      { name: 'Budget Planner', stage: 'cost-estimator' },
-                      { name: 'Final Draft', stage: 'final-blueprint' }
+                      { name: 'DNA', stage: 'dna-analyzer' },
+                      { name: 'Features', stage: 'feature-extractor' },
+                      { name: 'Roadmap', stage: 'roadmap' },
+                      { name: 'Team', stage: 'team-structure' },
+                      { name: 'SWOT', stage: 'swot' },
+                      { name: 'Costs', stage: 'cost-estimator' },
                     ].map(stg => (
                       <button
                         key={stg.stage}
@@ -491,7 +439,7 @@ export function Navbar() {
                           setActiveStage(stg.stage as StageName);
                           setSearchOpen(false);
                         }}
-                        className="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-semibold text-muted-foreground hover:text-foreground transition-all cursor-pointer border border-white/[0.04] hover:border-white/[0.08]"
+                        className="px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                       >
                         {stg.name}
                       </button>
@@ -503,7 +451,7 @@ export function Navbar() {
           </div>
         </div>
       )}
-      {/* Settings Dialog Panel */}
+      
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </>
   );

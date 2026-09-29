@@ -1,11 +1,99 @@
+from datetime import datetime, timedelta, timezone
 from typing import Any
+import uuid
 import pytest
 from httpx import AsyncClient
+from backend.models.blueprint import Blueprint
+from backend.models.project import Project
+from backend.models.workflow import GenerationSession, WorkflowEvent
 
 from backend.schemas.user import UserCreate
 from backend.services.user import user_service
 
 pytestmark = pytest.mark.asyncio
+
+
+async def test_compiled_blueprint_includes_latest_intelligence_stage_results(
+    client: AsyncClient,
+    db_session: Any,
+) -> None:
+    user = await user_service.register_user(
+        db_session,
+        obj_in=UserCreate(email="blueprint-stages@test.com", password="TestPassword123!"),
+    )
+    token = user_service.generate_user_tokens(user).access_token
+    headers = {"Authorization": f"Bearer {token}"}
+    project = Project(
+        user_id=user.id,
+        title="Persisted Intelligence",
+        description="A test startup with persisted intelligence modules.",
+        industry="SaaS",
+    )
+    db_session.add(project)
+    await db_session.flush()
+
+    blueprint = Blueprint(
+        project_id=project.id,
+        data={"executive_summary": {"business_summary": "Complete"}},
+        health_score=75.0,
+    )
+    older_session = GenerationSession(
+        project_id=project.id,
+        status="COMPLETED",
+        correlation_id=str(uuid.uuid4()),
+        progress_percentage=100.0,
+    )
+    latest_session = GenerationSession(
+        project_id=project.id,
+        status="COMPLETED",
+        correlation_id=str(uuid.uuid4()),
+        progress_percentage=100.0,
+    )
+    db_session.add_all([blueprint, older_session, latest_session])
+    await db_session.flush()
+
+    now = datetime.now(timezone.utc)
+    stages = (
+        "competitive_moat",
+        "stress_test",
+        "financial_intelligence",
+        "investment_committee",
+        "product_execution",
+        "global_expansion",
+    )
+    events = [
+        WorkflowEvent(
+            session_id=older_session.id,
+            event_type="module:completed",
+            stage="competitive_moat",
+            payload={"result_version": "old", "_cache_status": "miss"},
+            created_at=now,
+        ),
+        *[
+            WorkflowEvent(
+                session_id=latest_session.id,
+                event_type="module:completed",
+                stage=stage,
+                payload={"result_version": "latest", "_cache_status": "miss"},
+                created_at=now + timedelta(seconds=index + 1),
+            )
+            for index, stage in enumerate(stages)
+        ],
+    ]
+    db_session.add_all(events)
+    await db_session.flush()
+
+    response = await client.get(
+        f"/api/v1/blueprints/{project.id}",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["executive_summary"]["business_summary"] == "Complete"
+    assert set(stages).issubset(data)
+    assert data["competitive_moat"]["result_version"] == "latest"
+    assert "_cache_status" not in data["competitive_moat"]
 
 
 async def test_project_crud_and_generator_api_flow(client: AsyncClient, db_session: Any) -> None:
@@ -105,6 +193,4 @@ async def test_generator_run_specific_stage(client: AsyncClient, db_session: Any
     run_data = run_response.json()
     assert run_data["success"] is True
     assert run_data["data"]["status"] == "QUEUED"
-
-
 

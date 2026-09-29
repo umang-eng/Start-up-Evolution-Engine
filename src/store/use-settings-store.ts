@@ -18,7 +18,7 @@ export interface SettingsState {
 const DEFAULT_SETTINGS: Omit<SettingsState, 'updateSettings' | 'resetSettings'> = {
   founderName: 'Founder Member',
   founderTitle: 'CEO & Founder',
-  model: 'gemini-2.0-flash',
+  model: 'gemma2:2b',
   temperature: 0.3,
   customApiKey: '',
   currencySymbol: '$',

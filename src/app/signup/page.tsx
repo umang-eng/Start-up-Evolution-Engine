@@ -33,85 +33,85 @@ export default function SignupPage() {
     try {
       await signup(email, password);
     } catch (err) {
-      // Error is handled by AuthProvider and displayed in the UI
+      console.error('Signup error:', err);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-mesh-hero font-sans relative overflow-hidden">
-      {/* Dynamic Background Glowing Orbs */}
-      <div className="absolute top-[-20%] left-[-15%] w-[50%] h-[50%] rounded-full blur-[140px] pointer-events-none" style={{ background: 'hsla(192, 91%, 54%, 0.08)' }} />
-      <div className="absolute bottom-[-20%] right-[-15%] w-[50%] h-[50%] rounded-full blur-[140px] pointer-events-none" style={{ background: 'hsla(262, 83%, 68%, 0.06)' }} />
+    <div className="h-screen w-screen flex items-center justify-center bg-background font-sans relative overflow-hidden">
+      {/* Dynamic Background Glowing Accents */}
+      <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-accent-blue/10 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-accent-blue/5 blur-[120px] pointer-events-none" />
 
       <div className="w-full max-w-md px-4 z-10">
-        <Card className="border-white/[0.06] bg-card/80 backdrop-blur-xl shadow-lvl-3">
-          <CardHeader className="space-y-3 text-center pb-6">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden border border-white/[0.08] bg-white/[0.03] shadow-lvl-1 glow-violet">
+        <Card className="border-border bg-card shadow-xl">
+          <CardHeader className="space-y-2 text-center pb-6">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden border border-border bg-card shadow-sm">
               <img src="/logo.png" alt="Evolution Engine Logo" className="h-full w-full object-cover" />
             </div>
             <CardTitle className="text-2xl font-bold tracking-tight text-foreground">Create Account</CardTitle>
-            <CardDescription className="text-sm text-muted-foreground">
+            <CardDescription className="text-xs text-muted-foreground">
               Sign up to generate co-founder startup intelligence blueprints
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {error && (
-              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 shrink-0" />
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-xs flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground/80" />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground/60" />
                   <Input
                     type="email"
                     placeholder="name@company.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="pl-9 h-10 text-sm bg-white/[0.03] border-white/[0.06] text-foreground placeholder-muted-foreground/30"
+                    className="pl-9 h-10 text-sm"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Password
                 </label>
                 <div className="relative">
-                  <KeyRound className="absolute left-3 top-3 h-5 w-5 text-muted-foreground/80" />
+                  <KeyRound className="absolute left-3 top-3 h-4 w-4 text-muted-foreground/60" />
                   <Input
                     type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="pl-9 h-10 text-sm bg-white/[0.03] border-white/[0.06] text-foreground placeholder-muted-foreground/30"
+                    className="pl-9 h-10 text-sm"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Confirm Password
                 </label>
                 <div className="relative">
-                  <KeyRound className="absolute left-3 top-3 h-5 w-5 text-muted-foreground/80" />
+                  <KeyRound className="absolute left-3 top-3 h-4 w-4 text-muted-foreground/60" />
                   <Input
                     type="password"
                     placeholder="••••••••"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    className="pl-9 h-10 text-sm bg-white/[0.03] border-white/[0.06] text-foreground placeholder-muted-foreground/30"
+                    className="pl-9 h-10 text-sm"
                   />
                 </div>
               </div>
@@ -122,17 +122,17 @@ export default function SignupPage() {
                 className="w-full h-10 mt-2 text-sm font-medium flex items-center justify-center gap-1.5"
               >
                 <span>{isSubmitting ? 'Registering...' : 'Get Started'}</span>
-                {!isSubmitting && <ArrowRight className="h-5 w-5" />}
+                {!isSubmitting && <ArrowRight className="h-4 w-4" />}
               </Button>
             </form>
 
-            <div className="text-center pt-4 border-t border-white/[0.04]">
-              <span className="text-sm text-muted-foreground">
+            <div className="text-center pt-4 border-t border-border/50">
+              <span className="text-xs text-muted-foreground">
                 Already have an account?{' '}
                 <Link
                   href="/login"
                   onClick={() => setError(null)}
-                  className="text-cyan-400 font-semibold hover:underline"
+                  className="text-accent-blue font-semibold hover:underline"
                 >
                   Sign in
                 </Link>

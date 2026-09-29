@@ -8,10 +8,47 @@ from backend.api.dependencies import get_token_payload
 from backend.core.exceptions import EntityNotFoundError
 from backend.database.session import get_db
 from backend.models.blueprint import Blueprint
+from backend.models.workflow import GenerationSession, WorkflowEvent
 from backend.schemas.base import BaseResponse, APIResponseMetadata
 from backend.services.project import project_service
 
 router = APIRouter(prefix="/blueprints", tags=["Blueprints"])
+
+INTELLIGENCE_STAGES = {
+    "competitive_moat",
+    "stress_test",
+    "financial_intelligence",
+    "investment_committee",
+    "product_execution",
+    "global_expansion",
+}
+
+
+async def _load_intelligence_results(
+    db: AsyncSession,
+    project_id: uuid.UUID,
+) -> dict[str, dict[str, Any]]:
+    """Load the latest persisted intelligence-stage output for each project stage."""
+    event_stmt = (
+        select(WorkflowEvent)
+        .join(GenerationSession, WorkflowEvent.session_id == GenerationSession.id)
+        .where(
+            GenerationSession.project_id == project_id,
+            WorkflowEvent.event_type == "module:completed",
+            WorkflowEvent.stage.in_(INTELLIGENCE_STAGES),
+        )
+        .order_by(WorkflowEvent.created_at.desc())
+    )
+    events = (await db.execute(event_stmt)).scalars().all()
+    results: dict[str, dict[str, Any]] = {}
+    for event in events:
+        if event.stage and event.stage not in results:
+            results[event.stage] = {
+                key: value
+                for key, value in (event.payload or {}).items()
+                if not key.startswith("_")
+            }
+    return results
 
 
 @router.get("/{project_id}", response_model=BaseResponse[dict[str, Any]])
@@ -34,7 +71,8 @@ async def get_compiled_blueprint(
         selectinload(Project.roadmap_result),
         selectinload(Project.team_result),
         selectinload(Project.swot_result),
-        selectinload(Project.cost_result)
+        selectinload(Project.cost_result),
+        selectinload(Project.legal_compliance_result),
     )
     result = await db.execute(stmt)
     project = result.scalars().first()
@@ -44,11 +82,16 @@ async def get_compiled_blueprint(
             code="PROJECT_NOT_FOUND"
         )
 
-    # 2. Return the compiled blueprint record if it exists
+    intelligence_results = await _load_intelligence_results(db, project_id)
+
+    # Intelligence-stage outputs live in workflow events rather than the
+    # core Blueprint schema, so merge them into both complete and partial views.
     if project.blueprint:
+        blueprint_data = dict(project.blueprint.data or {})
+        blueprint_data.update(intelligence_results)
         return {
             "success": True,
-            "data": project.blueprint.data,
+            "data": blueprint_data,
             "metadata": APIResponseMetadata()
         }
 
@@ -67,9 +110,15 @@ async def get_compiled_blueprint(
         "team_structure": project.team_result.data if project.team_result else None,
         "swot_analysis": project.swot_result.data if project.swot_result else None,
         "financial_plan": project.cost_result.data if project.cost_result else None,
+        "legal_compliance": (
+            project.legal_compliance_result.data
+            if project.legal_compliance_result else None
+        ),
         "health_indicators": None,
         "conflict_resolution_log": []
     }
+
+    partial_data.update(intelligence_results)
 
     return {
         "success": True,

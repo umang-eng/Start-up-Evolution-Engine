@@ -1,9 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useTransition } from 'react';
+import React, { useState, useEffect, useTransition, useCallback, useRef } from 'react';
 import { useBlueprintStore } from '@/store/use-blueprint-store';
 import { useAuth } from '@/components/shared/auth-provider';
-import { api, getAccessToken, mapDnaResponse, mapFeaturesResponse, mapRoadmapResponse, mapTeamResponse, mapSwotResponse, mapCostResponse } from '@/lib/api-client';
+import { useNotificationStore } from '@/store/use-notification-store';
+import { usePipelineStore } from '@/store/use-pipeline-store';
+import { 
+  api, getAccessToken, 
+  mapDnaResponse, mapFeaturesResponse, mapRoadmapResponse, mapTeamResponse, 
+  mapSwotResponse, mapCostResponse,
+  mapLegalComplianceResponse, mapCompetitiveMoatResponse, mapStressTestResponse,
+  mapFinancialIntelligenceResponse, mapInvestmentCommitteeResponse,
+  mapProductExecutionResponse, mapGlobalExpansionResponse
+} from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { useSettingsStore } from '@/store/use-settings-store';
 import { Sidebar } from '@/components/shared/sidebar';
@@ -13,6 +22,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ExecutiveDashboard } from '@/components/dashboard/executive-dashboard';
+import { WorkspaceView } from '@/components/workspace';
+import { PipelineProgress } from '@/components/pipeline/pipeline-progress';
+import { NotificationPanel } from '@/components/notifications/notification-panel';
+import { requestNotificationPermission } from '@/components/notifications/notification-panel';
 import { 
   Sparkles, 
   ArrowRight, 
@@ -28,17 +42,62 @@ import {
   Award,
   ScrollText,
   Plus,
-  Zap,
-  Lock,
-  Circle,
-  Check,
-  ChevronRight,
-  BarChart3,
   Shield,
-  DollarSign,
-  FileText
+  Target,
+  Zap,
+  BarChart3,
+  Users,
+  Rocket,
+  Globe,
+  ChevronLeft,
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
-import { StageName } from '@/types/blueprint';
+import { StageName, ALL_STAGES, STAGE_LABELS } from '@/types/blueprint';
+
+function formatInvestmentRecommendation(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+
+  const recommendation = value as Record<string, unknown>;
+  return [recommendation.recommendation, recommendation.investment_thesis]
+    .filter((part): part is string => typeof part === 'string' && part.length > 0)
+    .join(' — ');
+}
+
+const STAGE_ORDER: StageName[] = [
+  'dna-analyzer',
+  'feature-extractor',
+  'roadmap',
+  'team-structure',
+  'swot',
+  'cost-estimator',
+  'legal-compliance',
+  'competitive-moat',
+  'stress-test',
+  'financial-intelligence',
+  'investment-committee',
+  'product-execution',
+  'global-expansion',
+  'final-blueprint',
+];
+
+const STAGE_ICONS: Record<StageName, any> = {
+  'dna-analyzer': Dna,
+  'feature-extractor': GitBranch,
+  'roadmap': LineChart,
+  'team-structure': Network,
+  'swot': TrendingUp,
+  'cost-estimator': Award,
+  'final-blueprint': ScrollText,
+  'legal-compliance': Shield,
+  'competitive-moat': Target,
+  'stress-test': Zap,
+  'financial-intelligence': BarChart3,
+  'investment-committee': Users,
+  'product-execution': Rocket,
+  'global-expansion': Globe,
+};
 
 const getBackendStageName = (frontendStage: string): string => {
   const mapping: Record<string, string> = {
@@ -48,76 +107,72 @@ const getBackendStageName = (frontendStage: string): string => {
     'team-structure': 'team',
     'swot': 'swot',
     'cost-estimator': 'cost',
-    'final-blueprint': 'blueprint'
+    'final-blueprint': 'blueprint',
+    'legal-compliance': 'legal_compliance',
+    'competitive-moat': 'competitive_moat',
+    'stress-test': 'stress_test',
+    'financial-intelligence': 'financial_intelligence',
+    'investment-committee': 'investment_committee',
+    'product-execution': 'product_execution',
+    'global-expansion': 'global_expansion',
   };
   return mapping[frontendStage] || 'dna';
 };
 
-const isStageCompleted = (stage: StageName, project: any): boolean => {
-  if (stage === 'dna-analyzer') return !!project.dna;
-  if (stage === 'feature-extractor') return !!project.features;
-  if (stage === 'roadmap') return !!project.roadmap;
-  if (stage === 'team-structure') return !!project.team;
-  if (stage === 'swot') return !!project.swot;
-  if (stage === 'cost-estimator') return !!project.cost;
-  if (stage === 'final-blueprint') return !!project.blueprintCompiled;
-  return false;
+const getFrontendStageName = (backendStage: string): StageName => {
+  const mapping: Record<string, StageName> = {
+    'dna': 'dna-analyzer',
+    'features': 'feature-extractor',
+    'roadmap': 'roadmap',
+    'team': 'team-structure',
+    'swot': 'swot',
+    'cost': 'cost-estimator',
+    'blueprint': 'final-blueprint',
+    'legal_compliance': 'legal-compliance',
+    'competitive_moat': 'competitive-moat',
+    'stress_test': 'stress-test',
+    'financial_intelligence': 'financial-intelligence',
+    'investment_committee': 'investment-committee',
+    'product_execution': 'product-execution',
+    'global_expansion': 'global-expansion',
+  };
+  return mapping[backendStage] || 'dna-analyzer';
 };
 
-/* =============================================
-   STAGE PIPELINE CONFIG
-   ============================================= */
-const STAGES: { 
-  name: StageName; 
-  label: string; 
-  shortLabel: string;
-  icon: React.ComponentType<any>; 
-  color: string; 
-  glowClass: string;
-  bgAccent: string;
-}[] = [
-  { name: 'dna-analyzer', label: 'Startup Blueprint', shortLabel: 'Startup Blueprint', icon: Dna, color: 'text-cyan-400', glowClass: 'glow-cyan', bgAccent: 'bg-cyan-500/10' },
-  { name: 'feature-extractor', label: 'Feature Studio', shortLabel: 'Feature Studio', icon: GitBranch, color: 'text-violet-400', glowClass: 'glow-violet', bgAccent: 'bg-violet-500/10' },
-  { name: 'roadmap', label: 'Launch Roadmap', shortLabel: 'Launch Roadmap', icon: LineChart, color: 'text-emerald-400', glowClass: 'glow-emerald', bgAccent: 'bg-emerald-500/10' },
-  { name: 'team-structure', label: 'Team Builder', shortLabel: 'Team Builder', icon: Network, color: 'text-amber-400', glowClass: 'glow-amber', bgAccent: 'bg-amber-500/10' },
-  { name: 'swot', label: 'Business Insights', shortLabel: 'Business Insights', icon: Shield, color: 'text-rose-400', glowClass: 'glow-rose', bgAccent: 'bg-rose-500/10' },
-  { name: 'cost-estimator', label: 'Budget Planner', shortLabel: 'Budget Planner', icon: DollarSign, color: 'text-cyan-400', glowClass: 'glow-cyan', bgAccent: 'bg-cyan-500/10' },
-  { name: 'final-blueprint', label: 'Final Draft', shortLabel: 'Final Draft', icon: FileText, color: 'text-violet-400', glowClass: 'glow-violet', bgAccent: 'bg-violet-500/10' },
+const isStageCompleted = (stage: StageName, project: any): boolean => {
+  const checkMap: Record<StageName, () => boolean> = {
+    'dna-analyzer': () => !!project.dna,
+    'feature-extractor': () => !!project.features,
+    'roadmap': () => !!project.roadmap,
+    'team-structure': () => !!project.team,
+    'swot': () => !!project.swot,
+    'cost-estimator': () => !!project.cost,
+    'final-blueprint': () => !!project.blueprintCompiled,
+    'legal-compliance': () => !!project.legalCompliance,
+    'competitive-moat': () => !!project.competitiveMoat,
+    'stress-test': () => !!project.stressTest,
+    'financial-intelligence': () => !!project.financialIntelligence,
+    'investment-committee': () => !!project.investmentCommittee,
+    'product-execution': () => !!project.productExecution,
+    'global-expansion': () => !!project.globalExpansion,
+  };
+  return checkMap[stage]?.() ?? false;
+};
+
+const PIPELINE_STAGE_ORDER: StageName[] = [
+  'dna-analyzer', 'feature-extractor', 'roadmap', 'team-structure',
+  'swot', 'cost-estimator', 'legal-compliance',
+  'competitive-moat', 'stress-test', 'financial-intelligence',
+  'investment-committee', 'product-execution', 'global-expansion',
+  'final-blueprint',
 ];
 
-/* =============================================
-   SCORE RING SVG COMPONENT
-   ============================================= */
-function ScoreRing({ score, size = 80, label }: { score: number; size?: number; label?: string }) {
-  const radius = (size - 12) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
-  
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <svg width={size} height={size} className="score-ring">
-        <defs>
-          <linearGradient id="score-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="hsl(192 91% 54%)" />
-            <stop offset="100%" stopColor="hsl(262 83% 68%)" />
-          </linearGradient>
-        </defs>
-        <circle className="track" cx={size/2} cy={size/2} r={radius} />
-        <circle 
-          className="fill" 
-          cx={size/2} 
-          cy={size/2} 
-          r={radius}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          style={{ stroke: 'url(#score-gradient)' }}
-        />
-      </svg>
-      <span className="text-lg font-bold text-foreground">{score}</span>
-      {label && <span className="text-sm text-muted-foreground uppercase tracking-wider">{label}</span>}
-    </div>
-  );
-}
+const isStageUnlocked = (stage: StageName, project: any): boolean => {
+  const index = PIPELINE_STAGE_ORDER.indexOf(stage);
+  return index <= 0 || PIPELINE_STAGE_ORDER
+    .slice(0, index)
+    .every((previousStage) => isStageCompleted(previousStage, project));
+};
 
 export default function WorkspacePage() {
   const { 
@@ -128,25 +183,41 @@ export default function WorkspacePage() {
     loadProjects,
     createNewProject,
     updateProjectStatus,
+    updateProjectStage,
     loadBlueprint,
     saveDNA,
     saveFeatures,
     saveRoadmap,
     saveTeam,
     saveSWOT,
-    saveCost
+    saveCost,
+    saveLegalCompliance,
+    saveCompetitiveMoat,
+    saveStressTest,
+    saveFinancialIntelligence,
+    saveInvestmentCommittee,
+    saveProductExecution,
+    saveGlobalExpansion,
+    completeBlueprint
   } = useBlueprintStore();
 
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [inputVal, setInputVal] = useState('');
-  const [startupName, setStartupName] = useState('');
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [streamLog, setStreamLog] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'model' | 'target' | 'usp'>('model');
   const [selectedScenario, setSelectedScenario] = useState<'lean' | 'balanced' | 'aggressive'>('lean');
   const [isPending, startTransition] = useTransition();
+  const activeEventSources = useRef<Record<string, EventSource>>({});
+  const activeSessionIds = useRef<Record<string, string | undefined>>({});
+  const pendingGenerationProjects = useRef(new Set<string>());
 
   const activeProject = projects.find(p => p.id === activeProjectId);
+  const handleStageSelect = (stage: StageName) => {
+    if (activeProject && isStageUnlocked(stage, activeProject)) {
+      setActiveStage(stage);
+    }
+  };
   const { currencySymbol, costBuffer } = useSettingsStore();
 
   const formatCost = (amount: number) => {
@@ -168,7 +239,16 @@ export default function WorkspacePage() {
     }
   }, [activeProjectId]);
 
-  // AI-powered idea enhancement — calls real Gemini backend
+  // Development fallback: keep the UI current when Redis/SSE is unavailable.
+  useEffect(() => {
+    if (!activeProjectId || activeProject?.status !== 'generating') return;
+    const timer = window.setInterval(() => {
+      loadBlueprint(activeProjectId);
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [activeProjectId, activeProject?.status, loadBlueprint]);
+
+  // AI-powered idea enhancement using the configured analysis provider
   const handleEnhance = async () => {
     if (!inputVal.trim()) return;
     setIsEnhancing(true);
@@ -179,6 +259,7 @@ export default function WorkspacePage() {
       }
     } catch (err: any) {
       console.error('Idea enhancement failed:', err);
+      // Fallback: append strategic context if API fails
       setInputVal(prev => prev + ' — targeting early adopters via a SaaS subscription model with freemium onboarding and usage-based pricing.');
     } finally {
       setIsEnhancing(false);
@@ -186,25 +267,39 @@ export default function WorkspacePage() {
   };
 
   // Run real generation sequence using Server-Sent Events (SSE)
-  const handleStartGeneration = async (projId: string, stage: string) => {
+  const handleStartGeneration = async (projId: string, stage?: string) => {
+    if (pendingGenerationProjects.current.has(projId)) return;
+    pendingGenerationProjects.current.add(projId);
+
+    if (stage) {
+      setActiveStage(getFrontendStageName(stage));
+    }
     updateProjectStatus(projId, 'generating');
-    setStreamLog([`Contacting intelligence orchestrator for stage [${stage.toUpperCase()}]...`]);
+    usePipelineStore.getState().beginPipeline(projId, stage);
+    setStreamLog([stage
+      ? `Contacting intelligence orchestrator for stage [${stage.toUpperCase()}]...`
+      : 'Contacting intelligence orchestrator for the complete blueprint...']);
 
     const token = getAccessToken();
     if (!token) {
       setStreamLog(prev => ["❌ Error: Authentication credentials missing. Please log in again.", ...prev]);
       updateProjectStatus(projId, 'error');
+      usePipelineStore.getState().finishPipeline(projId, 'failed');
+      pendingGenerationProjects.current.delete(projId);
       return;
     }
 
     try {
       // 1. Trigger Async execution run
-      await api.generator.run(projId, stage);
+      const runResponse = await api.generator.run(projId, stage);
+      const sessionId = runResponse?.data?.session_id;
       setStreamLog(prev => ["✅ Generation pipeline triggered. Opening stream connection...", ...prev]);
 
       // 2. Open EventSource connection with token query param
       const eventSourceUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/streams/progress/${projId}?token=${encodeURIComponent(token)}`;
       const es = new EventSource(eventSourceUrl);
+      activeEventSources.current[projId] = es;
+      activeSessionIds.current[projId] = sessionId;
       let consecutiveErrors = 0;
       const MAX_ERRORS = 5;
 
@@ -213,13 +308,20 @@ export default function WorkspacePage() {
       });
 
       es.addEventListener('workflow:started', () => {
-        setStreamLog(prev => ["🚀 Pipeline running — generating startup blueprint...", ...prev]);
+        setStreamLog(prev => ["🚀 Pipeline running — evolving startup DNA architecture...", ...prev]);
       });
 
       es.addEventListener('module:started', (e: any) => {
         try {
           const data = JSON.parse(e.data);
           const stageName = data.module_info?.module_name || '';
+          if (stageName) {
+            updateProjectStage(projId, getFrontendStageName(stageName));
+            usePipelineStore.getState().updateStage(projId, stageName, {
+              status: 'running',
+              startTime: Date.now(),
+            });
+          }
           setStreamLog(prev => [`⚙️ Stage [${stageName.toUpperCase()}]: compiling dataset...`, ...prev]);
         } catch (err) {
           console.error('module:started parse error', err);
@@ -232,6 +334,12 @@ export default function WorkspacePage() {
           const stageName = data.module_info?.module_name;
           const result = data.result_info;
 
+          if (stageName) {
+            usePipelineStore.getState().updateStage(projId, stageName, {
+              status: 'completed',
+              endTime: Date.now(),
+            });
+          }
           setStreamLog(prev => [`✅ Stage [${stageName?.toUpperCase()}] compiled successfully.`, ...prev]);
 
           // Save partial result structures into Zustand store in real-time
@@ -241,6 +349,19 @@ export default function WorkspacePage() {
           else if (stageName === 'team') saveTeam(projId, mapTeamResponse(result));
           else if (stageName === 'swot') saveSWOT(projId, mapSwotResponse(result));
           else if (stageName === 'cost') saveCost(projId, mapCostResponse(result));
+          else if (stageName === 'blueprint') {
+            // Blueprint completion is persisted as a unified record. Reload it
+            // so the compiled flag and all derived stage state update together.
+            completeBlueprint(projId);
+            void loadBlueprint(projId);
+          }
+          else if (stageName === 'legal_compliance') saveLegalCompliance(projId, mapLegalComplianceResponse(result));
+          else if (stageName === 'competitive_moat') saveCompetitiveMoat(projId, mapCompetitiveMoatResponse(result));
+          else if (stageName === 'stress_test') saveStressTest(projId, mapStressTestResponse(result));
+          else if (stageName === 'financial_intelligence') saveFinancialIntelligence(projId, mapFinancialIntelligenceResponse(result));
+          else if (stageName === 'investment_committee') saveInvestmentCommittee(projId, mapInvestmentCommitteeResponse(result));
+          else if (stageName === 'product_execution') saveProductExecution(projId, mapProductExecutionResponse(result));
+          else if (stageName === 'global_expansion') saveGlobalExpansion(projId, mapGlobalExpansionResponse(result));
         } catch (err) {
           console.error('module:completed parse error', err);
         }
@@ -252,6 +373,13 @@ export default function WorkspacePage() {
           const stageName = data.module_info?.module_name;
           const errMsg = data.error_info?.error_message || 'Unknown error';
           const isFatal = data.error_info?.is_fatal;
+          if (stageName) {
+            usePipelineStore.getState().updateStage(projId, stageName, {
+              status: 'failed',
+              error: errMsg,
+              endTime: Date.now(),
+            });
+          }
           setStreamLog(prev => [
             `${isFatal ? '❌' : '⚠️'} Stage [${stageName?.toUpperCase()}] ${isFatal ? 'FAILED' : 'warning'}: ${errMsg}`,
             ...prev
@@ -262,9 +390,14 @@ export default function WorkspacePage() {
       });
 
       es.addEventListener('workflow:completed', () => {
-        const stageLabel = stage === 'blueprint' ? 'Final Draft' : `Stage [${stage.toUpperCase()}]`;
+        const stageLabel = stage ? (stage === 'blueprint' ? 'Final Blueprint' : `Stage [${stage.toUpperCase()}]`) : 'Complete Blueprint';
         setStreamLog(prev => [`🎉 ${stageLabel} compiled successfully!`, ...prev]);
+        updateProjectStatus(projId, stage ? 'idle' : 'completed');
+        usePipelineStore.getState().finishPipeline(projId, 'completed');
         es.close();
+        delete activeEventSources.current[projId];
+        delete activeSessionIds.current[projId];
+        pendingGenerationProjects.current.delete(projId);
         loadBlueprint(projId);
       });
 
@@ -274,7 +407,11 @@ export default function WorkspacePage() {
           const errMsg = data.error_info?.error_message || 'Compilation failed';
           setStreamLog(prev => [`❌ Fatal error: ${errMsg}`, ...prev]);
           updateProjectStatus(projId, 'error');
+          usePipelineStore.getState().finishPipeline(projId, 'failed');
           es.close();
+          delete activeEventSources.current[projId];
+          delete activeSessionIds.current[projId];
+          pendingGenerationProjects.current.delete(projId);
         } catch (err) {
           console.error('workflow:failed parse error', err);
         }
@@ -283,7 +420,7 @@ export default function WorkspacePage() {
       es.onerror = (event) => {
         consecutiveErrors++;
         if (consecutiveErrors >= MAX_ERRORS) {
-          setStreamLog(prev => ['❌ Stream connection lost. Generation may still be running in background.', ...prev]);
+            setStreamLog(prev => ['❌ Stream connection lost. Generation may still be running; use Stop Generation before retrying.', ...prev]);
           es.close();
         } else {
           console.warn(`EventSource error #${consecutiveErrors} — retrying...`);
@@ -293,8 +430,26 @@ export default function WorkspacePage() {
     } catch (err: any) {
       setStreamLog(prev => [`❌ Trigger failed: ${err.message}`, ...prev]);
       updateProjectStatus(projId, 'error');
+      usePipelineStore.getState().finishPipeline(projId, 'failed');
+      pendingGenerationProjects.current.delete(projId);
     }
   };
+
+  const handleStopGeneration = useCallback(async (projId: string) => {
+    activeEventSources.current[projId]?.close();
+    delete activeEventSources.current[projId];
+    delete activeSessionIds.current[projId];
+    pendingGenerationProjects.current.delete(projId);
+    try {
+      await api.generator.cancel(projId);
+      setStreamLog(prev => ['Generation stopped. Completed sections were preserved.', ...prev]);
+    } catch (err: any) {
+      setStreamLog(prev => [`Could not stop generation: ${err.message}`, ...prev]);
+    } finally {
+      updateProjectStatus(projId, 'idle');
+      usePipelineStore.getState().finishPipeline(projId, 'failed');
+    }
+  }, [updateProjectStatus]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -302,9 +457,12 @@ export default function WorkspacePage() {
 
     startTransition(async () => {
       try {
-        const p = await createNewProject(startupName.trim() || "Evolved Startup Idea", inputVal);
+        const projectName = inputVal.trim().split(/\s+/).slice(0, 6).join(' ');
+        const p = await createNewProject(
+          projectName.length >= 3 ? projectName : `${projectName} Project`,
+          inputVal.trim(),
+        );
         setInputVal('');
-        setStartupName('');
         handleStartGeneration(p.id, 'dna');
       } catch (err) {
         console.error('Failed to evolve startup idea:', err);
@@ -316,28 +474,34 @@ export default function WorkspacePage() {
     setInputVal(text);
   };
 
-  // Get stage status for dock
-  const getStageStatus = (stageName: StageName): 'completed' | 'active' | 'locked' | 'pending' => {
-    if (!activeProject) return 'locked';
-    if (isStageCompleted(stageName, activeProject)) return 'completed';
-    if (activeStage === stageName) return 'active';
+  // Handle one-click complete pipeline generation
+  const handleStartCompletePipeline = useCallback(async (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    updateProjectStatus(projectId, 'generating');
+    const firstIncompleteStage = PIPELINE_STAGE_ORDER.find((stage) => !isStageCompleted(stage, project));
+    if (firstIncompleteStage) {
+      setActiveStage(firstIncompleteStage);
+    }
+    setStreamLog(['Starting complete venture blueprint generation...']);
     
-    const stageIdx = STAGES.findIndex(s => s.name === stageName);
-    if (stageIdx === 0) return 'pending';
-    
-    const precedingStages = STAGES.slice(0, stageIdx);
-    const allPrecedingDone = precedingStages.every(s => isStageCompleted(s.name, activeProject));
-    return allPrecedingDone ? 'pending' : 'locked';
-  };
+    // Start one server-side run. The orchestrator executes stages in dependency order
+    // and this page's single SSE connection updates each result as it completes.
+    await handleStartGeneration(projectId);
+  }, [projects, handleStartGeneration, updateProjectStatus]);
+
+  // Request notification permission on mount
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
 
   // Safe loading check
   if (authLoading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-mesh-dark">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-cyan-500/10 flex items-center justify-center glow-cyan">
-            <RefreshCw className="h-5 w-5 text-cyan-400 animate-spin" />
-          </div>
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-2">
+          <RefreshCw className="h-6 w-6 text-primary animate-spin" />
           <span className="text-sm text-muted-foreground">Authenticating session...</span>
         </div>
       </div>
@@ -345,7 +509,7 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden bg-mesh-dark font-sans select-none">
+    <div className="h-screen w-screen flex overflow-hidden bg-background">
       {/* Sidebar Navigation */}
       <Sidebar />
 
@@ -353,864 +517,1291 @@ export default function WorkspacePage() {
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <Navbar />
 
-        {/* Focus Viewport */}
-        <main className="flex-1 overflow-y-auto bg-mesh-dark relative">
+        {/* Focus Viewport - Single scrollable area */}
+        <main className="flex-1 overflow-y-auto">
           {!activeProject ? (
-            /* =============================================
-               CINEMATIC HERO — EMPTY STATE
-               ============================================= */
-            <div className="min-h-full flex flex-col items-center justify-center py-12 px-6 relative">
-              {/* Floating Orbs */}
-              <div className="absolute top-[15%] left-[10%] w-64 h-64 rounded-full bg-cyan-500/5 blur-[100px] float-orb pointer-events-none" />
-              <div className="absolute bottom-[20%] right-[15%] w-48 h-48 rounded-full bg-violet-500/5 blur-[80px] float-orb-delayed pointer-events-none" />
-
-              <div className="max-w-2xl w-full space-y-8 z-10">
-                {/* Hero Title */}
-                <div className="text-center space-y-3">
-                  <h1 className="text-4xl font-bold tracking-tight">
-                    <span className="gradient-text">Co-Author</span>
-                    <span className="text-foreground"> Your Next Venture.</span>
-                  </h1>
-                  <p className="text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
-                    Describe a startup concept. Our AI engine will analyze market viability, structure product requirements, map timelines, and forecast runway costs.
-                  </p>
-                </div>
-
-                {/* Prompt Input Box */}
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="relative rounded-xl border border-white/[0.08] bg-card/80 backdrop-blur-xl shadow-lvl-2 focus-within:border-cyan-500/30 focus-within:glow-cyan transition-all duration-300">
-                    <input
-                      value={startupName}
-                      onChange={(e) => setStartupName(e.target.value)}
-                      placeholder="Name of your startup (optional)"
-                      className="w-full h-12 px-5 py-3 bg-transparent text-sm border-b border-white/[0.05] outline-none text-foreground font-semibold placeholder-muted-foreground/40"
-                    />
-                    <textarea
-                      value={inputVal}
-                      onChange={(e) => setInputVal(e.target.value)}
-                      placeholder="Describe your startup idea in detail..."
-                      className="w-full h-32 px-5 py-4 bg-transparent text-sm resize-none outline-none text-foreground placeholder-muted-foreground/40"
-                    />
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-white/[0.05]">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={handleEnhance}
-                        disabled={isEnhancing || !inputVal}
-                        className="h-8 text-sm gap-1.5 text-muted-foreground hover:text-cyan-400"
-                      >
-                        <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-                        <span>{isEnhancing ? 'Enhancing...' : 'Enhance Idea'}</span>
-                      </Button>
-                      <Button
-                        type="submit"
-                        disabled={!inputVal.trim() || isPending}
-                        className="h-9 text-sm gap-1.5 rounded-lg px-5"
-                      >
-                        <span>Evolve Idea</span>
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                </form>
-
-                {/* Starter Templates */}
-                <div className="space-y-3">
-                  <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest block text-center">
-                    Starter Templates
-                  </span>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {[
-                      "An AI-powered automated fitness coach for busy urban professionals",
-                      "A localized peer-to-peer drone delivery marketplace for farms",
-                      "A B2B SaaS analytics tracker measuring ESG compliance footprints"
-                    ].map((tpl, i) => (
-                      <button
-                        key={i}
-                        onClick={() => insertPrompt(tpl)}
-                        className="px-3.5 py-2 rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-cyan-500/20 text-sm text-muted-foreground text-left transition-all max-w-[340px] truncate cursor-pointer"
-                      >
-                        {tpl}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Pipeline Preview */}
-                <div className="pt-6 border-t border-white/[0.04]">
-                  <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest block text-center mb-5">
-                    AI Architecture Pipeline
-                  </span>
-                  <div className="flex items-center justify-center gap-2">
-                    {STAGES.slice(0, 4).map((stage, i) => {
-                      const Icon = stage.icon;
-                      return (
-                        <React.Fragment key={stage.name}>
-                          <div className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border border-white/[0.06] bg-white/[0.02] min-w-[120px]">
-                            <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", stage.bgAccent)}>
-                              <Icon className={cn("h-5 w-5", stage.color)} />
-                            </div>
-                            <span className="text-sm font-medium text-muted-foreground">{stage.shortLabel}</span>
-                          </div>
-                          {i < 3 && <ChevronRight className="h-5 w-5 text-white/10 shrink-0" />}
-                        </React.Fragment>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
+            /* EXECUTIVE DASHBOARD */
+            <ExecutiveDashboard />
           ) : (
-            /* =============================================
-               ACTIVE BLUEPRINT — COMMAND CENTER
-               ============================================= */
-            <div className="h-full flex flex-col">
-              {/* Main Content Grid */}
-              <div className="flex-1 flex gap-0 overflow-hidden">
-                {/* Left Column: Stage Content */}
-                <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
-                  <div className="max-w-4xl space-y-6">
-                    {/* ERROR STATE */}
-                    {activeProject.status === 'error' && (
-                      <div className="p-5 rounded-xl border border-rose-500/20 bg-rose-500/5 backdrop-blur-sm space-y-3">
-                        <div className="flex items-center gap-2 text-rose-400">
-                          <AlertTriangle className="h-5 w-5" />
-                          <span className="text-sm font-semibold">Generation Failed</span>
+            /* UNIFIED WORKSPACE */
+            <WorkspaceView
+              activeProject={activeProject}
+              activeStage={activeStage}
+              onStageSelect={handleStageSelect}
+              onStartGeneration={handleStartGeneration}
+              onStartCompletePipeline={handleStartCompletePipeline}
+              onStopGeneration={handleStopGeneration}
+              isGenerating={activeProject.status === 'generating'}
+            >
+              {/* Stage Content */}
+              <div className="space-y-6">
+                {/* ERROR STATE */}
+                {activeProject.status === 'error' && (
+                  <Card className="border-red-200 bg-red-50/50 dark:bg-red-900/10 dark:border-red-800/30">
+                    <CardHeader>
+                      <CardTitle className="text-base font-semibold text-red-700 dark:text-red-400 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        Generation Failed
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-sm text-red-600 dark:text-red-400/80 leading-relaxed">
+                        The AI analysis service encountered an error while processing this stage.
+                        <br /><strong>Wait a moment</strong> and retry, or check the provider and worker status.
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleStartGeneration(activeProject.id, getBackendStageName(activeStage))}
+                          className="gap-1.5 bg-red-600 hover:bg-red-700 text-white"
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          <span>Retry Generation</span>
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Generation state skeletons */}
+                {activeProject.status === 'generating' && !isStageCompleted(activeStage, activeProject) && (
+                  <Card className="border-border">
+                    <CardHeader>
+                      <CardTitle className="text-lg font-semibold text-foreground flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                        {activeStage === 'final-blueprint'
+                          ? 'Compiling Final Blueprint...'
+                          : `Generating ${STAGE_LABELS[activeStage] || 'Pipeline Stage'}...`}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="skeleton h-4 w-3/4" />
+                      <div className="skeleton h-4 w-1/2" />
+                      <div className="skeleton h-32 w-full" />
+                      <p className="text-sm text-muted-foreground">
+                        Working on {STAGE_LABELS[activeStage] || 'the next stage'}. Previously completed stages remain available in the pipeline above.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+
+                {/* STAGE: DNA ANALYZER */}
+                {activeStage === 'dna-analyzer' && activeProject.dna && (
+                  <Card className="border-border">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
+                        Business DNA Report
+                      </CardTitle>
+                      <div className="badge-primary gap-1.5">
+                        <Dna className="h-4 w-4" />
+                        <span>Confidence {activeProject.dna.confidence}%</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Overview grids */}
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 rounded-lg bg-muted text-sm">
+                        <div>
+                          <span className="text-muted-foreground block mb-0.5 text-xs">Category</span>
+                          <span className="font-semibold text-foreground">{activeProject.dna.category}</span>
                         </div>
-                        <p className="text-sm text-rose-300/70 leading-relaxed">
-                          The AI pipeline encountered an error. Wait 1-2 minutes and retry — the system will automatically try backup models.
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => handleStartGeneration(activeProject.id, getBackendStageName(activeStage))}
-                            className="h-8 text-sm gap-1.5"
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                            <span>Retry Generation</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => loadBlueprint(activeProject.id)}
-                            className="h-8 text-sm gap-1.5"
-                          >
-                            <span>Load Partial Results</span>
-                          </Button>
+                        <div>
+                          <span className="text-muted-foreground block mb-0.5 text-xs">Business Model</span>
+                          <span className="font-semibold text-foreground">{activeProject.dna.businessModel}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block mb-0.5 text-xs">Target Market</span>
+                          <span className="font-semibold text-foreground">{activeProject.dna.targetMarket}</span>
                         </div>
                       </div>
-                    )}
 
-                    {/* GENERATING SKELETON */}
-                    {activeProject.status === 'generating' && !isStageCompleted(activeStage, activeProject) && (
-                      <div className="p-6 rounded-xl border border-white/[0.06] bg-card/60 backdrop-blur-sm space-y-5">
-                        <div className="flex items-center gap-3">
-                          <div className="h-2.5 w-2.5 rounded-full bg-cyan-400 animate-pulse" />
-                          <span className="text-sm font-semibold text-foreground">Architecting Venture Blueprint...</span>
-                        </div>
+                      {/* Score metrics */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                         <div className="space-y-3">
-                          <div className="h-4 skeleton-dark w-3/4" />
-                          <div className="h-4 skeleton-dark w-1/2" />
-                          <div className="h-32 skeleton-dark w-full" />
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          AI models are working through each stage. Check the AI Feed →
-                        </p>
-                      </div>
-                    )}
-
-
-                    {/* ========== STAGE: DNA ANALYZER ========== */}
-                    {activeStage === 'dna-analyzer' && activeProject.dna && (
-                      <div className="space-y-5">
-                        {/* Header */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-xl bg-cyan-500/10 flex items-center justify-center glow-cyan">
-                              <Dna className="h-5 w-5 text-cyan-400" />
-                            </div>
-                            <div>
-                              <h2 className="text-xl font-bold text-foreground">Startup Blueprint</h2>
-                              <span className="text-sm text-muted-foreground">Market viability and strategic analysis</span>
-                            </div>
-                          </div>
-                          <span className="badge-active text-sm font-semibold px-2.5 py-1 rounded-full">
-                            {activeProject.dna.confidence}% Confidence
+                          <span className="text-overline block">
+                            Strategic Scores
                           </span>
+                          {Object.entries(activeProject.dna.scores).map(([key, val]: any) => (
+                            <div key={key} className="flex justify-between items-center text-sm border-b border-border pb-2">
+                              <span className="capitalize text-muted-foreground">{key.replace('_', ' ')}</span>
+                              <span className="font-semibold text-foreground">{val}/100</span>
+                            </div>
+                          ))}
                         </div>
-
-                        {/* Bento Overview Grid */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                          <div className="lg:col-span-1 p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] shadow-sm">
-                            <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest block mb-2">Category</span>
-                            <span className="text-sm font-medium text-foreground">{activeProject.dna.category}</span>
-                          </div>
-                          <div className="lg:col-span-2 p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] shadow-sm max-h-[160px] overflow-y-auto scrollbar-thin">
-                            <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest block mb-2">Target Market</span>
-                            <p className="text-sm text-muted-foreground/90 leading-relaxed whitespace-pre-wrap">{activeProject.dna.targetMarket}</p>
-                          </div>
-                          <div className="lg:col-span-3 p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] shadow-sm max-h-[250px] overflow-y-auto scrollbar-thin">
-                            <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest block mb-3">Business Model</span>
-                            <p className="text-sm text-muted-foreground/90 leading-relaxed whitespace-pre-wrap">{activeProject.dna.businessModel}</p>
+                        <div className="h-48 border border-border rounded-lg bg-muted flex items-center justify-center relative overflow-hidden">
+                          <div className="h-32 w-32 rounded-full border-2 border-primary/20 flex items-center justify-center">
+                            <div className="h-20 w-20 rounded-full border border-primary flex items-center justify-center text-sm font-semibold text-primary bg-card shadow-sm">
+                              {Math.round(Object.values(activeProject.dna.scores).reduce((a: any, b: any) => a + b, 0) / 6)} Avg
+                            </div>
                           </div>
                         </div>
+                      </div>
 
-                        {/* Score Metrics + Ring */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-3">
-                            <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest block">
-                              Strategic Score Vectors
-                            </span>
-                            {Object.entries(activeProject.dna.scores).map(([key, val]: any) => (
-                              <div key={key} className="flex justify-between items-center text-sm border-b border-white/[0.04] pb-2">
-                                <span className="capitalize text-muted-foreground">{key.replace('_', ' ')}</span>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-24 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                                    <div 
-                                      className="h-full rounded-full" 
-                                      style={{ 
-                                        width: `${val}%`,
-                                        background: 'linear-gradient(90deg, hsl(192 91% 54%), hsl(262 83% 68%))' 
-                                      }} 
-                                    />
-                                  </div>
-                                  <span className="font-semibold text-foreground w-8 text-right">{val}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="flex items-center justify-center">
-                            <ScoreRing 
-                              score={Math.round(Object.values(activeProject.dna.scores).reduce((a: any, b: any) => a + b, 0) / 6)} 
-                              size={120}
-                              label="Average"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Tabbed Content */}
+                      {/* Tabs */}
+                      <div className="space-y-3">
                         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-                          <TabsList className="bg-white/[0.03] border border-white/[0.06]">
-                            <TabsTrigger value="model" className="text-sm">Value Proposition</TabsTrigger>
-                            <TabsTrigger value="target" className="text-sm">USP Differentiators</TabsTrigger>
-                            <TabsTrigger value="usp" className="text-sm">Strategic Context</TabsTrigger>
+                          <TabsList className="bg-muted border border-border">
+                            <TabsTrigger value="model" className="text-xs">Value Proposition</TabsTrigger>
+                            <TabsTrigger value="target" className="text-xs">USP</TabsTrigger>
+                            <TabsTrigger value="usp" className="text-xs">Summary</TabsTrigger>
                           </TabsList>
-                          <TabsContent value="model" className="p-4 mt-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-sm leading-relaxed text-muted-foreground">
+                          <TabsContent value="model" className="p-4 bg-muted/50 rounded-lg text-sm leading-relaxed text-muted-foreground border border-border">
                             {activeProject.dna.valueProposition}
                           </TabsContent>
-                          <TabsContent value="target" className="p-4 mt-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-sm leading-relaxed text-muted-foreground">
+                          <TabsContent value="target" className="p-4 bg-muted/50 rounded-lg text-sm leading-relaxed text-muted-foreground border border-border">
                             {activeProject.dna.usp}
                           </TabsContent>
-                          <TabsContent value="usp" className="p-4 mt-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-sm leading-relaxed text-muted-foreground">
+                          <TabsContent value="usp" className="p-4 bg-muted/50 rounded-lg text-sm leading-relaxed text-muted-foreground border border-border">
                             {activeProject.dna.summary}
                           </TabsContent>
                         </Tabs>
+                      </div>
 
-                        {/* Handoff */}
-                        <div className="pt-4 border-t border-white/[0.04] flex justify-end">
-                          <Button onClick={() => setActiveStage('feature-extractor')} className="h-9 text-sm gap-1.5">
-                            <span>Proceed to Feature Extraction</span>
-                            <ArrowRight className="h-3.5 w-3.5" />
+                      {/* Handoff CTA */}
+                      <div className="pt-4 border-t border-border flex justify-end">
+                        <Button 
+                          onClick={() => setActiveStage('feature-extractor')}
+                          className="gap-1.5"
+                        >
+                          <span>Proceed to Feature Extraction</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: DNA ANALYZER EMPTY STATE */}
+                {activeStage === 'dna-analyzer' && !activeProject.dna && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
+                  <Card className="border-border p-12 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                      <Dna className="h-8 w-8" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <h3 className="text-xl font-semibold text-foreground">Business DNA Analyzer</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Evaluate market viability, validate user demographics, map value propositions, and outline key competitive advantages for your concept.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleStartGeneration(activeProject.id, 'dna')}
+                      className="gap-2 px-6"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>Analyze Concept DNA</span>
+                    </Button>
+                  </Card>
+                )}
+
+                {/* STAGE: FEATURE EXTRACTOR */}
+                {activeStage === 'feature-extractor' && activeProject.features && (
+                  <Card className="border-border">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
+                        Feature Architecture Spec
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-3 gap-4 text-center p-4 bg-muted rounded-lg">
+                        <div>
+                          <span className="text-xs text-muted-foreground block">Total Features</span>
+                          <span className="text-lg font-bold text-foreground">{activeProject.features.totalFeatures}</span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground block">MVP Selected</span>
+                          <span className="text-lg font-bold text-primary">{activeProject.features.mvpFeatureIds.length}</span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground block">Complexity</span>
+                          <span className="text-lg font-bold text-foreground capitalize">{activeProject.features.complexityScore}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <span className="text-overline block">
+                          Extracted Features
+                        </span>
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                          {activeProject.features.features.map((feature: any) => (
+                            <div key={feature.id} className="p-3 rounded-lg border border-border bg-card flex items-center justify-between hover:bg-muted/50 transition-colors">
+                              <div>
+                                <span className="text-sm font-medium text-foreground block">{feature.name}</span>
+                                <span className="text-xs text-muted-foreground leading-relaxed">{feature.description}</span>
+                              </div>
+                              <span className="badge-default text-[10px]">
+                                {feature.priority}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Handoff CTA */}
+                      <div className="pt-4 border-t border-border flex justify-end">
+                        <Button 
+                          onClick={() => setActiveStage('roadmap')}
+                          className="gap-1.5"
+                        >
+                          <span>Generate Timeline Roadmap</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: FEATURE EXTRACTOR EMPTY STATE */}
+                {activeStage === 'feature-extractor' && !activeProject.features && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
+                  <Card className="border-border p-12 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                      <GitBranch className="h-8 w-8" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <h3 className="text-xl font-semibold text-foreground">Technical Feature Extractor</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Convert your business DNA into a structured PRD, feature lists, and MVP scoped items.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleStartGeneration(activeProject.id, 'features')}
+                      className="gap-2 px-6"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>Extract MVP Features</span>
+                    </Button>
+                  </Card>
+                )}
+
+                {/* STAGE: ROADMAP */}
+                {activeStage === 'roadmap' && activeProject.roadmap && (
+                  <Card className="border-border">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
+                        Timeline Execution Roadmap
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+                        {activeProject.roadmap.phases.map((phase: any) => (
+                          <div key={phase.id} className="p-4 rounded-lg border border-border bg-muted/50 space-y-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-semibold text-foreground">{phase.name}</span>
+                              <span className="badge-primary">Weeks {phase.startWeek} - {phase.endWeek}</span>
+                            </div>
+                            <div className="space-y-1.5 pl-3 border-l-2 border-primary/30 text-sm">
+                              {phase.tasks.map((task: any) => (
+                                <div key={task.id} className="text-muted-foreground">
+                                  • {task.name} ({task.durationWeeks} weeks)
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Handoff CTA */}
+                      <div className="pt-4 border-t border-border flex justify-end">
+                        <Button 
+                          onClick={() => setActiveStage('team-structure')}
+                          className="gap-1.5"
+                        >
+                          <span>Define Team Hires</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: ROADMAP EMPTY STATE */}
+                {activeStage === 'roadmap' && !activeProject.roadmap && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
+                  <Card className="border-border p-12 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                      <LineChart className="h-8 w-8" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <h3 className="text-xl font-semibold text-foreground">Execution Roadmap Compiler</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Translate your feature spec into a multi-phase, week-by-week development roadmap.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleStartGeneration(activeProject.id, 'roadmap')}
+                      className="gap-2 px-6"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>Generate Timeline Roadmap</span>
+                    </Button>
+                  </Card>
+                )}
+
+                {/* STAGE: TEAM STRUCTURE */}
+                {activeStage === 'team-structure' && activeProject.team && (
+                  <Card className="border-border">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
+                        Resource Org Structure
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                        {activeProject.team.roles.map((role: any) => (
+                          <div key={role.id} className="p-4 rounded-lg border border-border bg-card flex items-center justify-between hover:bg-muted/50 transition-colors">
+                            <div>
+                              <span className="text-sm font-medium text-foreground block">{role.name}</span>
+                              <span className="text-xs text-muted-foreground capitalize">{role.department.replace('_', ' ')} • Stage: {role.hiringStage}</span>
+                            </div>
+                            <span className="text-sm font-semibold text-primary">
+                              {formatCost(role.monthlyCost)}/mo
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Handoff CTA */}
+                      <div className="pt-4 border-t border-border flex justify-end">
+                        <Button 
+                          onClick={() => setActiveStage('swot')}
+                          className="gap-1.5"
+                        >
+                          <span>Assess Strategic Risks</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: TEAM STRUCTURE EMPTY STATE */}
+                {activeStage === 'team-structure' && !activeProject.team && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
+                  <Card className="border-border p-12 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                      <Network className="h-8 w-8" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <h3 className="text-xl font-semibold text-foreground">Resource & Team Allocator</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Forecast hiring requirements, define team roles, and calculate monthly salaries.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleStartGeneration(activeProject.id, 'team')}
+                      className="gap-2 px-6"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>Plan Team Hires</span>
+                    </Button>
+                  </Card>
+                )}
+
+                {/* STAGE: SWOT ANALYSIS */}
+                {activeStage === 'swot' && activeProject.swot && (
+                  <Card className="border-border">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
+                        Strategic SWOT Board
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* Strengths */}
+                        <div className="p-4 rounded-lg border border-border bg-muted/50 space-y-2">
+                          <span className="text-sm font-semibold text-foreground block">S - Strengths</span>
+                          <div className="space-y-1.5 text-sm text-muted-foreground max-h-[120px] overflow-y-auto">
+                            {activeProject.swot.items.filter((i: any) => i.type === 'strength').map((item: any) => (
+                              <div key={item.id}>• {item.content}</div>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Weaknesses */}
+                        <div className="p-4 rounded-lg border border-border bg-muted/50 space-y-2">
+                          <span className="text-sm font-semibold text-foreground block">W - Weaknesses</span>
+                          <div className="space-y-1.5 text-sm text-muted-foreground max-h-[120px] overflow-y-auto">
+                            {activeProject.swot.items.filter((i: any) => i.type === 'weakness').map((item: any) => (
+                              <div key={item.id}>• {item.content}</div>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Opportunities */}
+                        <div className="p-4 rounded-lg border border-border bg-muted/50 space-y-2">
+                          <span className="text-sm font-semibold text-foreground block">O - Opportunities</span>
+                          <div className="space-y-1.5 text-sm text-muted-foreground max-h-[120px] overflow-y-auto">
+                            {activeProject.swot.items.filter((i: any) => i.type === 'opportunity').map((item: any) => (
+                              <div key={item.id}>• {item.content}</div>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Threats */}
+                        <div className="p-4 rounded-lg border border-border bg-muted/50 space-y-2">
+                          <span className="text-sm font-semibold text-foreground block">T - Threats</span>
+                          <div className="space-y-1.5 text-sm text-muted-foreground max-h-[120px] overflow-y-auto">
+                            {activeProject.swot.items.filter((i: any) => i.type === 'threat').map((item: any) => (
+                              <div key={item.id}>• {item.content}</div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Handoff CTA */}
+                      <div className="pt-4 border-t border-border flex justify-end">
+                        <Button 
+                          onClick={() => setActiveStage('cost-estimator')}
+                          className="gap-1.5"
+                        >
+                          <span>Calculate Runway Costs</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: SWOT EMPTY STATE */}
+                {activeStage === 'swot' && !activeProject.swot && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
+                  <Card className="border-border p-12 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                      <TrendingUp className="h-8 w-8" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <h3 className="text-xl font-semibold text-foreground">Strategic SWOT Board</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Compile strategic Strengths, Weaknesses, Opportunities, and Threats.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleStartGeneration(activeProject.id, 'swot')}
+                      className="gap-2 px-6"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>Conduct SWOT Analysis</span>
+                    </Button>
+                  </Card>
+                )}
+
+                {/* STAGE: COST ESTIMATOR */}
+                {activeStage === 'cost-estimator' && activeProject.cost && (
+                  <Card className="border-border">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
+                        Startup Financial Projections
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-3 gap-4 text-center p-4 bg-muted rounded-lg">
+                        <div>
+                          <span className="text-xs text-muted-foreground block">MVP Cost</span>
+                          <span className="text-lg font-bold text-foreground">{formatCost(activeProject.cost.mvpCost)}</span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground block">Year 1</span>
+                          <span className="text-lg font-bold text-foreground">{formatCost(activeProject.cost.year1Cost)}</span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground block">Funding Required</span>
+                          <span className="text-lg font-bold text-primary">{formatCost(activeProject.cost.fundingRequirement)}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <span className="text-overline block">
+                          Budget Scenarios
+                        </span>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {activeProject.cost.scenarios.map((scen: any) => (
+                            <button
+                              key={scen.id}
+                              onClick={() => setSelectedScenario(scen.id)}
+                              className={cn(
+                                "p-4 rounded-lg border text-left transition-all space-y-2",
+                                selectedScenario === scen.id 
+                                  ? "border-primary bg-primary/5 shadow-sm" 
+                                  : "border-border bg-card hover:bg-muted/50"
+                              )}
+                            >
+                              <span className="text-xs font-semibold text-foreground block uppercase">{scen.name}</span>
+                              <span className="text-lg font-bold text-primary block">{formatCost(scen.mvpCost)} MVP</span>
+                              <span className="text-xs text-muted-foreground leading-relaxed block">{scen.description}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Handoff CTA */}
+                      <div className="pt-4 border-t border-border flex justify-end">
+                        <Button 
+                          onClick={() => setActiveStage('legal-compliance')}
+                          className="gap-1.5"
+                        >
+                          <span>Continue to Legal &amp; Compliance</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: COST ESTIMATOR EMPTY STATE */}
+                {activeStage === 'cost-estimator' && !activeProject.cost && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
+                  <Card className="border-border p-12 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                      <Award className="h-8 w-8" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <h3 className="text-xl font-semibold text-foreground">Financial Plan & Cost Estimator</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Model MVP costs, burn rates, runway forecasts, and funding requirements.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleStartGeneration(activeProject.id, 'cost')}
+                      className="gap-2 px-6"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>Calculate Runway Costs</span>
+                    </Button>
+                  </Card>
+                )}
+
+                {/* STAGE: FINAL BLUEPRINT */}
+                {activeStage === 'final-blueprint' && activeProject.blueprintCompiled && (
+                  <Card className="border-border">
+                    <CardHeader>
+                      <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
+                        Compiled Startup Blueprint
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="p-8 rounded-xl border border-dashed border-border bg-muted flex flex-col items-center justify-center text-center space-y-4">
+                        <div className="h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-lg">
+                          ✓
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-base font-semibold text-foreground block">Your Operating Blueprint is Complete</span>
+                          <span className="text-sm text-muted-foreground">The compiled strategy plan has been generated and validated.</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={() => window.open(api.exports.pdf(activeProject.id), '_blank')}
+                            className="gap-1.5"
+                          >
+                            Download PDF Package
+                          </Button>
+                          <Button 
+                            onClick={async () => {
+                              try {
+                                const payload = await api.exports.share(activeProject.id);
+                                const url = `${window.location.origin}/shared/${payload.token}`;
+                                setStreamLog(prev => [`Generated shareable link: ${url}`, ...prev]);
+                                alert(`Investor link created: ${url}`);
+                              } catch (err: any) {
+                                alert(`Failed to share: ${err.message}`);
+                              }
+                            }}
+                            variant="outline" 
+                            className="h-8 text-xs"
+                          >
+                            Share Secure Web View
                           </Button>
                         </div>
                       </div>
-                    )}
+                    </CardContent>
+                  </Card>
+                )}
 
-                    {/* DNA Empty State */}
-                    {activeStage === 'dna-analyzer' && !activeProject.dna && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
-                      <div className="flex flex-col items-center justify-center text-center py-16 space-y-6">
-                        <div className="h-16 w-16 rounded-2xl bg-cyan-500/10 flex items-center justify-center glow-cyan float-orb">
-                          <Dna className="h-8 w-8 text-cyan-400" />
-                        </div>
-                        <div className="space-y-2 max-w-md">
-                          <h3 className="text-lg font-bold text-foreground">Startup Blueprint</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            Evaluate market viability, validate user demographics, map value propositions, and outline key competitive advantages.
-                          </p>
-                        </div>
-                        <Button onClick={() => handleStartGeneration(activeProject.id, 'dna')} className="h-10 text-sm gap-2 px-6">
-                          <Sparkles className="h-5 w-5" />
-                          <span>Generate Startup Blueprint</span>
-                        </Button>
+                {/* STAGE: FINAL BLUEPRINT EMPTY STATE */}
+                {activeStage === 'final-blueprint' && !activeProject.blueprintCompiled && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
+                  <Card className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
+                    <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
+                      <ScrollText className="h-7 w-7" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <h3 className="text-lg font-bold text-primary">Startup Blueprint Compiler</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Assemble all generated modules into an investor-ready, comprehensive operating blueprint packet with secure sharing and PDF export options.
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => handleStartGeneration(activeProject.id, 'blueprint')}
+                      className="h-9 text-xs gap-1.5 px-6 font-medium shadow-sm"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>Compile Final Blueprint</span>
+                    </Button>
+                  </Card>
+                )}
+
+                {/* ═══════════════════════════════════════════════════════════════════
+                    INTELLIGENCE STAGES (7-14)
+                    ═══════════════════════════════════════════════════════════════════ */}
+
+                {/* STAGE: LEGAL & COMPLIANCE */}
+                {activeStage === 'legal-compliance' && activeProject.legalCompliance && (
+                  <Card className="border-border">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                        Legal & Compliance Review
+                      </CardTitle>
+                      <div className={cn(
+                        "text-xs px-2.5 py-1 rounded font-medium flex items-center gap-1.5",
+                        activeProject.legalCompliance.overall_risk === 'low' ? 'bg-green-50 text-green-700' :
+                        activeProject.legalCompliance.overall_risk === 'medium' ? 'bg-yellow-50 text-yellow-700' :
+                        'bg-red-50 text-red-700'
+                      )}>
+                        <Shield className="h-4 w-4" />
+                        <span>Risk: {activeProject.legalCompliance.overall_risk}</span>
                       </div>
-                    )}
-
-                    {/* ========== STAGE: FEATURE EXTRACTOR ========== */}
-                    {activeStage === 'feature-extractor' && activeProject.features && (
-                      <div className="space-y-5">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-xl bg-violet-500/10 flex items-center justify-center glow-violet">
-                            <GitBranch className="h-5 w-5 text-violet-400" />
-                          </div>
-                          <div>
-                            <h2 className="text-xl font-bold text-foreground">Feature Studio</h2>
-                            <span className="text-sm text-muted-foreground">Product requirement document</span>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] text-center">
-                            <span className="text-sm text-muted-foreground block mb-1">Total Features</span>
-                            <span className="text-xl font-bold text-foreground">{activeProject.features.totalFeatures}</span>
-                          </div>
-                          <div className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] text-center">
-                            <span className="text-sm text-muted-foreground block mb-1">MVP Selected</span>
-                            <span className="text-xl font-bold text-cyan-400">{activeProject.features.mvpFeatureIds.length}</span>
-                          </div>
-                          <div className="p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] text-center">
-                            <span className="text-sm text-muted-foreground block mb-1">Complexity</span>
-                            <span className="text-xl font-bold text-foreground capitalize">{activeProject.features.complexityScore}</span>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-4 max-h-[450px] overflow-y-auto pr-2 scrollbar-thin">
-                          {activeProject.features.features.map((feature: any, idx: number) => (
-                            <div key={feature.id || feature.name || idx} className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-sm hover:border-violet-500/30 transition-all flex flex-col gap-3">
-                              <div className="flex items-start justify-between gap-4">
-                                <span className="text-base font-bold text-foreground">{feature.name}</span>
-                                <span className={cn(
-                                  "text-[10px] font-bold uppercase px-2.5 py-1 rounded-full shrink-0",
-                                  feature.priority === 'critical' ? 'badge-active' : 
-                                  feature.priority === 'high' ? 'badge-pending' : 'badge-locked'
-                                )}>
-                                  {feature.priority}
-                                </span>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Compliance Checklist */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Compliance Checklist
+                        </span>
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                          {(activeProject.legalCompliance.compliance_checklist || []).map((item: any, idx: number) => (
+                            <div key={idx} className="flex items-start gap-3 p-3 rounded-lg border border-border/60 bg-white">
+                              <div className={cn(
+                                "h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5",
+                                item.status === 'compliant' ? 'bg-green-100 text-green-600' :
+                                item.status === 'pending' ? 'bg-yellow-100 text-yellow-600' :
+                                item.status === 'gap' ? 'bg-red-100 text-red-600' :
+                                'bg-gray-100 text-gray-400'
+                              )}>
+                                {item.status === 'compliant' ? '✓' : item.status === 'gap' ? '!' : '○'}
                               </div>
-                              <div className="pt-3 border-t border-white/[0.04]">
-                                <p className="text-sm text-muted-foreground/90 leading-relaxed whitespace-pre-wrap">{feature.description}</p>
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm font-medium text-primary block">{item.item}</span>
+                                {item.notes && <span className="text-xs text-muted-foreground">{item.notes}</span>}
                               </div>
                             </div>
                           ))}
                         </div>
+                      </div>
 
-                        <div className="pt-4 border-t border-white/[0.04] flex justify-end">
-                          <Button onClick={() => setActiveStage('roadmap')} className="h-9 text-sm gap-1.5">
-                            <span>Generate Timeline Roadmap</span>
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          </Button>
+                      {/* IP Protection & Registrations */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            IP Protection
+                          </span>
+                          {(activeProject.legalCompliance.ip_protection || []).map((ip: any, idx: number) => (
+                            <div key={idx} className="p-2 rounded bg-muted text-xs">
+                              <span className="font-medium text-primary">{ip.asset}</span>
+                              <span className="text-muted-foreground block">{ip.protection_type}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Registrations Needed
+                          </span>
+                          {(activeProject.legalCompliance.registrations_needed || []).map((reg: any, idx: number) => (
+                            <div key={idx} className="p-2 rounded bg-muted text-xs">
+                              <span className="font-medium text-primary">{reg.type}</span>
+                              <span className="text-muted-foreground block">{reg.jurisdiction} • {reg.timeline}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    )}
 
-                    {/* Feature Extractor Empty State */}
-                    {activeStage === 'feature-extractor' && !activeProject.features && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
-                      <div className="flex flex-col items-center justify-center text-center py-16 space-y-6">
-                        <div className="h-16 w-16 rounded-2xl bg-violet-500/10 flex items-center justify-center glow-violet float-orb">
-                          <GitBranch className="h-8 w-8 text-violet-400" />
-                        </div>
-                        <div className="space-y-2 max-w-md">
-                          <h3 className="text-lg font-bold text-foreground">Feature Studio</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            Transform your startup concept into a structured Product Requirement Document (PRD), feature lists, and MVP scoped items.
-                          </p>
-                        </div>
-                        <Button onClick={() => handleStartGeneration(activeProject.id, 'features')} className="h-10 text-sm gap-2 px-6">
-                          <Sparkles className="h-5 w-5" />
-                          <span>Extract MVP Features</span>
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* ========== STAGE: ROADMAP ========== */}
-                    {activeStage === 'roadmap' && activeProject.roadmap && (
-                      <div className="space-y-5">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center glow-emerald">
-                            <LineChart className="h-5 w-5 text-emerald-400" />
-                          </div>
-                          <div>
-                            <h2 className="text-xl font-bold text-foreground">Launch Roadmap</h2>
-                            <span className="text-sm text-muted-foreground">Comprehensive multi-phase execution strategy</span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
-                          {activeProject.roadmap.phases.map((phase: any, idx: number) => (
-                            <div key={phase.phase_id || phase.id || phase.name || idx} className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-sm space-y-4">
-                              <div className="flex justify-between items-center border-b border-white/[0.04] pb-3">
-                                <div className="flex items-center gap-3">
-                                  <span className="h-6 w-6 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-bold flex items-center justify-center">{idx + 1}</span>
-                                  <span className="text-base font-bold text-foreground">{phase.name}</span>
-                                </div>
-                                <span className="badge-completed text-xs font-bold px-3 py-1 rounded-full">
-                                  {phase.duration_months} Months
-                                </span>
+                      {/* Grants & Incentives */}
+                      {(activeProject.legalCompliance.grants_incentives || []).length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Available Grants & Incentives
+                          </span>
+                          <div className="grid grid-cols-2 gap-2">
+                            {(activeProject.legalCompliance.grants_incentives || []).map((grant: any, idx: number) => (
+                              <div key={idx} className="p-3 rounded-lg border border-green-200 bg-green-50/50 text-xs">
+                                <span className="font-semibold text-primary block">{grant.name}</span>
+                                <span className="text-muted-foreground">{grant.eligibility} • {grant.value}</span>
                               </div>
-                              
-                              {phase.milestones && phase.milestones.length > 0 && (
-                                <div className="bg-emerald-500/5 rounded-lg p-3 border border-emerald-500/10">
-                                  <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest block mb-2">Key Milestones</span>
-                                  <ul className="space-y-1">
-                                    {phase.milestones.map((ms: string, i: number) => (
-                                      <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                                        <Check className="h-4 w-4 text-emerald-500/70 shrink-0 mt-0.5" />
-                                        <span>{ms}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recommendations */}
+                      {activeProject.legalCompliance.recommendations.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Recommendations
+                          </span>
+                          <div className="space-y-1.5 text-xs text-muted-foreground">
+                            {activeProject.legalCompliance.recommendations.map((rec: string, idx: number) => (
+                              <div key={idx}>• {rec}</div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: COMPETITIVE MOAT */}
+                {activeStage === 'competitive-moat' && activeProject.competitiveMoat && (
+                  <Card className="border-border">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                        Competitive Moat Analysis
+                      </CardTitle>
+                      <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
+                        <Target className="h-4 w-4" />
+                        <span>Moat Strength: {activeProject.competitiveMoat.overall_moat_strength}/100</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Competitor Landscape */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Competitor Landscape
+                        </span>
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                          {(activeProject.competitiveMoat.competitors || []).map((comp: any, idx: number) => (
+                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-white flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm font-semibold text-primary block">{comp.name}</span>
+                                <span className="text-xs text-muted-foreground block truncate">{comp.strength}</span>
+                              </div>
+                              <span className={cn(
+                                "text-[10px] font-semibold uppercase px-2 py-0.5 rounded shrink-0",
+                                comp.threat_level === 'high' ? 'bg-red-100 text-red-700' :
+                                comp.threat_level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-green-100 text-green-700'
+                              )}>
+                                {comp.threat_level}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Moat Scores */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Moat Dimensions
+                        </span>
+                        <div className="grid grid-cols-2 gap-3">
+                          {(activeProject.competitiveMoat.moat_scores || []).map((score: any, idx: number) => (
+                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-muted/50">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs font-medium text-primary">{score.dimension}</span>
+                                <span className="text-xs font-bold text-accent-blue">{score.score}/100</span>
+                              </div>
+                              <div className="h-1.5 bg-black/5 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-accent-blue rounded-full transition-all"
+                                  style={{ width: `${score.score}%` }}
+                                />
+                              </div>
+                              {score.evidence && (
+                                <span className="text-[10px] text-muted-foreground mt-1 block truncate">{score.evidence}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Recommendations */}
+                      {activeProject.competitiveMoat.strategic_recommendations.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Strategic Recommendations
+                          </span>
+                          <div className="space-y-1.5 text-xs text-muted-foreground">
+                            {activeProject.competitiveMoat.strategic_recommendations.map((rec: string, idx: number) => (
+                              <div key={idx}>• {rec}</div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: STRESS TEST */}
+                {activeStage === 'stress-test' && activeProject.stressTest && (
+                  <Card className="border-border">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                        Market Stress Test
+                      </CardTitle>
+                      <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
+                        <Zap className="h-4 w-4" />
+                        <span>Resilience: {activeProject.stressTest.resilience_score}/100</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Scenario Cards */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Stress Scenarios
+                        </span>
+                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                          {(activeProject.stressTest.scenarios || []).map((scenario: any, idx: number) => (
+                            <div key={idx} className="p-4 rounded-lg border border-border/60 bg-muted/50 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-semibold text-primary">{scenario.name}</span>
+                                <div className="flex gap-2">
+                                  <span className={cn(
+                                    "text-[10px] font-semibold uppercase px-2 py-0.5 rounded",
+                                    scenario.probability === 'high' ? 'bg-red-100 text-red-700' :
+                                    scenario.probability === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-green-100 text-green-700'
+                                  )}>
+                                    {scenario.probability} prob
+                                  </span>
+                                  <span className={cn(
+                                    "text-[10px] font-semibold uppercase px-2 py-0.5 rounded",
+                                    scenario.impact === 'high' ? 'bg-red-100 text-red-700' :
+                                    scenario.impact === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-green-100 text-green-700'
+                                  )}>
+                                    {scenario.impact} impact
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{scenario.description}</p>
+                              <div className="text-xs">
+                                <span className="text-muted-foreground">Mitigation: </span>
+                                <span className="text-primary">{scenario.mitigation}</span>
+                              </div>
+                              {scenario.recovery_time && (
+                                <div className="text-xs">
+                                  <span className="text-muted-foreground">Recovery: </span>
+                                  <span className="text-primary">{scenario.recovery_time}</span>
                                 </div>
                               )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
 
-                              <div className="space-y-3 pl-2 border-l-2 border-emerald-500/20">
-                                {phase.tasks?.map((task: any, i: number) => (
-                                  <div key={task.id || task.task_id || task.name || i} className="p-4 bg-white/[0.01] rounded-lg border border-white/[0.03] space-y-2 relative ml-3 transition-all hover:bg-white/[0.03]">
-                                    <div className="absolute -left-[1.4rem] top-5 h-2.5 w-2.5 rounded-full bg-emerald-500 glow-emerald" />
-                                    <div className="flex justify-between items-start gap-4">
-                                      <span className="text-sm font-bold text-foreground">{task.title}</span>
-                                      <span className="text-[10px] font-medium text-muted-foreground bg-white/[0.06] px-2 py-1 rounded shrink-0">{task.duration_weeks}w</span>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground/80 leading-relaxed whitespace-pre-wrap">{task.description}</p>
-                                    <div className="pt-2 flex flex-wrap gap-2">
-                                      {task.assigned_role_id && (
-                                        <span className="text-[10px] text-cyan-400 bg-cyan-400/10 px-2 py-1 rounded border border-cyan-400/20">{task.assigned_role_id}</span>
-                                      )}
-                                      {task.dependencies && task.dependencies.length > 0 && (
-                                        <span className="text-[10px] text-amber-400 bg-amber-400/10 px-2 py-1 rounded border border-amber-400/20">Depends on: {task.dependencies.join(', ')}</span>
-                                      )}
-                                    </div>
-                                  </div>
+                      {/* Critical Dependencies */}
+                      {activeProject.stressTest.critical_dependencies.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Critical Dependencies
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {activeProject.stressTest.critical_dependencies.map((dep: string, idx: number) => (
+                              <span key={idx} className="text-xs px-2 py-1 rounded bg-red-50 text-red-700 border border-red-200">
+                                {dep}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: FINANCIAL INTELLIGENCE */}
+                {activeStage === 'financial-intelligence' && activeProject.financialIntelligence && (
+                  <Card className="border-border">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                        Financial Intelligence
+                      </CardTitle>
+                      <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
+                        <BarChart3 className="h-4 w-4" />
+                        <span>Health: {activeProject.financialIntelligence.financial_health_score}/100</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Unit Economics */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Unit Economics
+                        </span>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {(activeProject.financialIntelligence.unit_economics || []).map((item: any, idx: number) => (
+                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-muted/50 text-center">
+                              <span className="text-[10px] text-muted-foreground block">{item.metric}</span>
+                              <span className="text-lg font-bold text-primary">{item.value}</span>
+                              {item.benchmark && (
+                                <span className="text-[10px] text-muted-foreground block">Bench: {item.benchmark}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Projections Table */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Financial Projections
+                        </span>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-border">
+                                {activeProject.financialIntelligence?.projection_format === 'period' ? (
+                                  <>
+                                    <th className="text-left py-2 font-semibold text-muted-foreground">Period</th>
+                                    <th className="text-right py-2 font-semibold text-muted-foreground">Revenue</th>
+                                    <th className="text-right py-2 font-semibold text-muted-foreground">Costs</th>
+                                    <th className="text-right py-2 font-semibold text-muted-foreground">Profit</th>
+                                    <th className="text-right py-2 font-semibold text-muted-foreground">Cash Balance</th>
+                                  </>
+                                ) : (
+                                  <>
+                                    <th className="text-left py-2 font-semibold text-muted-foreground">Metric</th>
+                                    <th className="text-right py-2 font-semibold text-muted-foreground">Month 1</th>
+                                    <th className="text-right py-2 font-semibold text-muted-foreground">Month 6</th>
+                                    <th className="text-right py-2 font-semibold text-muted-foreground">Month 12</th>
+                                    <th className="text-right py-2 font-semibold text-muted-foreground">Month 24</th>
+                                  </>
+                                )}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(activeProject.financialIntelligence?.projections || []).map((proj: any, idx: number) => (
+                                <tr key={idx} className="border-b border-border/50">
+                                  {activeProject.financialIntelligence?.projection_format === 'period' ? (
+                                    <>
+                                      <td className="py-2 text-primary font-medium">{proj.period}</td>
+                                      <td className="py-2 text-right text-muted-foreground">{proj.revenue}</td>
+                                      <td className="py-2 text-right text-muted-foreground">{proj.costs}</td>
+                                      <td className="py-2 text-right text-muted-foreground">{proj.profit}</td>
+                                      <td className="py-2 text-right text-muted-foreground">{proj.cash_balance}</td>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <td className="py-2 text-primary font-medium">{proj.metric}</td>
+                                      <td className="py-2 text-right text-muted-foreground">{proj.month_1}</td>
+                                      <td className="py-2 text-right text-muted-foreground">{proj.month_6}</td>
+                                      <td className="py-2 text-right text-muted-foreground">{proj.month_12}</td>
+                                      <td className="py-2 text-right text-muted-foreground">{proj.month_24}</td>
+                                    </>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: INVESTMENT COMMITTEE */}
+                {activeStage === 'investment-committee' && activeProject.investmentCommittee && (
+                  <Card className="border-border">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                        Investment Committee
+                      </CardTitle>
+                      <div className={cn(
+                        "text-xs px-2.5 py-1 rounded font-medium flex items-center gap-1.5",
+                        activeProject.investmentCommittee.overall_score >= 70 ? 'bg-green-50 text-green-700' :
+                        activeProject.investmentCommittee.overall_score >= 50 ? 'bg-yellow-50 text-yellow-700' :
+                        'bg-red-50 text-red-700'
+                      )}>
+                        <Users className="h-4 w-4" />
+                        <span>Score: {activeProject.investmentCommittee.overall_score}/100</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Partner Cards */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Partner Votes
+                        </span>
+                        <div className="space-y-3">
+                          {(activeProject.investmentCommittee.partner_cards || []).map((partner: any, idx: number) => (
+                            <div key={idx} className="p-4 rounded-lg border border-border/60 bg-muted/50 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <span className="text-sm font-semibold text-primary">{partner.name}</span>
+                                  <span className="text-xs text-muted-foreground ml-2">{partner.role}</span>
+                                </div>
+                                <span className={cn(
+                                  "text-[10px] font-bold uppercase px-2 py-1 rounded",
+                                  partner.vote === 'approve' ? 'bg-green-100 text-green-700' :
+                                  partner.vote === 'conditional' ? 'bg-yellow-100 text-yellow-700' :
+                                  partner.vote === 'reject' ? 'bg-red-100 text-red-700' :
+                                  'bg-gray-100 text-gray-600'
+                                )}>
+                                  {partner.vote}
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{partner.reasoning}</p>
+                              {partner.concerns?.length > 0 && (
+                                <div className="space-y-1">
+                                  {partner.concerns.map((concern: string, cIdx: number) => (
+                                    <span key={cIdx} className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-50 text-yellow-700 block">
+                                      ⚠ {concern}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Recommendation */}
+                      <div className="p-4 rounded-lg border border-accent-blue/20 bg-accent-blue/5">
+                        <span className="text-xs font-semibold text-accent-blue block mb-2">Investment Recommendation</span>
+                        <p className="text-sm text-primary">
+                          {formatInvestmentRecommendation(activeProject.investmentCommittee.investment_recommendation)}
+                        </p>
+                      </div>
+
+                      {/* Due Diligence */}
+                      {(activeProject.investmentCommittee.due_diligence || []).length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Due Diligence
+                          </span>
+                          <div className="space-y-1.5">
+                            {activeProject.investmentCommittee.due_diligence.map((dd: any, idx: number) => (
+                              <div key={idx} className="flex items-center gap-2 text-xs">
+                                <span className={cn(
+                                  "h-2 w-2 rounded-full shrink-0",
+                                  dd.status === 'pass' ? 'bg-green-500' :
+                                  dd.status === 'flag' ? 'bg-yellow-500' : 'bg-red-500'
+                                )} />
+                                <span className="text-primary font-medium">{dd.area}</span>
+                                <span className="text-muted-foreground">— {dd.notes}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: PRODUCT EXECUTION */}
+                {activeStage === 'product-execution' && activeProject.productExecution && (
+                  <Card className="border-border">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                        Product Execution Plan
+                      </CardTitle>
+                      <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
+                        <Rocket className="h-4 w-4" />
+                        <span>Launch Readiness: {activeProject.productExecution.launch_readiness}%</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* PRD Summary */}
+                      <div className="p-4 rounded-lg bg-muted">
+                        <span className="text-xs font-semibold text-muted-foreground block mb-2">PRD Summary</span>
+                        <p className="text-sm text-primary leading-relaxed">{activeProject.productExecution.prd_summary}</p>
+                      </div>
+
+                      {/* Sprint Plan */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Sprint Plan
+                        </span>
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                          {(activeProject.productExecution.sprint_plan || []).map((sprint: any, idx: number) => (
+                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-white flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm font-semibold text-primary block">
+                                  Sprint {sprint.sprint}: {sprint.name}
+                                </span>
+                                <span className="text-xs text-muted-foreground">{sprint.duration_weeks} weeks</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
+                                {(sprint.goals || []).slice(0, 2).map((goal: string, gIdx: number) => (
+                                  <span key={gIdx} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">
+                                    {goal}
+                                  </span>
                                 ))}
                               </div>
                             </div>
                           ))}
                         </div>
-
-                        <div className="pt-4 border-t border-white/[0.04] flex justify-end">
-                          <Button onClick={() => setActiveStage('team-structure')} className="h-9 text-sm gap-1.5">
-                            <span>Define Team Hires</span>
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
                       </div>
-                    )}
 
-                    {/* Roadmap Empty State */}
-                    {activeStage === 'roadmap' && !activeProject.roadmap && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
-                      <div className="flex flex-col items-center justify-center text-center py-16 space-y-6">
-                        <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center glow-emerald float-orb">
-                          <LineChart className="h-8 w-8 text-emerald-400" />
-                        </div>
-                        <div className="space-y-2 max-w-md">
-                          <h3 className="text-lg font-bold text-foreground">Launch Roadmap</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            Translate your feature spec into a multi-phase, week-by-week development roadmap with task durations.
-                          </p>
-                        </div>
-                        <Button onClick={() => handleStartGeneration(activeProject.id, 'roadmap')} className="h-10 text-sm gap-2 px-6">
-                          <Sparkles className="h-5 w-5" />
-                          <span>Generate Timeline Roadmap</span>
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* ========== STAGE: TEAM STRUCTURE ========== */}
-                    {activeStage === 'team-structure' && activeProject.team && (
-                      <div className="space-y-5">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center glow-amber">
-                            <Network className="h-5 w-5 text-amber-400" />
-                          </div>
-                          <div>
-                            <h2 className="text-xl font-bold text-foreground">Team Builder</h2>
-                            <span className="text-sm text-muted-foreground">{activeProject.team.recommendedTeamSize} recommended roles</span>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin">
-                          {activeProject.team.orgChart?.map((role: any, idx: number) => (
-                            <div key={role.roleId || role.id || role.role || idx} className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-sm flex flex-col gap-4 hover:border-amber-500/30 transition-all">
-                              <div className="flex justify-between items-start gap-4">
+                      {/* Architecture */}
+                      {(activeProject.productExecution.architecture || []).length > 0 && (
+                        <div className="space-y-3">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Architecture
+                          </span>
+                          <div className="space-y-2">
+                            {activeProject.productExecution.architecture.map((arch: any, idx: number) => (
+                              <div key={idx} className="p-3 rounded-lg border border-border/60 bg-muted/50 flex items-center justify-between">
                                 <div>
-                                  <span className="text-base font-bold text-foreground block">{role.title}</span>
-                                  <span className="text-xs text-muted-foreground uppercase tracking-widest">{role.department.replace('_', ' ')}</span>
+                                  <span className="text-sm font-medium text-primary block">{arch.component}</span>
+                                  <span className="text-xs text-muted-foreground">{arch.rationale}</span>
                                 </div>
-                                <div className="text-right shrink-0">
-                                  <span className="text-sm font-bold text-amber-400 block">${role.estimatedSalaryUsd?.toLocaleString()}/yr</span>
-                                  <span className="text-[10px] bg-amber-400/10 text-amber-400 px-2 py-0.5 rounded border border-amber-400/20">{role.hiringStage}</span>
-                                </div>
+                                <span className="text-xs font-semibold text-accent-blue">{arch.technology}</span>
                               </div>
-                              
-                              <div className="space-y-3 pt-3 border-t border-white/[0.04] flex-1">
-                                <div>
-                                  <span className="text-xs font-semibold text-foreground block mb-1">Responsibilities</span>
-                                  <ul className="space-y-1">
-                                    {role.responsibilities?.map((resp: string, i: number) => (
-                                      <li key={i} className="text-xs text-muted-foreground leading-relaxed flex gap-2">
-                                        <span className="text-amber-500/50 mt-0.5">•</span>
-                                        <span>{resp}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* STAGE: GLOBAL EXPANSION */}
+                {activeStage === 'global-expansion' && activeProject.globalExpansion && (
+                  <Card className="border-border">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-xl font-bold tracking-tight text-primary">
+                        Global Expansion Strategy
+                      </CardTitle>
+                      <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
+                        <Globe className="h-4 w-4" />
+                        <span>TAM: {activeProject.globalExpansion.total_addressable_market_global || 'N/A'}</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Target Markets */}
+                      <div className="space-y-3">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Target Markets
+                        </span>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {(activeProject.globalExpansion.target_markets || []).map((market: any, idx: number) => (
+                            <div key={idx} className="p-3 rounded-lg border border-border/60 bg-muted/50">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-semibold text-primary">{market.country}</span>
+                                <span className={cn(
+                                  "text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded",
+                                  market.priority === 'high' ? 'bg-green-100 text-green-700' :
+                                  market.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-gray-100 text-gray-600'
+                                )}>
+                                  {market.priority}
+                                </span>
+                              </div>
+                              <div className="space-y-1 text-xs">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Market Size</span>
+                                  <span className="text-primary font-medium">{market.market_size}</span>
                                 </div>
-                                <div>
-                                  <span className="text-xs font-semibold text-foreground block mb-1">Required Skills</span>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {role.requiredSkills?.map((skill: string, i: number) => (
-                                      <span key={i} className="text-[10px] text-muted-foreground bg-white/[0.04] px-1.5 py-0.5 rounded">{skill}</span>
-                                    ))}
-                                  </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Growth</span>
+                                  <span className="text-primary font-medium">{market.growth_rate}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Entry</span>
+                                  <span className="text-primary font-medium capitalize">{market.entry_difficulty}</span>
                                 </div>
                               </div>
                             </div>
                           ))}
                         </div>
-
-                        <div className="pt-4 border-t border-white/[0.04] flex justify-end">
-                          <Button onClick={() => setActiveStage('swot')} className="h-9 text-sm gap-1.5">
-                            <span>Assess Strategic Risks</span>
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
                       </div>
-                    )}
 
-                    {/* Team Empty State */}
-                    {activeStage === 'team-structure' && !activeProject.team && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
-                      <div className="flex flex-col items-center justify-center text-center py-16 space-y-6">
-                        <div className="h-16 w-16 rounded-2xl bg-amber-500/10 flex items-center justify-center glow-amber float-orb">
-                          <Network className="h-8 w-8 text-amber-400" />
-                        </div>
-                        <div className="space-y-2 max-w-md">
-                          <h3 className="text-lg font-bold text-foreground">Team Builder</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            Forecast hiring requirements, define team roles, allocate departments, and calculate monthly salaries.
-                          </p>
-                        </div>
-                        <Button onClick={() => handleStartGeneration(activeProject.id, 'team')} className="h-10 text-sm gap-2 px-6">
-                          <Sparkles className="h-5 w-5" />
-                          <span>Plan Team Hires</span>
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* ========== STAGE: SWOT ========== */}
-                    {activeStage === 'swot' && activeProject.swot && (
-                      <div className="space-y-5">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-xl bg-rose-500/10 flex items-center justify-center glow-rose">
-                            <Shield className="h-5 w-5 text-rose-400" />
-                          </div>
-                          <div>
-                            <h2 className="text-xl font-bold text-foreground">Business Insights</h2>
-                            <span className="text-sm text-muted-foreground">Competitive intelligence matrix</span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-4 max-h-[550px] overflow-y-auto pr-2 scrollbar-thin">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {[
-                              { label: 'S — Strengths', data: activeProject.swot.strengths, textClass: 'text-emerald-400', bgClass: 'bg-emerald-500/50' },
-                              { label: 'W — Weaknesses', data: activeProject.swot.weaknesses, textClass: 'text-rose-400', bgClass: 'bg-rose-500/50' },
-                              { label: 'O — Opportunities', data: activeProject.swot.opportunities, textClass: 'text-cyan-400', bgClass: 'bg-cyan-500/50' },
-                              { label: 'T — Threats', data: activeProject.swot.threats, textClass: 'text-amber-400', bgClass: 'bg-amber-500/50' }
-                            ].map(({ label, data, textClass, bgClass }) => (
-                              <div key={label} className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-sm flex flex-col gap-3 h-[250px]">
-                                <span className={cn("text-sm font-bold tracking-widest block uppercase", textClass)}>{label}</span>
-                                <div className="space-y-2 overflow-y-auto scrollbar-thin pr-1 flex-1">
-                                  {data?.map((item: string, i: number) => (
-                                    <div key={i} className="flex items-start gap-2">
-                                      <div className={cn("h-1.5 w-1.5 rounded-full mt-2.5 shrink-0", bgClass)} />
-                                      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{item}</p>
-                                    </div>
+                      {/* Expansion Waves */}
+                      {(activeProject.globalExpansion.expansion_waves || []).length > 0 && (
+                        <div className="space-y-3">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Expansion Waves
+                          </span>
+                          <div className="space-y-3">
+                            {activeProject.globalExpansion.expansion_waves.map((wave: any, idx: number) => (
+                              <div key={idx} className="p-3 rounded-lg border border-border/60 bg-white">
+                                <div className="flex justify-between items-center mb-2">
+                                  <span className="text-sm font-semibold text-primary">Wave {wave.wave}</span>
+                                  <span className="text-xs text-muted-foreground">{wave.timeline}</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {(wave.markets || []).map((m: string, mIdx: number) => (
+                                    <span key={mIdx} className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700">
+                                      {m}
+                                    </span>
                                   ))}
                                 </div>
                               </div>
                             ))}
                           </div>
-                          
-                          {activeProject.swot.mitigations && activeProject.swot.mitigations.length > 0 && (
-                            <div className="p-5 rounded-xl border border-rose-500/20 bg-rose-500/[0.02] shadow-sm space-y-4">
-                              <span className="text-sm font-bold text-rose-400 uppercase tracking-widest block">Threat Mitigations</span>
-                              <div className="grid grid-cols-1 gap-3">
-                                {activeProject.swot.mitigations.map((mit: any, i: number) => (
-                                  <div key={i} className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-                                    <div className="flex justify-between gap-4 mb-2">
-                                      <span className="text-sm font-semibold text-foreground">{mit.threatDescription}</span>
-                                      <span className="text-[10px] bg-rose-500/10 text-rose-400 px-2 py-0.5 rounded shrink-0">Sev {mit.severity}</span>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground/90 leading-relaxed whitespace-pre-wrap">{mit.mitigationStrategy}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {activeProject.swot.founderActions && activeProject.swot.founderActions.length > 0 && (
-                            <div className="p-5 rounded-xl border border-violet-500/20 bg-violet-500/[0.02] shadow-sm space-y-4">
-                              <span className="text-sm font-bold text-violet-400 uppercase tracking-widest block">Founder Actions Timeline</span>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {activeProject.swot.founderActions.map((action: any, i: number) => (
-                                  <div key={i} className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">{action.horizon.replace(/_/g, ' ')}</span>
-                                    <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">{action.action}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
                         </div>
+                      )}
 
-                        <div className="pt-4 border-t border-white/[0.04] flex justify-end">
-                          <Button onClick={() => setActiveStage('cost-estimator')} className="h-9 text-sm gap-1.5">
-                            <span>Calculate Runway Costs</span>
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          </Button>
+                      {/* Recommendations */}
+                      {activeProject.globalExpansion.recommendations.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Recommendations
+                          </span>
+                          <div className="space-y-1.5 text-xs text-muted-foreground">
+                            {activeProject.globalExpansion.recommendations.map((rec: string, idx: number) => (
+                              <div key={idx}>• {rec}</div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
-                    {/* SWOT Empty State */}
-                    {activeStage === 'swot' && !activeProject.swot && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
-                      <div className="flex flex-col items-center justify-center text-center py-16 space-y-6">
-                        <div className="h-16 w-16 rounded-2xl bg-rose-500/10 flex items-center justify-center glow-rose float-orb">
-                          <Shield className="h-8 w-8 text-rose-400" />
+                {/* ═══════════════════════════════════════════════════════════════════
+                    EMPTY STATES FOR INTELLIGENCE STAGES
+                    ═══════════════════════════════════════════════════════════════════ */}
+
+                {['legal-compliance', 'competitive-moat', 'stress-test', 'financial-intelligence', 'investment-committee', 'product-execution', 'global-expansion'].map((stage) => {
+                  const stageKey = stage.replace('-', '') as keyof typeof isStageCompleted;
+                  const hasData = isStageCompleted(stage as StageName, activeProject);
+                  const Icon = STAGE_ICONS[stage as StageName] || Shield;
+                  const labels: Record<string, { title: string; desc: string; btn: string }> = {
+                    'legal-compliance': { title: 'Legal & Compliance Review', desc: 'Analyze regulatory requirements, IP protection strategy, compliance checklist, and available grants or incentives.', btn: 'Run Legal Analysis' },
+                    'competitive-moat': { title: 'Competitive Moat Analysis', desc: 'Map competitor landscape, score moat dimensions, assess copy difficulty, and identify strategic positioning.', btn: 'Analyze Competitive Moat' },
+                    'stress-test': { title: 'Market Stress Test', desc: 'Simulate adverse market scenarios, evaluate resilience, identify critical dependencies, and plan mitigations.', btn: 'Run Stress Test' },
+                    'financial-intelligence': { title: 'Financial Intelligence', desc: 'Project revenue metrics, unit economics, funding requirements, and valuation scenarios.', btn: 'Generate Financial Intelligence' },
+                    'investment-committee': { title: 'Investment Committee', desc: 'Simulate partner votes, evaluate investment readiness, due diligence, and term sheet recommendations.', btn: 'Run Investment Committee' },
+                    'product-execution': { title: 'Product Execution Plan', desc: 'Define PRD, sprint plan, architecture decisions, API endpoints, and launch readiness.', btn: 'Create Execution Plan' },
+                    'global-expansion': { title: 'Global Expansion Strategy', desc: 'Identify target markets, plan expansion waves, localize strategy, and assess global risks.', btn: 'Plan Global Expansion' },
+                  };
+                  const info = labels[stage] || { title: stage, desc: '', btn: 'Run' };
+
+                  if (activeStage === stage && !hasData && activeProject.status !== 'generating' && activeProject.status !== 'error') {
+                    return (
+                      <Card key={stage} className="shadow-lvl-2 border-border/60 bg-white/70 backdrop-blur-xl p-8 flex flex-col items-center justify-center text-center space-y-6">
+                        <div className="h-14 w-14 rounded-full bg-accent-blue/10 flex items-center justify-center text-accent-blue">
+                          <Icon className="h-7 w-7" />
                         </div>
                         <div className="space-y-2 max-w-md">
-                          <h3 className="text-lg font-bold text-foreground">Business Insights</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            Analyze strategic Strengths, Weaknesses, Opportunities, and Threats to uncover business insights.
-                          </p>
+                          <h3 className="text-lg font-bold text-primary">{info.title}</h3>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{info.desc}</p>
                         </div>
-                        <Button onClick={() => handleStartGeneration(activeProject.id, 'swot')} className="h-10 text-sm gap-2 px-6">
-                          <Sparkles className="h-5 w-5" />
-                          <span>View Business Insights</span>
+                        <Button 
+                          onClick={() => handleStartGeneration(activeProject.id, getBackendStageName(stage))}
+                          className="h-9 text-xs gap-1.5 px-6 font-medium shadow-sm"
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          <span>{info.btn}</span>
                         </Button>
-                      </div>
-                    )}
+                      </Card>
+                    );
+                  }
+                  return null;
+                })}
+              </div>
 
-                    {/* ========== STAGE: COST ESTIMATOR ========== */}
-                    {activeStage === 'cost-estimator' && activeProject.cost && (
-                      <div className="space-y-5">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-xl bg-cyan-500/10 flex items-center justify-center glow-cyan">
-                            <DollarSign className="h-5 w-5 text-cyan-400" />
-                          </div>
-                          <div>
-                            <h2 className="text-xl font-bold text-foreground">Budget Planner</h2>
-                            <span className="text-sm text-muted-foreground">Burn rate & runway analysis</span>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] text-center shadow-sm">
-                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-1">MVP Estimate</span>
-                            <span className="text-2xl font-bold text-foreground">{formatCost(activeProject.cost.mvp_cost_estimate)}</span>
-                          </div>
-                          <div className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] text-center shadow-sm">
-                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-1">Year 1 OPEX</span>
-                            <span className="text-2xl font-bold text-foreground">{formatCost(activeProject.cost.year_1_cost_estimate)}</span>
-                          </div>
-                          <div className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] text-center shadow-sm relative overflow-hidden">
-                            <div className="absolute inset-0 bg-cyan-500/5 glow-cyan" />
-                            <div className="relative">
-                              <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest block mb-1">Optimal Funding Target</span>
-                              <span className="text-2xl font-bold text-cyan-400">{formatCost(activeProject.cost.funding_requirements?.optimal_target_usd)}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-3">
-                            <span className="text-sm font-semibold text-foreground uppercase tracking-widest block mb-4">Budget Scenarios</span>
-                            <div className="grid grid-cols-1 gap-3 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin">
-                              {activeProject.cost.budget_scenarios?.map((scen: any, i: number) => (
-                                <div key={i} className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] flex flex-col gap-2 transition-all hover:bg-white/[0.04]">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-sm font-bold text-foreground block uppercase">{scen.name}</span>
-                                    <span className="text-xs text-muted-foreground bg-white/[0.04] px-2 py-0.5 rounded">{scen.runway_months}m runway</span>
-                                  </div>
-                                  <span className="text-base font-bold text-cyan-400 block">{formatCost(scen.monthly_burn_usd)} / mo</span>
-                                  <p className="text-xs text-muted-foreground/90 leading-relaxed whitespace-pre-wrap">{scen.description}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="space-y-3">
-                            <span className="text-sm font-semibold text-foreground uppercase tracking-widest block mb-4">Operational Costs</span>
-                            <div className="grid grid-cols-1 gap-3 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin">
-                              {activeProject.cost.operational_costs?.map((op: any, i: number) => (
-                                <div key={i} className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] flex flex-col gap-2 transition-all hover:bg-white/[0.04]">
-                                  <div className="flex justify-between items-start gap-4">
-                                    <span className="text-sm font-bold text-foreground block">{op.category.replace(/_/g, ' ')}</span>
-                                    <span className="text-sm font-bold text-amber-400 shrink-0">{formatCost(op.monthly_usd)}/mo</span>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground/90 leading-relaxed whitespace-pre-wrap">{op.description}</p>
-                                  {op.is_mvp_critical && (
-                                    <span className="text-[10px] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded self-start mt-1">MVP Critical</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-white/[0.04] flex justify-end">
-                          <Button onClick={() => setActiveStage('final-blueprint')} className="h-9 text-sm gap-1.5">
-                            <span>Reveal Final Draft</span>
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Cost Empty State */}
-                    {activeStage === 'cost-estimator' && !activeProject.cost && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
-                      <div className="flex flex-col items-center justify-center text-center py-16 space-y-6">
-                        <div className="h-16 w-16 rounded-2xl bg-cyan-500/10 flex items-center justify-center glow-cyan float-orb">
-                          <DollarSign className="h-8 w-8 text-cyan-400" />
-                        </div>
-                        <div className="space-y-2 max-w-md">
-                          <h3 className="text-lg font-bold text-foreground">Budget Planner</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            Model MVP costs, burn rates, runway forecasts, and funding requirements for lean, balanced, and aggressive scenarios.
-                          </p>
-                        </div>
-                        <Button onClick={() => handleStartGeneration(activeProject.id, 'cost')} className="h-10 text-sm gap-2 px-6">
-                          <Sparkles className="h-5 w-5" />
-                          <span>Calculate Runway Costs</span>
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* ========== STAGE: FINAL BLUEPRINT ========== */}
-                    {activeStage === 'final-blueprint' && activeProject.blueprintCompiled && (
-                      <div className="space-y-5">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-xl bg-violet-500/10 flex items-center justify-center glow-violet">
-                            <FileText className="h-5 w-5 text-violet-400" />
-                          </div>
-                          <div>
-                            <h2 className="text-xl font-bold text-foreground">Final Draft</h2>
-                            <span className="text-sm text-muted-foreground">Investor-ready operating document</span>
-                          </div>
-                        </div>
-
-                        <div className="p-10 rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.02] flex flex-col items-center justify-center text-center space-y-5">
-                          <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center glow-emerald">
-                            <Check className="h-8 w-8 text-emerald-400" />
-                          </div>
-                          <div className="space-y-2">
-                            <span className="text-lg font-bold text-foreground block">Your Operating Blueprint is Complete</span>
-                            <span className="text-sm text-muted-foreground">The compiled strategy plan has been generated. Ready for export.</span>
-                          </div>
-                          <div className="flex gap-3">
-                            <Button
-                              onClick={() => window.open(api.exports.pdf(activeProject.id), '_blank')}
-                              className="h-9 text-sm gap-1.5 px-5"
-                            >
-                              Download PDF Package
-                            </Button>
-                            <Button
-                              onClick={async () => {
-                                try {
-                                  const payload = await api.exports.share(activeProject.id);
-                                  const url = `${window.location.origin}/shared/${payload.share_token}`;
-                                  setStreamLog(prev => [`Generated shareable link: ${url}`, ...prev]);
-                                  alert(`Investor link created: ${url}`);
-                                } catch (err: any) {
-                                  alert(`Failed to share: ${err.message}`);
-                                }
-                              }}
-                              className="glass-btn border-border h-9 text-sm gap-1.5 px-5 text-foreground"
-                            >
-                              Share Secure Web View
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Blueprint Empty State */}
-                    {activeStage === 'final-blueprint' && !activeProject.blueprintCompiled && activeProject.status !== 'generating' && activeProject.status !== 'error' && (
-                      <div className="flex flex-col items-center justify-center text-center py-16 space-y-6">
-                        <div className="h-16 w-16 rounded-2xl bg-violet-500/10 flex items-center justify-center glow-violet float-orb">
-                          <FileText className="h-8 w-8 text-violet-400" />
-                        </div>
-                        <div className="space-y-2 max-w-md">
-                          <h3 className="text-lg font-bold text-foreground">Final Draft</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            Assemble all modules into an investor-ready, comprehensive operating blueprint with secure sharing and PDF export.
-                          </p>
-                        </div>
-                        <Button onClick={() => handleStartGeneration(activeProject.id, 'blueprint')} className="h-10 text-sm gap-2 px-6">
-                          <Sparkles className="h-5 w-5" />
-                          <span>Compile Final Draft</span>
-                        </Button>
-                      </div>
-                    )}
+              {/* AI Reasoning Feed - Collapsible sidebar */}
+              <div className="mt-6">
+                <GlassPanel shadow="sm" className="p-4 bg-card">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-semibold text-foreground">Activity Log</span>
                   </div>
-                </div>
 
-                {/* Right Column: AI Reasoning Feed */}
-                <div className="w-[320px] shrink-0 border-l border-white/[0.04] bg-card/30 backdrop-blur-sm flex flex-col">
-                  <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-cyan-400 animate-pulse" />
-                    <span className="text-sm font-semibold text-foreground">AI Reasoning Feed</span>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin">
+                  <div className="max-h-[200px] overflow-y-auto space-y-1.5 text-xs text-muted-foreground">
                     {streamLog.map((log, i) => (
-                      <div key={i} className="flex gap-2 p-2 rounded-lg bg-white/[0.02] border border-white/[0.03]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 shrink-0 mt-1.5" />
-                        <span className="text-sm leading-relaxed text-muted-foreground">{log}</span>
+                      <div key={i} className="flex items-start gap-2 py-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 mt-1.5" />
+                        <span>{log}</span>
                       </div>
                     ))}
                     {streamLog.length === 0 && (
-                      <span className="text-muted-foreground/80 italic text-center block pt-24 text-sm">
-                        Ready to co-author.
+                      <span className="text-muted-foreground/50 italic text-center block py-4">
+                        Activity will appear here during generation.
                       </span>
                     )}
                   </div>
-                </div>
+                </GlassPanel>
               </div>
-
-              {/* =============================================
-                 BOTTOM DOCK — PIPELINE STAGE CARDS
-                 ============================================= */}
-              <div className="px-4 py-3 border-t border-white/[0.04] bg-card/50 backdrop-blur-md">
-                <div className="flex items-center gap-2 justify-center">
-                  {STAGES.map((stage) => {
-                    const status = getStageStatus(stage.name);
-                    const Icon = stage.icon;
-                    const isActive = activeStage === stage.name;
-                    return (
-                      <button
-                        key={stage.name}
-                        disabled={status === 'locked'}
-                        onClick={() => setActiveStage(stage.name)}
-                        className={cn(
-                          "dock-card flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl border cursor-pointer min-w-[80px]",
-                          isActive && "border-cyan-500/30 bg-cyan-500/5 glow-cyan",
-                          !isActive && status === 'completed' && "border-emerald-500/15 bg-emerald-500/5 hover:bg-emerald-500/8",
-                          !isActive && status === 'pending' && "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]",
-                          !isActive && status === 'locked' && "border-white/[0.03] bg-white/[0.01] opacity-40 cursor-not-allowed"
-                        )}
-                      >
-                        <div className="relative">
-                          <Icon className={cn(
-                            "h-5 w-5",
-                            isActive ? stage.color : 
-                            status === 'completed' ? 'text-emerald-400' : 
-                            status === 'locked' ? 'text-muted-foreground/80' : 'text-muted-foreground'
-                          )} />
-                          {status === 'completed' && (
-                            <div className="absolute -top-1 -right-1.5 h-2.5 w-2.5 rounded-full bg-emerald-500 border border-card flex items-center justify-center">
-                              <Check className="h-1.5 w-1.5 text-white" />
-                            </div>
-                          )}
-                        </div>
-                        <span className={cn(
-                          "text-sm font-medium",
-                          isActive ? 'text-cyan-400' : 
-                          status === 'completed' ? 'text-emerald-400/80' :
-                          status === 'locked' ? 'text-muted-foreground/80' : 'text-muted-foreground'
-                        )}>
-                          {stage.shortLabel}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+            </WorkspaceView>
           )}
         </main>
       </div>

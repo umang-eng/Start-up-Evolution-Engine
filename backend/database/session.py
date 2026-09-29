@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 from collections.abc import AsyncGenerator
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -49,7 +50,8 @@ async def verify_db_connectivity() -> None:
             exc_info=e
         )
         # Recreate engine and configure sessionmaker with local SQLite file
-        sqlite_url = "sqlite+aiosqlite:///dev_fallback.db"
+        fallback_db_path = Path(__file__).resolve().parents[1] / "dev_fallback.db"
+        sqlite_url = f"sqlite+aiosqlite:///{fallback_db_path}"
         engine = create_async_engine(
             sqlite_url,
             echo=False
@@ -60,7 +62,10 @@ async def verify_db_connectivity() -> None:
         from backend.database.base import Base
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-        logger.info("SQLite fallback database initialized and verified successfully.")
+        logger.info(
+            "SQLite fallback database initialized and verified successfully: %s",
+            fallback_db_path,
+        )
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

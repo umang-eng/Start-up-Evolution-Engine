@@ -1,0 +1,739 @@
+START-UP EVOLUTION ENGINE
+Professional Project Overview and Product Guide
+
+Edition: Repository-based product and engineering description
+Prepared: 29 September 2026
+Document format: Plain text (.txt)
+Scope: Current application structure, implemented user experience, backend behavior,
+data lifecycle, configuration, operational boundaries, and product capabilities.
+
+IMPORTANT READING NOTE
+This guide describes the repository as it exists at the preparation date. It distinguishes
+implemented behavior from external services that must be configured and from features
+whose screens are present but whose production workflow is not connected. AI-generated
+business analysis is decision support, not legal, investment, accounting, or market advice.
+Actual print pagination depends on the text editor, font, margins, and paper size; the
+twenty numbered sections below are arranged as a twenty-page-length edition.
+
+========================================================================
+PAGE 01 OF 20 - EXECUTIVE SUMMARY
+========================================================================
+
+Start-up Evolution Engine (also styled in the interface as "Evolution Engine") is a
+web-based startup planning and venture-analysis workspace. It is designed to turn a
+founder's written concept into a connected set of strategic documents: an organized
+business profile, product definition, delivery plan, team and cost estimates, risk and
+compliance analysis, competitive assessment, financial scenarios, investor-perspective
+review, product execution materials, and international expansion considerations.
+
+The product is structured around startup projects. Each project is a persistent workspace
+that stores its name and idea description, generation sessions, stage outputs, and a
+compiled blueprint. The user can create more than one project, move between projects,
+inspect stage results, and initiate or continue the staged generation pipeline.
+
+The application has two principal experiences. The main workspace is a dashboard and
+fourteen-stage blueprint builder. The Conversation Intelligence area separately records
+or accepts meeting transcripts and organizes reports and related analyses. The frontend
+is built with Next.js, React, and TypeScript; the backend exposes authenticated FastAPI
+endpoints and uses SQLAlchemy for persistence. Long-running pipeline jobs can be
+dispatched through Redis and ARQ, with progress relayed to the browser through
+Server-Sent Events (SSE).
+
+The intended value is coherence: each stage can draw on existing project information,
+and the final blueprint combines several of the stage outputs. The product is not a
+substitute for founder research or professional review. Estimates and recommendations
+are model outputs; users should validate assumptions, sources, numbers, and jurisdiction-
+specific requirements before acting on them.
+
+This is a developer-facing description of this codebase, not a statement that every
+capability is production-ready or enabled in every environment. Integration keys, local
+services, runtime mode, and individual stage fallbacks can materially affect output.
+
+========================================================================
+PAGE 02 OF 20 - PRODUCT PURPOSE, AUDIENCE, AND OPERATING MODEL
+========================================================================
+
+The primary user is a founder or early-stage venture team that has a concept and needs
+to make its assumptions explicit. Secondary audiences include product leads preparing an
+MVP, operators estimating delivery effort, advisors helping founders structure decisions,
+and investors or mentors reviewing a draft plan. The product creates a shared planning
+artifact; it does not manage a live company, execute the roadmap, or independently verify
+the claims in an idea prompt.
+
+The core operating model is:
+
+  1. The user creates an account and signs in.
+  2. The user creates a startup project and supplies a name and concept description.
+  3. The backend stores the project under the authenticated account.
+  4. The user starts the full pipeline or requests an individual stage.
+  5. The backend queues a generation session and the worker processes stages in order.
+  6. The interface receives stage and workflow events and presents available results.
+  7. A final blueprint can be viewed and, where generation and dependencies allow,
+     exported or shared.
+  8. The founder reviews, corrects, and supplements the generated material.
+
+The product has a document-and-workspace orientation rather than a free-form chat-only
+orientation. The idea prompt is the starting point; the main product experience is a
+project workspace with stage navigation, progress, cards, data visualizations, and
+actions. An intake assistant/store also exists in the frontend and can help shape the
+starting description. Stage views are data-driven: they render structured responses into
+sections, lists, badges, tables, and charts.
+
+The platform is best understood as a planning accelerator. It helps organize questions
+founders should investigate: who the customer is, what is being built, what the first
+delivery sequence could be, which costs and risks may matter, and how an investor might
+challenge the thesis. It cannot certify a business as viable or guarantee funding,
+regulatory compliance, product-market fit, or accuracy of third-party market facts.
+
+========================================================================
+PAGE 03 OF 20 - HIGH-LEVEL SYSTEM ARCHITECTURE
+========================================================================
+
+The application uses a browser-based client and a Python API. In local development, the
+usual ports are 3000 for Next.js and 8000 for FastAPI. The browser calls the API over
+HTTP and receives asynchronous progress over a stream endpoint.
+
+  Browser
+    |
+    +-- Next.js 16 / React 19 / TypeScript interface (port 3000)
+           |
+           +-- REST calls and JWT authorization
+           +-- SSE workflow stream
+                   |
+                   v
+          FastAPI API (port 8000)
+             |             |               |
+             v             v               v
+        SQL database     Redis          External services
+        accounts,        cache,         AI model endpoints,
+        projects,        queue and      optional search,
+        results,         event          optional transcription
+        sessions         messaging
+                           |
+                           v
+                     ARQ worker
+                           |
+                           v
+               Sequential pipeline orchestrator
+
+The frontend is a Next.js App Router application. React components render the shell,
+dashboard, workspace, authentication pages, meetings screens, and shared UI elements.
+Zustand stores handle client-side workspace, pipeline, notification, settings, intake,
+and meeting state. The API client centralizes HTTP calls, token attachment, token
+refresh, error handling, and normalization of backend payload shapes.
+
+The backend is split into versioned API routers, service/repository logic, SQLAlchemy
+models, validation schemas, AI and context helpers, stage modules, and the orchestrator.
+The API accepts requests and authorizes account ownership. The worker executes long
+pipeline tasks so a web request does not need to remain open for the entire generation.
+Redis supports ARQ jobs and publish/subscribe-style event distribution. Workflow events
+are also persisted in the database for later reconstruction.
+
+PostgreSQL is the configured primary database. This repository has also been run locally
+with a SQLite development fallback when PostgreSQL was unavailable. Redis and the
+worker are important for the normal asynchronous path; development mode includes a
+direct-run fallback if the queue cannot be reached. These alternatives are development
+resilience paths, not equivalent recommendations for production deployment.
+
+========================================================================
+PAGE 04 OF 20 - REPOSITORY STRUCTURE
+========================================================================
+
+The project is organized into a frontend root and a backend package. The following map
+shows the important maintained source areas; generated output, installed packages,
+virtual environments, caches, and local databases are intentionally omitted.
+
+  src/
+    app/
+      page.tsx                    Main dashboard and project workspace
+      layout.tsx                  Root document, providers, metadata, external script
+      globals.css                 Design tokens, theme colors, global styles
+      login/                      Sign-in page
+      signup/                     Account registration page
+      forgot-password/            Password recovery screen
+      reset-password/             Password update screen
+      meetings/                   Conversation Intelligence route
+    components/
+      dashboard/                  Portfolio dashboard
+      workspace/                  Stage navigation and project workspace frame
+      pipeline/                   Pipeline progress visualization
+      meetings/                   Recording, transcript, history, and reports UI
+      shared/                     Navbar, sidebar, settings, auth and query providers
+      notifications/              Notification interface
+      ui/                         Reusable controls, cards, forms, and dialogs
+    lib/
+      api-client.ts               HTTP API, auth tokens, response adapters
+      meeting-recordings.ts       Browser IndexedDB recording storage
+      utils.ts                    Shared interface utilities
+    store/                        Zustand stores for application state
+    types/                        TypeScript domain and API-facing types
+
+  backend/
+    api/v1/                       Authentication, projects, generation, streams,
+                                  blueprints, exports, intake, and meeting endpoints
+    app/                          FastAPI app, lifecycle, and health endpoints
+    ai/                           Model adapters, prompts, context, and AI helpers
+    database/                     Engine and session configuration
+    models/                       SQLAlchemy persistence models
+    schemas/                      Request and response validation contracts
+    repositories/                 Data access functions
+    services/                     User, project, meeting, and domain operations
+    modules/                      Pipeline stages and intelligence engines
+    orchestrator/                 Stage ordering, execution, cache, and event flow
+    worker/                       ARQ worker process and job entry points
+    tests/                        API, pipeline, and module tests
+    alembic/                      Database migration configuration and revisions
+
+Other important root files include package.json (frontend scripts and dependencies),
+README.md (technical orientation), Dockerfile and docker-compose.yml (container setup),
+.env.example (configuration template), and backend/requirements.txt (Python packages).
+Do not treat node_modules, .next, backend/venv, local database files, or Redis dumps as
+application source or commit them as ordinary project documentation.
+
+========================================================================
+PAGE 05 OF 20 - FRONTEND EXPERIENCE AND VISUAL IDENTITY
+========================================================================
+
+The visual system is an application dashboard: a compact navigation rail, a workspace
+header, a central content area, and project-specific stage navigation. Cards provide
+separation for reports and metrics. Buttons, badges, dialogs, progress bars, tabs,
+inputs, and tooltips are shared UI components. Lucide icons are used to make stages and
+actions scannable.
+
+The default palette is a calm neutral interface with a white-to-near-white canvas,
+light-gray borders, dark text, and a saturated blue primary action color. The dark theme
+switches the canvas and card surfaces to near-black and charcoal, lightens text and
+borders, and retains blue accents. Success, warning, information, and destructive states
+use distinct semantic colors. Cards and dialogs use rounded corners, subtle borders,
+and restrained shadows. Login and account screens add softly blurred blue accents behind
+a centered card.
+
+The intended visual tone is professional and analytical rather than consumer-social:
+the UI gives priority to readable business data, status, decisions, and next actions.
+Charts and data cards use a restrained palette. Meetings has a more violet identity to
+differentiate conversation analysis from the core venture-planning workspace.
+
+The interface is built with Tailwind CSS and shared component primitives. Motion and
+CSS transitions are used for feedback such as loading, hover, selected, and dialog
+states. The design system centralizes color and radius values in CSS custom properties,
+which allows the same component classes to work across light and dark surfaces.
+
+The browser application is English-language in the current implementation. The theme
+preference is a user-facing display choice, not an operating-system theme sync. Founder
+name and title shown in workspace chrome are local presentation preferences; they do
+not change the authenticated email or server-side account identity.
+
+========================================================================
+PAGE 06 OF 20 - NAVIGATION, NAVBAR, AND WORKSPACE SHELL
+========================================================================
+
+The sidebar provides persistent product navigation. It includes the Evolution Engine
+brand, a collapse/expand control, a prominent New Startup action, a Dashboard link,
+Meetings under Intelligence, and a short list of recent projects. The recent-project
+list is capped at five items in the visible sidebar. Selecting a project switches the
+main workspace. At the bottom are Settings and Help actions. Help opens a compact
+reference for common interface actions.
+
+The top navbar identifies the active project and its current status. When a project is
+selected, it exposes Share and Export actions. The notification control opens an
+activity list, and the profile control opens founder identity, Settings, and Log Out.
+The profile avatar currently uses a static image asset hosted by Unsplash; it is not a
+user-uploaded profile picture.
+
+The navbar search opens with the Command-K shortcut on macOS and Control-K on other
+platforms. Escape closes it. Search inspects locally loaded project names, selected DNA
+fields, feature names/descriptions, and roadmap task names. It is a quick-access search
+over loaded workspace data, not a general server-wide or internet search.
+
+With no selected project, the main area displays the executive dashboard and project
+creation entry point. With an active project, the workspace shows the project name,
+stage-completion count, full-pipeline action, live progress when running, a stage grid,
+and the selected stage's result area. The interface supports inspecting previous
+results while generation is in progress, subject to results being available in the
+current project state.
+
+========================================================================
+PAGE 07 OF 20 - DASHBOARD, STARTUP CREATION, AND IDEA INTAKE
+========================================================================
+
+The dashboard is the portfolio-level entry point. It presents summary metric cards,
+project cards, stage progress, and a path to create a project. A project card can be
+selected to open its workspace. Current dashboard progress is calculated from the six
+core stage result groups (DNA, features, roadmap, team, SWOT, and costs), whereas the
+active workspace tracks fourteen stages. This is a deliberate distinction in the
+existing display and should be understood when comparing dashboard counts with the
+pipeline's full completion count.
+
+Project creation collects a startup/project name and a prompt describing the business
+concept. The main dashboard flow accepts an optional name and a required idea prompt;
+the sidebar creation dialog requires both a name and a core vision. The prompt is
+bounded by the UI and backend request schemas. The project is created under the
+authenticated user, then becomes the active workspace.
+
+The frontend also contains an intake assistant and a dedicated intake state store.
+Its purpose is to help a founder develop a more useful initial description before
+generation, rather than replace the structured stage workflow. Idea enhancement is
+available through the generator API and asks the configured Gemini adapter to expand
+the initial idea with target market, monetization, differentiators, and positioning.
+That feature requires valid provider configuration and can fail independently of
+account, project, or pipeline operations.
+
+Recommended prompt inputs include the problem being solved, customer segment, current
+alternatives, product concept, business model, geography, pricing assumptions, and
+known constraints. Specific inputs generally make downstream hypotheses more useful.
+The platform cannot infer confidential facts or market evidence that was not supplied
+or retrieved through an enabled integration.
+
+========================================================================
+PAGE 08 OF 20 - ACCOUNT ACCESS, LOGIN, AND LOGOUT
+========================================================================
+
+The account model uses email and password. Registration validates a syntactically valid
+email and requires a password between 8 and 128 characters. The backend checks email
+uniqueness, stores a password hash rather than the submitted plaintext, and assigns the
+default user role. The registration screen also asks the user to confirm the password;
+the frontend checks matching values before submitting. Successful registration
+automatically signs the user in.
+
+Sign-in submits credentials to the authentication API. On success, the backend issues
+an access token and refresh token. The frontend stores both in browser localStorage,
+then requests the authenticated user profile and routes to the workspace. Protected
+pages redirect unauthenticated users to /login. The API client attaches the access
+token to protected API requests. When an eligible request receives an unauthorized
+response, it attempts token rotation and retries; if refresh fails, it clears tokens
+and sends the browser back to the login page.
+
+Access-token lifetime is configured to 15 minutes and refresh-token lifetime to 7 days
+in the backend settings. Actual values should be checked against the active runtime
+configuration.
+
+Log Out clears access and refresh tokens in the current browser and navigates to the
+login page. The backend does not expose a logout/revocation endpoint in the current
+authentication router; therefore, logout is a client-side token removal rather than
+server-side revocation of already issued tokens. Logging out does not delete a user,
+projects, meetings, recordings, or preferences.
+
+Token storage in localStorage is convenient for this client implementation but is
+exposed to scripts running in the origin. A production threat model should consider
+httpOnly secure cookies, CSRF protection, session revocation, rate limiting, and
+multi-factor authentication before handling sensitive customer information.
+
+========================================================================
+PAGE 09 OF 20 - SETTINGS, PROFILE PREFERENCES, AND THEME
+========================================================================
+
+Workspace Settings is opened from the navbar profile menu or the sidebar gear control.
+The current dialog has Founder, Financials, and Danger Zone sections. The UI does not
+currently provide a profile editor for the server-side email, password, or account
+role.
+
+Founder preferences include a display name and founder title. These are used in the
+workspace interface and persist in browser localStorage under the application's
+settings key. They are not written to the account record. The theme selector switches
+between light and dark appearance and applies the corresponding document class.
+
+Financial preferences include a currency symbol selection (USD, EUR, INR, or GBP) and
+a cost contingency buffer from 0 to 50 percent. The buffer is described in the UI as an
+additional safety margin for financial items and projections. These settings are client
+preferences; generated server-side values should not be assumed to be recalculated
+unless a generation flow explicitly consumes the preference.
+
+The local settings store also defines model, temperature, and a custom API-key property,
+but the current settings dialog does not expose those properties as ordinary controls.
+AI provider selection and credentials for pipeline execution are primarily backend
+environment configuration.
+
+Settings reset restores defaults and removes the stored settings record. Changing to
+light mode removes the dark class from the document. Clearing settings is separate from
+clearing persisted projects and separate from signing out.
+
+========================================================================
+PAGE 10 OF 20 - CLEARING PROJECT DATA, MEETINGS, AND ACCOUNT DATA
+========================================================================
+
+The Danger Zone action is labeled "Wipe All Projects & Reset Config." Its implemented
+operation loops through projects currently loaded for the signed-in user, calls the
+project deletion endpoint for each, and resets local settings. Backend project deletion
+is ownership-checked and the data model cascades project-owned blueprint/results,
+project versions, generation sessions, and their workflow events. This is a destructive
+action and cannot be undone from the interface.
+
+The label must not be interpreted as a complete account-erasure feature. There is no
+account deletion endpoint or account-deletion screen in the current API. Wiping projects
+does not remove the account or its authentication tokens, does not sign the user out,
+and does not delete meeting records. Meetings are stored separately under the account.
+The meeting screen does provide a per-meeting delete action, which removes the meeting
+and associated transcript, report, and segments.
+
+Recorded audio is stored in the browser's IndexedDB database named
+"startup-evolution-meetings", keyed by meeting ID. Deleting a meeting attempts to
+delete its local recording from IndexedDB through the frontend meeting store. Clearing
+projects and settings does not clear this recording database. If a user needs all
+account-related information removed, the present UI does not supply a single operation
+that guarantees this across projects, meetings, browser recordings, preferences, tokens,
+database backups, and external AI-provider retention.
+
+Operationally, delete individual meetings separately and clear browser-local recordings
+and local storage only when appropriate. Do not manually delete database files while
+the app is running. A production service should provide an explicit account deletion
+workflow, explain retention/backup behavior, handle in-flight jobs, and verify deletion
+across all data stores.
+
+========================================================================
+PAGE 11 OF 20 - FOURTEEN-STAGE PIPELINE: BUSINESS FOUNDATION
+========================================================================
+
+The orchestrator executes the following stages sequentially. The frontend uses friendly
+labels; the backend uses underscore-separated module names. Stages 1-7 establish the
+business, product, delivery, operating, financial, and compliance foundation.
+
+  01. DNA Analyzer (backend: dna)
+      Structures the concept into core venture attributes such as industry/category,
+      business model, target market, value proposition, USP, strategic scores,
+      recommendations, assumptions, and next steps.
+
+  02. Feature Extractor (features)
+      Converts the concept and venture context into a product feature set, with
+      prioritization, effort/complexity, benefits, risks, and dependencies.
+
+  03. Roadmap (roadmap)
+      Organizes work into phases, tasks, timelines, milestones, deliverables,
+      dependencies, KPIs, and recommendations.
+
+  04. Team Structure (team)
+      Proposes roles, responsibilities, hiring stages, skills, team size, and
+      indicative cost/ownership planning where supplied by the stage schema.
+
+  05. SWOT Analysis (swot)
+      Structures strengths, weaknesses, opportunities, and threats, along with
+      risk/opportunity matrices, mitigations, and an action plan.
+
+  06. Cost Estimator (cost)
+      Produces launch and operating cost perspectives, cost categories, scenario
+      comparisons, runway/funding estimates, and recommendations.
+
+  07. Legal & Compliance (legal_compliance)
+      Organizes applicable compliance checks, registrations, intellectual-property
+      considerations, regulations, potential grants/incentives, risk, and actions.
+
+These outputs are planning drafts. Team compensation, cost assumptions, compliance
+requirements, and grant eligibility are especially sensitive to country, industry,
+company structure, date, and provider evidence. A generated result should be reviewed
+by qualified professionals before being used as a filing, forecast, or legal conclusion.
+
+========================================================================
+PAGE 12 OF 20 - FOURTEEN-STAGE PIPELINE: INTELLIGENCE AND COMPILATION
+========================================================================
+
+Stages 8-13 add deeper business and execution lenses; stage 14 assembles the terminal
+blueprint.
+
+  08. Competitive Moat (competitive_moat)
+      Reviews competitive positioning and potential defensibility dimensions, including
+      network effects, data, brand, technology, switching costs, scale, regulation,
+      distribution, community, and AI/data flywheel. It may include competitors,
+      scores, evidence, copy difficulty, and strategic recommendations.
+
+  09. Stress Test (stress_test)
+      Challenges the plan with downside scenarios and risk assessments, with mitigations
+      and recovery actions where the stage output supports them.
+
+  10. Financial Intelligence (financial_intelligence)
+      Extends basic budgeting into unit economics, period-based projections, scenarios,
+      valuation, funding requirements, and related financial narrative.
+
+  11. Investment Committee (investment_committee)
+      Simulates investor review: investment thesis, recommendation, reasons for and
+      against, fatal risks, unknowns, diligence topics, and possible deal framing.
+
+  12. Product Execution (product_execution)
+      Translates product intent into execution assets such as PRD-like material, user
+      stories, technical architecture, sprint planning, release, QA, and deployment
+      strategy, as available from its validated output schema.
+
+  13. Global Expansion (global_expansion)
+      Considers expansion markets, sequence/waves, localization, regulatory needs,
+      market entry, hiring, and go-to-market considerations.
+
+  14. Final Blueprint (blueprint)
+      Compiles the core venture outputs into a consolidated document with executive
+      summary, normalized stage data, health indicators, legal and competitive
+      summaries, assumptions, risks, positioning, and next steps. The current schema
+      also has fields for the six intelligence-stage outputs.
+
+The six intelligence modules are treated as non-critical by the orchestrator: an
+individual failure can be handled as graceful degradation rather than necessarily
+terminating the whole run. Consequently, workflow completion should be distinguished
+from the presence and quality of every optional-stage result. The frontend counts stages
+by result availability, not simply by a terminal success message.
+
+========================================================================
+PAGE 13 OF 20 - GENERATION LIFECYCLE, PROGRESS, AND RESUMPTION
+========================================================================
+
+The browser starts a pipeline by calling the generator API with a project ID and,
+optionally, a specific backend stage. The API verifies that the project belongs to the
+authenticated user. If an active generation session already exists for that project,
+the endpoint reuses it rather than queuing a duplicate active session. Otherwise it
+creates a session and attempts to enqueue an ARQ job.
+
+The worker runs the orchestrator through the canonical order:
+
+  dna -> features -> roadmap -> team -> swot -> cost -> legal_compliance
+       -> competitive_moat -> stress_test -> financial_intelligence
+       -> investment_committee -> product_execution -> global_expansion -> blueprint
+
+It assembles project context, makes predecessor outputs available, executes each stage,
+updates session state, and persists workflow events. The frontend subscribes to a
+session/project stream and maps backend stage names into UI labels. Live event messages
+drive active stage and progress feedback. The API also exposes a cancellation request:
+the worker checks cancellation between stages; an in-flight model request may finish
+before the next stage is prevented.
+
+The orchestrator maintains checksums and cache metadata to avoid unnecessary repeated
+work when stage inputs have not changed. A cache hit is not a new model generation; it
+is reuse of an earlier compatible result. Event persistence is important because some
+intelligence results are represented as workflow-event payloads rather than dedicated
+one-row-per-stage tables. The blueprint retrieval route merges the newest completed
+event result for each intelligence stage into full and partial responses.
+
+The workspace's "Continue Blueprint Generation" action starts the canonical full
+pipeline. It is not a continuation cursor that only executes stages after the current
+screen; compatible earlier outputs may be reused by cache. A visible stage completion
+event does not by itself establish that a meaningful non-fallback result was produced.
+Users should inspect stage cards and error/status details, particularly when an AI
+provider or queue is unavailable.
+
+========================================================================
+PAGE 14 OF 20 - CONVERSATION INTELLIGENCE AND MEETING DATA
+========================================================================
+
+The Meetings route is a separate product area for capturing and interpreting founder
+conversations. It uses a responsive history-and-content layout. Tabs organize Record,
+Upload, Report, Health, Timeline, and Combined analysis views. The history panel lists
+the user's meetings with title, timestamp, duration, speaker count when available, and
+status badges such as Recording, Transcribed, Analyzed, Generating, or Error.
+
+The recording flow creates a meeting, requests microphone access through browser media
+recording support, and captures audio. The user can review the recording, request
+transcription, or enter/paste transcript text as a fallback. Puter speech-to-text is
+loaded as a browser script and may require Puter authorization and an available provider.
+The backend also has an audio-upload endpoint for a configured Whisper-compatible
+service. These are distinct transcription paths and depend on browser permissions,
+provider credentials, network connectivity, and file format.
+
+Transcripts are submitted to the backend and associated with a meeting. The backend
+stores meeting metadata and transcript text, and can generate a structured report
+containing an executive summary, key points, decisions, action items, questions, risks,
+agreements/disagreements, technical topics, business opportunities, follow-up needs,
+and an overall outcome. The report viewer supports collapsible sections, action tables,
+copying, and Markdown download when a full Markdown report is available. Health,
+timeline, and combined analysis operations are exposed through backend meeting
+intelligence engines and frontend store actions.
+
+Audio recordings are retained locally in browser IndexedDB; transcript and report data
+are server-side. This difference matters for backup, access from another device, and
+deletion. A transcript can be available on another signed-in client while its original
+audio blob remains only in the browser that recorded it.
+
+========================================================================
+PAGE 15 OF 20 - RESULT PRESENTATION, EXPORT, AND SHARING
+========================================================================
+
+Stage outputs are presented as structured information rather than raw model text alone.
+The main workspace contains specialized panels for the core and intelligence stages,
+including strategic summaries, risk and mitigation lists, financial tables, task and
+phase data, role descriptions, legal checklists, competitive-moat dimensions, and
+investor-style recommendations. Some financial values are shown using a selected
+currency symbol. Charts are supported by the frontend charting stack.
+
+The top-bar Export action requests a print-ready blueprint. The backend export service
+attempts to return a PDF; if PDF rendering is unavailable, it can return print-styled
+HTML. The backend also defines a pitch-deck export endpoint that attempts PowerPoint
+generation and provides a limited structured fallback if generation fails. The current
+navbar visibly exposes the blueprint export action; the deck endpoint is an API
+capability and should not be assumed to have a complete end-user button.
+
+The backend creates tokenized share links with an expiry and a declared scope, and the
+blueprint API has a public shared-blueprint retrieval route. Sharing is intended for
+review without ordinary login. Treat shared links as bearer credentials: anyone who
+obtains a valid link may be able to access the associated shared material until expiry.
+There is an integration mismatch in the current navbar share action: it reads a `token`
+property and constructs a frontend `/shared/...` URL, while the API response and shared
+blueprint route use different field/path names. The backend share primitives exist, but
+the end-to-end navbar flow should be aligned and tested before relying on it. Do not
+distribute a link containing sensitive or confidential business information without
+first reviewing its scope and current implementation.
+
+Exports and AI outputs are snapshots of stored project data at request time. A PDF or
+shared view is not an independent verification or endorsement. Users should check
+financial units, market references, assumptions, and compliance wording before
+circulating the resulting document.
+
+========================================================================
+PAGE 16 OF 20 - BACKEND DOMAINS AND API SURFACES
+========================================================================
+
+FastAPI exposes versioned routes under /api/v1. The active routers in the application
+include:
+
+  /health                  Liveness and readiness checks
+  /auth                    Registration, login, refresh, and current profile
+  /projects                Create, list, fetch, and delete owned projects
+  /generator               Start/cancel runs and enhance idea descriptions
+  /streams                 Subscribe to generation progress/events
+  /blueprints              Fetch full or partial blueprint data
+  /exports                 PDF/HTML, deck, and share-link operations
+  /intake                  Intake/idea assistance endpoints
+  /meetings                Meeting lifecycle, transcript, report, and analysis APIs
+
+The API returns a consistent response envelope for many routes with success, data, and
+metadata. Pydantic schemas validate external input and response shapes. The API client
+unwraps response envelopes and normalizes variable result shapes before the UI renders
+them. Endpoints for projects and meetings derive identity from the bearer token and
+check ownership before exposing or deleting records.
+
+Health liveness confirms that the process responds. Readiness attempts database and
+Redis checks. A healthy API response does not prove that the worker is consuming jobs,
+that an LLM endpoint is configured, or that third-party search/transcription will work.
+Operational monitoring should check those services separately.
+
+The backend uses service and repository boundaries to separate request handling from
+domain operations and persistence. SQLAlchemy models represent users, projects,
+blueprints, result records, project versions, generation sessions, workflow events,
+meetings, transcripts, segments, and reports. Alembic configuration and migration
+files provide a path for schema management.
+
+========================================================================
+PAGE 17 OF 20 - DATA MODEL, STORAGE, AND PRIVACY BOUNDARIES
+========================================================================
+
+The server-side user record stores the normalized account identity, hashed password,
+role, activation status, and timestamps. A project belongs to a user and stores a
+project name/title, idea description, industry, and region. Project-owned structured
+results include DNA, features, roadmap, team, SWOT, costs, legal compliance, and the
+compiled blueprint. Project versions and generation sessions preserve snapshots,
+checksums, status, progress, cache information, and workflow history.
+
+Meetings are a separate user-owned record with optional association to a project.
+Transcripts, segments, and reports are linked to the meeting and cascade when that
+meeting is deleted. Project deletion cascades project-owned results and generation
+history. Deleting a project sets an associated meeting's project reference to null
+rather than deleting the meeting.
+
+Data also lives in the browser. Access and refresh tokens are held in localStorage.
+Workspace preferences are held in localStorage. Recorded audio is held in IndexedDB.
+This means the information a user considers "account data" spans more than one store;
+server project deletion alone does not remove browser preferences, browser tokens,
+meeting records, or every audio copy.
+
+AI requests may send idea descriptions, derived context, transcripts, or related
+information to configured AI/transcription/search providers. Provider data handling
+depends on the provider, account, endpoint, and deployment contract. Before using
+confidential or regulated data, configure providers deliberately, review their retention
+terms, and disclose the data flow to users. Never place secrets in the frontend bundle
+or commit .env files.
+
+========================================================================
+PAGE 18 OF 20 - AI, SEARCH, CACHING, AND OUTPUT RELIABILITY
+========================================================================
+
+AI functionality is integrated through server-side adapters and stage modules.
+Configuration supports Ollama (default host/model values are supplied in the example
+configuration), Gemini for idea enhancement and other configured uses, Tavily or Google
+Custom Search for optional live market grounding, and a Whisper-compatible transcription
+endpoint. The browser-based Puter transcription route is separately loaded on the
+frontend. Each integration must be tested independently.
+
+The environment example enables PIPELINE_FAST_MODE by default. In this mode, selected
+downstream intelligence stages can use deterministic/computed or structured fallback
+outputs rather than making a model call for every stage. This behavior can improve
+runtime and resilience but may yield less tailored analysis. Therefore, "stage
+completed" means the orchestrator completed its stage path; it does not guarantee that
+every field was produced by a live LLM or supported by live search evidence.
+
+The orchestrator validates structured responses against Pydantic schemas and tracks
+input checksums to support reuse. Model outputs may need parsing/normalization and
+should be treated as uncertain. The frontend API mapping layer accommodates several
+backend response shapes to avoid rendering crashes when an API field is represented as
+an object, list, or scalar.
+
+Confidence and evidence fields are useful signals, not statistical guarantees. Market
+search is only live when a provider is configured and called successfully. Small local
+models may be constrained in reasoning depth, throughput, or output length. Recommended
+practice is to use explicit assumptions, inspect outputs, compare with primary sources,
+and rerun after changing material project inputs.
+
+========================================================================
+PAGE 19 OF 20 - RESPONSIVENESS, ACCESSIBILITY, AND INTERACTION QUALITY
+========================================================================
+
+The interface includes responsive layout rules. The workspace stage grid changes from
+two columns to four at medium breakpoints and seven at large breakpoints. The Meetings
+history and content panels stack into one column on narrow screens and become a
+multi-column layout on large screens. Some navbar text and search controls are hidden
+until wider breakpoints; the sidebar can collapse to a narrow icon rail. Authentication
+forms use a centered, width-constrained card. Tables have horizontal overflow handling
+where needed.
+
+This is evidence of responsive intent in the implementation, not a guarantee that every
+screen has been fully usability-tested on every mobile browser. The main workspace uses
+a fixed-height shell with independently scrolling areas; small-height phones, virtual
+keyboards, very long stage output, zoom, and screen-reader navigation deserve specific
+testing. Some actions rely on hover affordances, and these should be checked on touch
+devices.
+
+The application uses semantic buttons, labels, form controls, visible loading and error
+states, status indicators, and keyboard access for the command palette. Accessibility
+quality still requires a systematic audit, including focus order, focus visibility,
+contrast, screen-reader names, reduced-motion behavior, and chart alternatives.
+
+For a professional responsive release, validate at representative widths (small phone,
+large phone, tablet, laptop, and widescreen); check both light and dark modes; test long
+project titles and large AI responses; verify sticky meeting headers; and inspect the
+pipeline flow with touch, keyboard-only, and screen-reader usage. Layout classes show
+adaptation points, but automated screenshots and real-device review remain necessary.
+
+========================================================================
+PAGE 20 OF 20 - LOCAL DEVELOPMENT, OPERATIONS, AND PRODUCT BOUNDARIES
+========================================================================
+
+The repository's frontend package scripts include:
+
+  npm run dev:frontend    Start Next.js on its development port
+  npm run dev:backend     Start FastAPI on port 8000
+  npm run dev              Start frontend and backend together
+  npm run build            Build the production frontend
+  npm run lint             Run ESLint
+
+The backend dependencies are listed in backend/requirements.txt. A typical local setup
+also needs a valid environment file, a database, Redis for the queue/stream path, a
+worker process, and any desired AI/search/transcription provider. The repository
+includes Docker configuration for coordinated services. Check .env.example and the
+actual deployment files before starting; use a strong unique SECRET_KEY, production
+database credentials, restricted CORS origins, HTTPS, and securely managed provider
+keys in any exposed deployment.
+
+Operational checks should cover API liveness/readiness, Redis, database migrations,
+worker queue consumption, model reachability, SSE delivery, and one full test project.
+Useful validation includes frontend build/lint, backend pytest suites, response-shape
+tests, and a manual end-to-end run that reloads the final blueprint and verifies every
+stage result persists. Be aware that local SQLite concurrency and external services can
+behave differently from production PostgreSQL and a deployed worker.
+
+Known product boundaries include: account deletion is not implemented; password
+recovery/reset screens are currently mock flows rather than a complete email/token
+workflow; logout clears browser tokens but does not revoke them server-side; meeting data
+is separate from the project wipe action; browser audio is stored separately from
+server transcripts; provider availability affects generation; fast mode may return
+fallback/computed results; and the dashboard's progress summary covers fewer stages than
+the complete pipeline.
+
+The best description of the product today is an extensible AI-assisted venture planning
+workspace with a sequential fourteen-stage blueprint engine and a separate meeting
+intelligence area. Its strongest use is organizing startup hypotheses into reviewable
+artifacts. Its safe use requires human judgment, verified sources, careful handling of
+confidential data, and clear awareness of which integrations and account-management
+workflows are active in the chosen deployment.
+
+END OF DOCUMENT
