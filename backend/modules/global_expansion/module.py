@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.modules.global_expansion.schemas import (
     GlobalExpansionOutput, CountryExpansion, ExpansionWave
 )
@@ -26,7 +26,7 @@ EXPANSION_PROMPT = """You are a Global Expansion Strategist planning internation
 - Stage: {stage}
 - Home Market: {home_market}
 - Monthly Burn: ${monthly_burn:,.0f}
-- Available Capital: ${available_capital:,.00}
+- Stated Available Capital (0 means not supplied): ${available_capital:,.0f}
 
 ## Evidence (market data, regulations)
 {evidence_text}
@@ -72,6 +72,12 @@ For each wave:
 - Time zone compatibility
 - Existing competitor gaps
 
+Do not invent competitor names, market sizes, taxes, regulations, funding, or available capital.
+Separate sourced facts from planning estimates and mark unknowns explicitly. Do not treat regulations
+as mandatory unless the startup's activities, data, and target market satisfy their scope. If the home
+market is unspecified, say so rather than assuming one.
+Do not count the home market itself as an expansion destination.
+
 Return valid GlobalExpansionOutput JSON."""
 
 
@@ -99,9 +105,7 @@ class GlobalExpansionModule:
             for country_evs in reg_evidence.values():
                 evidence.extend(country_evs)
 
-        # Generate expansion plan
-        if settings.PIPELINE_FAST_MODE:
-            return self._fallback_output(evidence).model_dump()
+        # Fast mode skips optional evidence collection, not the expansion analysis itself.
         output = await self._generate_expansion(context, evidence)
         return output.model_dump()
 
@@ -109,8 +113,11 @@ class GlobalExpansionModule:
         self, context: dict[str, Any], evidence: list[EvidenceSource]
     ) -> GlobalExpansionOutput:
         """Generate global expansion analysis."""
-        cost = context.get("cost_output", {})
-        monthly_burn = cost.get("total_monthly_payroll_usd", 15000)
+        if not evidence:
+            return self._fallback_output([])
+
+        cost = context.get("cost_output") or context.get("cost", {})
+        monthly_burn = float(cost.get("monthly_burn_usd", 0) or cost.get("total_monthly_payroll_usd", 0) or 0)
 
         evidence_text = "\n".join(
             f"- [{e.source_name}] {e.snippet[:120]}"
@@ -122,13 +129,13 @@ class GlobalExpansionModule:
             product_description=context.get("product_description", ""),
             target_market=context.get("target_market", ""),
             stage=context.get("stage", "pre-seed"),
-            home_market="United States",
+            home_market=context.get("home_market") or context.get("region") or "Not supplied",
             monthly_burn=monthly_burn,
-            available_capital=300000,
+            available_capital=float(context.get("available_capital_usd", 0) or 0),
             evidence_text=evidence_text,
         )
 
-        result = await gemini_adapter.generate(
+        result = await ollama_adapter.generate(
             prompt=prompt,
             schema=GlobalExpansionOutput,
             system_instruction="You are a Global Expansion Strategist planning international market entry.",
@@ -141,52 +148,30 @@ class GlobalExpansionModule:
         return self._fallback_output(evidence)
 
     def _fallback_output(self, evidence: list[EvidenceSource]) -> GlobalExpansionOutput:
-        """Fallback expansion plan."""
+        """Return an explicit unknown baseline rather than inventing countries or costs."""
         wave1 = ExpansionWave(
             wave_number=1,
-            wave_name="Quick Wins",
-            countries=[
-                CountryExpansion(
-                    country="United Kingdom", country_code="GB", priority="TIER_1",
-                    market_size_usd=500000000, local_competitors=["Local Corp", "UK Tech Ltd"],
-                    regulatory_requirements=["Companies House registration", "GDPR compliance"],
-                    localization_needs=["British English", "GBP pricing"],
-                    hiring_costs_monthly=6000, pricing_adjustment_percent=0,
-                    tax_considerations=["20% corporation tax", "VAT registration"],
-                    gtm_strategy="Direct sales with local partnerships",
-                    risks=["Post-Brexit regulatory divergence"],
-                    confidence=ConfidenceScore(score=55.0, evidence=evidence[:3]),
-                ),
-                CountryExpansion(
-                    country="Canada", country_code="CA", priority="TIER_1",
-                    market_size_usd=300000000, local_competitors=["Canadian Tech Co"],
-                    regulatory_requirements=["Federal incorporation", "PIPEDA compliance"],
-                    localization_needs=["French for Quebec", "CAD pricing"],
-                    hiring_costs_monthly=5500, pricing_adjustment_percent=-5,
-                    tax_considerations=["15% federal tax", "Provincial taxes"],
-                    gtm_strategy="Leverage US market adjacency",
-                    risks=["Smaller market size"],
-                    confidence=ConfidenceScore(score=60.0, evidence=evidence[:3]),
-                ),
-            ],
-            timeline_months=12,
-            total_investment_usd=200000,
-            expected_arr_contribution=300000,
+            wave_name="Not assessed",
+            countries=[],
+            timeline_months=0,
+            total_investment_usd=0,
+            expected_arr_contribution=0,
         )
 
         return GlobalExpansionOutput(
             waves=[wave1],
-            total_markets_assessed=2,
-            recommended_first_market="United Kingdom",
-            total_expansion_investment=200000,
-            expected_global_arr=300000,
-            expansion_timeline_months=12,
-            key_risks=["Regulatory complexity", "Currency fluctuation", "Local competition"],
-            recommendations=[
-                "Start with English-speaking markets to minimize localization costs",
-                "Hire local sales lead in first expansion market",
-            ],
+            total_markets_assessed=0,
+            recommended_first_market="Undetermined",
+            total_expansion_investment=0,
+            expected_global_arr=0,
+            expansion_timeline_months=0,
+            key_risks=["Destination markets, regulatory scope, and expansion budget have not been validated."],
+            recommendations=["Validate target-country demand and obtain country-specific legal, tax, hiring, and operating-cost advice before planning entry."],
             evidence=evidence[:10],
-            confidence=ConfidenceScore(score=40.0, evidence=evidence[:5]),
-            explanation="Fallback expansion plan — requires more market data for comprehensive analysis.",
+            confidence=ConfidenceScore(
+                score=0.0,
+                evidence=evidence[:5],
+                missing_information=["Target countries", "Country-level market evidence", "Available expansion capital"],
+            ),
+            explanation="No expansion markets or financial estimates were assessed; figures are intentionally left unknown.",
         )

@@ -4,7 +4,10 @@
   "private": true,
   "scripts": {
     "dev:frontend": "next dev",
-    "dev:backend": "cd backend && PYTHONPATH=.. uvicorn app.main:app --reload --port 8000",
+    "dev:backend": "cd backend && PYTHONPATH=.. ./venv/bin/python -m uvicorn app.main:app --reload --reload-dir app --reload-dir agents --reload-dir ai --reload-dir alembic --reload-dir analytics --reload-dir api --reload-dir cache --reload-dir core --reload-dir database --reload-dir exports --reload-dir models --reload-dir modules --reload-dir orchestrator --reload-dir repositories --reload-dir schemas --reload-dir services --reload-dir utils --reload-dir worker --reload-dir workers --port 8000",
+    "dev:whisper": "bash scripts/run-whisper.sh",
+    "dev:all": "concurrently --kill-others --names Frontend,API,Whisper --prefix-colors cyan,green,yellow \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:whisper\"",
+    "Run the project baby": "npm run dev:all",
     "kill-backend": "kill -9 $(lsof -t -i:8000) || true",
     "dev": "concurrently -n \"next,fastapi\" -c \"cyan,green\" \"npm run dev:frontend\" \"npm run dev:backend\"",
     "build": "next build",

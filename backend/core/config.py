@@ -39,16 +39,16 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: str | None = None
 
     # AI Configuration
-    GEMINI_API_KEY: str = ""
     OLLAMA_HOST: str = "http://127.0.0.1:11434"
     OLLAMA_MODEL: str = "gemma2:2b"
     OLLAMA_API_KEY: str = ""
     OLLAMA_TEMPERATURE: float = 0.2
-    OLLAMA_NUM_CTX: int = 2048
-    OLLAMA_NUM_PREDICT: int = 2048
+    OLLAMA_NUM_CTX: int = 32768
+    OLLAMA_NUM_PREDICT: int = 8192
+    OLLAMA_TIMEOUT_SECONDS: float = 240.0
     OLLAMA_KEEP_ALIVE: str = "10m"
     PIPELINE_STAGE_RETRIES: int = 1
-    # Local Ollama profile: avoid redundant web-search and multi-agent calls.
+    # Skip optional research and multi-agent calls, but still generate every stage with the configured model.
     PIPELINE_FAST_MODE: bool = True
 
     # Whisper (speech-to-text)

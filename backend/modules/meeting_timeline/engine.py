@@ -113,7 +113,7 @@ class TimelineEngine:
         )
 
         try:
-            result = await __import__("backend.ai.gemini", fromlist=["gemini_adapter"]).gemini_adapter.generate(
+            result = await __import__("backend.ai.ollama", fromlist=["ollama_adapter"]).ollama_adapter.generate(
                 prompt=prompt,
                 schema=list[dict[str, Any]],
                 system_instruction="You extract timeline-worthy events from meeting transcripts.",

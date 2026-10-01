@@ -2,7 +2,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.models.project import Project
@@ -89,7 +89,7 @@ Ensure the output conforms strictly to the requested JSON schema, providing role
         )
 
         # 4. Invoke LLM structured validation client
-        team_output: TeamOutput = await gemini_adapter.generate(
+        team_output: TeamOutput = await ollama_adapter.generate(
             prompt=rendered_prompt,
             schema=TeamOutput,
             system_instruction=system_instruction,

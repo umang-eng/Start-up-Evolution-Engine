@@ -2,14 +2,121 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.models.project import Project
 from backend.models.results import SWOTResult
-from backend.modules.swot.schemas import SWOTOutput
+from backend.modules.swot.schemas import (
+    FounderAction,
+    SWOTOutput,
+    ThreatMitigation,
+)
 from backend.orchestrator.engine import BaseModule
 from backend.utils.search import search_provider
+
+
+def ensure_swot_sections(data: dict[str, Any], idea: str, industry: str) -> dict[str, Any]:
+    """Keep all four quadrants present without presenting hypotheses as sourced facts."""
+    result = dict(data)
+    placeholders = {"", "not generated", "not available", "n/a", "none"}
+    fallbacks = {
+        "opportunities": [
+            f"Hypothesis to validate: customers in {industry} will pay for the problem this product addresses; interview target buyers and test willingness to pay.",
+            f"Hypothesis to validate: a focused launch in {industry} can establish a differentiated niche before broader expansion.",
+        ],
+        "threats": [
+            f"Risk to validate: demand for {idea[:120]} may be weaker than expected; test retention and paid conversion with a small pilot.",
+            f"Risk to monitor: established alternatives in {industry} may copy visible features or compete on price; validate a durable distribution or data advantage.",
+        ],
+    }
+    for section, fallback_items in fallbacks.items():
+        items = result.get(section)
+        valid_items = [
+            item for item in items
+            if isinstance(item, str) and item.strip().lower() not in placeholders
+        ] if isinstance(items, list) else []
+        result[section] = valid_items or fallback_items
+    return result
+
+
+def build_swot_fallback(idea: str, industry: str, dna: dict[str, Any], features: dict[str, Any]) -> SWOTOutput:
+    """Build a complete, explicitly qualified SWOT when the model cannot finish."""
+    opportunities = [
+        f"Hypothesis to validate: target buyers in {industry} will pay to solve the problem described as {idea[:90]}; test through interviews and paid pilots.",
+        f"Hypothesis to validate: a focused launch in {industry} can establish a niche before broader expansion; validate against current alternatives.",
+    ]
+    threats = [
+        f"Risk to validate: demand for {idea[:110]} may be weaker than expected; measure paid conversion and retention in a pilot.",
+        f"Risk to monitor: established alternatives in {industry} may compete on price or copy visible features; verify differentiation with buyers.",
+    ]
+    mitigations = [
+        ThreatMitigation(
+            threat_description=threat[:300],
+            impact=2,
+            probability=2,
+            severity=4,
+            mitigation_strategy=(
+                "Run customer interviews and a time-bounded pilot; update this risk assessment using measured conversion and retention."
+            ),
+            action_item_id=f"swot_validation_{index}",
+            affected_area="MARKET" if index == 1 else "COMPETITIVE",
+        )
+        for index, threat in enumerate(threats, start=1)
+    ]
+
+    value_proposition = dna.get("value_proposition", "")
+    if isinstance(value_proposition, dict):
+        value_proposition = value_proposition.get("core_usp", "")
+    features_list = features.get("features", []) if isinstance(features, dict) else []
+    feature_names = [
+        str(feature.get("name"))
+        for feature in features_list[:3]
+        if isinstance(feature, dict) and feature.get("name")
+    ]
+    strengths = [
+        f"Project inputs define a product concept and proposed value proposition: {str(value_proposition)[:180] or idea[:180]}",
+        f"The current feature plan identifies {len(features_list)} proposed capabilities, including {', '.join(feature_names) or 'features to be validated'}.",
+    ]
+    weaknesses = [
+        "Customer demand, willingness to pay, and retention are not verified by the supplied planning inputs.",
+        "Competitive differentiation and operational readiness require validation with target customers and pilot data.",
+    ]
+    return SWOTOutput(
+        strengths=strengths,
+        weaknesses=weaknesses,
+        opportunities=opportunities,
+        threats=threats,
+        mitigations=mitigations,
+        founder_actions=[
+            FounderAction(
+                horizon="IMMEDIATE_30_DAYS",
+                action="Interview target buyers and document the highest-priority workflow and willingness-to-pay evidence.",
+                priority="HIGH",
+            ),
+            FounderAction(
+                horizon="SHORT_TERM_60_DAYS",
+                action="Recruit pilot users and define measurable acceptance, conversion, and retention criteria.",
+                priority="HIGH",
+            ),
+            FounderAction(
+                horizon="MEDIUM_TERM_90_DAYS",
+                action="Compare pilot results with alternatives and update product priorities and risk assumptions.",
+                priority="MEDIUM",
+            ),
+            FounderAction(
+                horizon="LONG_TERM_BEYOND",
+                action="Scale only after repeatable customer outcomes and sustainable unit economics are demonstrated.",
+                priority="MEDIUM",
+            ),
+        ],
+        competitor_positioning="Unassessed — current project inputs do not verify competitor positioning.",
+        market_validation_required=[
+            "Confirm buyer urgency, budget ownership, willingness to pay, and pilot conversion.",
+            "Validate product differentiation and data access against named market alternatives.",
+        ],
+        biggest_assumption="Target customers will pay for the proposed outcome and provide the data needed to deliver it.",
+    )
 
 
 class SWOTModule(BaseModule):
@@ -160,13 +267,34 @@ Ensure the output conforms strictly to the requested JSON schema, providing stra
         )
 
         # 5. Invoke LLM structured validation
-        swot_output: SWOTOutput = await gemini_adapter.generate(
-            prompt=rendered_prompt,
-            schema=SWOTOutput,
-            system_instruction=system_instruction,
-        )
+        idea = project.description or project.title or "the proposed product"
+        industry = project.industry or "the target industry"
+        try:
+            swot_output: SWOTOutput = await ollama_adapter.generate(
+                prompt=rendered_prompt,
+                schema=SWOTOutput,
+                system_instruction=system_instruction,
+            )
+        except BaseBusinessException as exc:
+            repeat_limit_error = (
+                exc.code == "OLLAMA_ERROR"
+                and "token repeat limit reached" in exc.message.casefold()
+            )
+            schema_validation_error = exc.code == "OLLAMA_VALIDATION_ERROR"
+            if not (repeat_limit_error or schema_validation_error):
+                raise
+            logger.warning(
+                "[SWOT] Ollama returned an unusable response; "
+                "persisting a clearly qualified analysis based on project inputs."
+            )
+            swot_output = build_swot_fallback(
+                idea,
+                industry,
+                dna_context,
+                features_context,
+            )
 
-        output_dict = swot_output.model_dump()
+        output_dict = ensure_swot_sections(swot_output.model_dump(), idea, industry)
 
         # 6. Database persistence upsert logic
         stmt = select(SWOTResult).where(SWOTResult.project_id == project.id)

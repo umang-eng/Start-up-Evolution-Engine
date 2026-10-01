@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from backend.modules.evidence.types import (
     ConfidenceScore, EvidenceBackedScore, EvidenceSource, FinancialMetrics
@@ -48,6 +49,20 @@ class ScenarioFinancials(BaseModel):
     valuation_estimate: float = Field(ge=0.0)
     evidence: list[EvidenceSource] = Field(default_factory=list)
 
+    @field_validator("break_even_month", mode="before")
+    @classmethod
+    def parse_break_even_month(cls, value: object) -> object:
+        """Normalize common LLM labels like 'Month 22' without guessing."""
+        if isinstance(value, str):
+            if value.strip().casefold() in {
+                "", "not specified", "unspecified", "unknown", "not applicable", "n/a", "none", "tbd",
+            }:
+                return None
+            match = re.fullmatch(r"\s*month\s+(\d+)\s*", value, flags=re.IGNORECASE)
+            if match:
+                return int(match.group(1))
+        return value
+
 
 class FinancialIntelligenceOutput(BaseModel):
     """Complete financial intelligence output."""
@@ -63,3 +78,11 @@ class FinancialIntelligenceOutput(BaseModel):
     evidence: list[EvidenceSource] = Field(default_factory=list)
     confidence: ConfidenceScore = Field(description="Confidence in financial analysis")
     explanation: str = Field(max_length=2000)
+
+    @field_validator("funding_requirements", "valuation", mode="before")
+    @classmethod
+    def retain_text_details(cls, value: object) -> object:
+        """Keep concise prose returned for a structured financial section."""
+        if isinstance(value, str):
+            return {"summary": value}
+        return value

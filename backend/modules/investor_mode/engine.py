@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Any, List, Literal, Optional
 from pydantic import BaseModel, Field
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.logging import logger
 
 
@@ -100,7 +100,7 @@ class InvestorModeEngine:
         )
 
         try:
-            result = await gemini_adapter.generate(
+            result = await ollama_adapter.generate(
                 prompt=prompt,
                 schema=InvestorAnalysis,
                 system_instruction="You analyze meetings for investor-related content and provide strategic advice.",

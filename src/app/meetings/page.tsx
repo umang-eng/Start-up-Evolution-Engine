@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,14 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Mic,
   FileText,
-  BarChart3,
   ArrowLeft,
   Loader2,
   Sparkles,
   Brain,
   Zap,
   Heart,
-  Clock,
   Layers,
 } from 'lucide-react';
 import { AudioRecorder, TranscriptUploader, ReportViewer, MeetingsList } from '@/components/meetings';
@@ -25,37 +23,32 @@ import { cn } from '@/lib/utils';
 export default function MeetingsPage() {
   const router = useRouter();
   const {
-    transcript,
+    currentMeeting,
     report,
     health,
-    timeline,
     analysis,
     generating,
     analyzingHealth,
-    analyzingTimeline,
     analyzingCombined,
     selectMeeting,
     generateReport,
     fetchHealth,
-    fetchTimeline,
     runAnalysis,
   } = useMeetingStore();
 
-  const [activeTab, setActiveTab] = useState('record');
-  const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
+  const [requestedTab, setRequestedTab] = useState<string | null>(null);
+  const selectedMeetingId = currentMeeting?.id || null;
+  const activeTab = requestedTab
+    ?? (analysis ? 'combined' : health ? 'health' : report ? 'report' : 'record');
 
   const handleSelectMeeting = async (meetingId: string) => {
-    setSelectedMeetingId(meetingId);
-    const meeting = await selectMeeting(meetingId);
-    if (meeting?.status === 'TRANSCRIBED' || meeting?.status === 'ANALYZED') {
-      setActiveTab('report');
-    }
+    setRequestedTab(null);
+    await selectMeeting(meetingId);
   };
 
   const handleRecordComplete = async (meetingId: string) => {
-    setSelectedMeetingId(meetingId);
     await selectMeeting(meetingId);
-    setActiveTab('report');
+    setRequestedTab('report');
     try {
       await generateReport(meetingId);
     } catch {
@@ -67,7 +60,7 @@ export default function MeetingsPage() {
     if (!selectedMeetingId) return;
     try {
       await generateReport(selectedMeetingId);
-    } catch (err) {
+    } catch {
       // Error handled by store
     }
   };
@@ -75,11 +68,6 @@ export default function MeetingsPage() {
   const handleFetchHealth = async () => {
     if (!selectedMeetingId) return;
     await fetchHealth(selectedMeetingId);
-  };
-
-  const handleFetchTimeline = async () => {
-    if (!selectedMeetingId) return;
-    await fetchTimeline(selectedMeetingId);
   };
 
   const handleRunAnalysis = async () => {
@@ -134,7 +122,7 @@ export default function MeetingsPage() {
 
           {/* Main Panel */}
           <div className="lg:col-span-8 xl:col-span-9">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={setRequestedTab} className="w-full">
               <TabsList className="w-full justify-start bg-muted p-1 rounded-xl flex-wrap">
                 <TabsTrigger
                   value="record"
@@ -163,13 +151,6 @@ export default function MeetingsPage() {
                 >
                   <Heart className="h-4 w-4 mr-1.5" />
                   Health
-                </TabsTrigger>
-                <TabsTrigger
-                  value="timeline"
-                  className="flex-1 sm:flex-none data-[state=active]:bg-card data-[state=active]:border data-[state=active]:border-border data-[state=active]:shadow-sm data-[state=active]:text-foreground rounded-lg transition-all"
-                >
-                  <Clock className="h-4 w-4 mr-1.5" />
-                  Timeline
                 </TabsTrigger>
                 <TabsTrigger
                   value="combined"
@@ -314,85 +295,6 @@ export default function MeetingsPage() {
                   )}
                 </TabsContent>
 
-                {/* Timeline Tab */}
-                <TabsContent value="timeline" className="mt-0">
-                  {selectedMeetingId ? (
-                    <Card className="border-border">
-                      <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-lg font-bold text-primary flex items-center gap-2">
-                          <Clock className="h-5 w-5 text-accent-blue" />
-                          Startup Timeline Events
-                        </CardTitle>
-                        <Button 
-                          onClick={handleFetchTimeline} 
-                          disabled={analyzingTimeline}
-                          variant="outline" 
-                          size="sm"
-                        >
-                          {analyzingTimeline ? (
-                            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-4 w-4 mr-1.5" />
-                          )}
-                          {analyzingTimeline ? 'Extracting...' : 'Extract Events'}
-                        </Button>
-                      </CardHeader>
-                      <CardContent>
-                        {timeline.length > 0 ? (
-                          <div className="space-y-3">
-                            {timeline.map((event, idx) => (
-                              <div key={idx} className="flex gap-4 p-4 rounded-lg border border-border bg-surface-secondary/50">
-                                <div className={cn(
-                                  "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
-                                  event.importance === 'critical' ? 'bg-red-100 text-red-600' :
-                                  event.importance === 'high' ? 'bg-orange-100 text-orange-600' :
-                                  event.importance === 'medium' ? 'bg-blue-100 text-blue-600' :
-                                  'bg-gray-100 text-gray-600'
-                                )}>
-                                  <Clock className="h-5 w-5" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-sm font-semibold text-primary">{event.title}</span>
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
-                                      {event.event_type.replace('_', ' ')}
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">{event.description}</p>
-                                  {event.affected_areas?.length > 0 && (
-                                    <div className="flex gap-1.5 mt-2">
-                                      {event.affected_areas.map((area, aIdx) => (
-                                        <span key={aIdx} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
-                                          {area}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-12">
-                            <Clock className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-                            <p className="text-slate-500 font-medium">No timeline events extracted</p>
-                            <p className="text-slate-400 text-sm mt-1">
-                              Click &quot;Extract Events&quot; to pull timeline-worthy events from this meeting
-                            </p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <Card className="border-dashed border-2 border-slate-200 bg-transparent">
-                      <CardContent className="p-16 text-center">
-                        <Clock className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-                        <p className="text-slate-500 font-medium">Select a meeting first</p>
-                      </CardContent>
-                    </Card>
-                  )}
-                </TabsContent>
-
                 {/* Combined Analysis Tab */}
                 <TabsContent value="combined" className="mt-0">
                   {selectedMeetingId ? (
@@ -440,22 +342,6 @@ export default function MeetingsPage() {
                               </div>
                             </div>
 
-                            {/* Timeline Summary */}
-                            <div className="p-4 rounded-lg border border-border bg-surface-secondary/50">
-                              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-3">
-                                Timeline Events ({analysis.timeline?.total_events || 0})
-                              </span>
-                              <div className="space-y-2">
-                                {(analysis.timeline?.events || []).slice(0, 5).map((event, idx) => (
-                                  <div key={idx} className="flex items-center gap-2 text-xs">
-                                    <span className="h-2 w-2 rounded-full bg-accent-blue shrink-0" />
-                                    <span className="text-primary font-medium">{event.title}</span>
-                                    <span className="text-muted-foreground">— {event.event_type}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
                             {/* Report Summary */}
                             {report && (
                               <div className="p-4 rounded-lg border border-border bg-surface-secondary/50">
@@ -486,7 +372,7 @@ export default function MeetingsPage() {
                             <Layers className="h-12 w-12 text-slate-200 mx-auto mb-4" />
                             <p className="text-slate-500 font-medium">No combined analysis yet</p>
                             <p className="text-slate-400 text-sm mt-1">
-                              Click &quot;Run Full Analysis&quot; to merge health, timeline, and report insights
+                              Click &quot;Run Full Analysis&quot; to combine meeting health and report insights
                             </p>
                           </div>
                         )}

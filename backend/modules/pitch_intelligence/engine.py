@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 from pydantic import BaseModel, Field
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.logging import logger
 
 
@@ -101,7 +101,7 @@ class PitchIntelligenceEngine:
         )
 
         try:
-            result = await gemini_adapter.generate(
+            result = await ollama_adapter.generate(
                 prompt=prompt,
                 schema=PitchAnalysis,
                 system_instruction="You are an expert pitch coach analyzing presentations.",

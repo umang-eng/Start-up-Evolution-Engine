@@ -2,7 +2,7 @@
 #  Start-up Evolution Engine — 4-Tier Production Architecture
 # ──────────────────────────────────────────────────────────────────
 #  1. data-infrastructure : PostgreSQL 16 + Redis 7
-#  2. ai-infrastructure   : Ollama (local + cloud model proxy)
+#  2. ai-infrastructure   : Ollama on the host (local model inference)
 #  3. api-gateway         : FastAPI REST server (auth, metadata, proxy)
 #  4. worker-engine       : Dedicated ARQ background task runner
 #  5. frontend-service    : Next.js production build
@@ -47,27 +47,7 @@ services:
     networks:
       - see-net
 
-  # ── Tier 2: AI Infrastructure ────────────────────────────────
-  ollama:
-    image: ollama/ollama:latest
-    container_name: see-ollama
-    restart: always
-    ports:
-      - "${OLLAMA_EXTERNAL_PORT:-11435}:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_API_KEY=${OLLAMA_API_KEY:-}
-    networks:
-      - see-net
-    healthcheck:
-      test: ["CMD-SHELL", "ollama list || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  # ── Tier 3: API Gateway ────────────────────────────────────────
+  # ── Tier 2: API Gateway ────────────────────────────────────────
   api-gateway:
     build:
       context: ./backend
@@ -87,10 +67,16 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-startup_evolution}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - OLLAMA_HOST=http://ollama:11434
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-nemotron-3-super:cloud}
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma2:2b}
       - OLLAMA_API_KEY=${OLLAMA_API_KEY:-}
+      - OLLAMA_TEMPERATURE=${OLLAMA_TEMPERATURE:-0.2}
+      - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX:-32768}
+      - OLLAMA_NUM_PREDICT=${OLLAMA_NUM_PREDICT:-8192}
+      - OLLAMA_TIMEOUT_SECONDS=${OLLAMA_TIMEOUT_SECONDS:-240}
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-10m}
+      - PIPELINE_STAGE_RETRIES=${PIPELINE_STAGE_RETRIES:-1}
+      - PIPELINE_FAST_MODE=${PIPELINE_FAST_MODE:-true}
       - WHISPER_HOST=http://host.docker.internal:8080
       - WHISPER_TIMEOUT_SECONDS=${WHISPER_TIMEOUT_SECONDS:-180}
       - FFMPEG_BINARY=ffmpeg
@@ -101,8 +87,6 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      ollama:
         condition: service_healthy
     networks:
       - see-net
@@ -115,7 +99,7 @@ services:
       retries: 3
       start_period: 15s
 
-  # ── Tier 4: Worker Engine ──────────────────────────────────────
+  # ── Tier 3: Worker Engine ──────────────────────────────────────
   worker-engine:
     build:
       context: ./backend
@@ -133,10 +117,16 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-startup_evolution}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - OLLAMA_HOST=http://ollama:11434
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-nemotron-3-super:cloud}
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma2:2b}
       - OLLAMA_API_KEY=${OLLAMA_API_KEY:-}
+      - OLLAMA_TEMPERATURE=${OLLAMA_TEMPERATURE:-0.2}
+      - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX:-32768}
+      - OLLAMA_NUM_PREDICT=${OLLAMA_NUM_PREDICT:-8192}
+      - OLLAMA_TIMEOUT_SECONDS=${OLLAMA_TIMEOUT_SECONDS:-240}
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-10m}
+      - PIPELINE_STAGE_RETRIES=${PIPELINE_STAGE_RETRIES:-1}
+      - PIPELINE_FAST_MODE=${PIPELINE_FAST_MODE:-true}
       - WHISPER_HOST=http://host.docker.internal:8080
       - WHISPER_TIMEOUT_SECONDS=${WHISPER_TIMEOUT_SECONDS:-180}
       - FFMPEG_BINARY=ffmpeg
@@ -147,14 +137,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      ollama:
-        condition: service_healthy
     networks:
       - see-net
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  # ── Tier 5: Frontend Service ───────────────────────────────────
+  # ── Tier 4: Frontend Service ───────────────────────────────────
   frontend-service:
     build:
       context: .
@@ -181,4 +169,3 @@ networks:
 volumes:
   postgres_data:
   redis_data:
-  ollama_data:

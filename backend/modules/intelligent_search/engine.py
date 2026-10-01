@@ -13,7 +13,7 @@ from backend.modules.memory.engine import MemoryEngine
 from backend.modules.decisions.engine import DecisionIntelligence
 from backend.modules.knowledge_graph.engine import KnowledgeGraphEngine, NodeType
 from backend.modules.action_execution.engine import ActionExecutionEngine
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.logging import logger
 
 
@@ -99,7 +99,7 @@ class IntelligentSearchEngine:
         )
 
         try:
-            result = await gemini_adapter.generate(
+            result = await ollama_adapter.generate(
                 prompt=prompt,
                 schema=SearchResponse,
                 system_instruction="You search startup knowledge and provide relevant results.",

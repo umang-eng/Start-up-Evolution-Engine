@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.schemas.intake import (
@@ -145,7 +145,7 @@ async def start_intake_session(raw_idea: str) -> dict[str, Any]:
     logger.info(f"Starting intake session {session_id} for idea: {raw_idea[:80]}...")
 
     # Phase 1: Extract concept metadata
-    extraction = await gemini_adapter.generate(
+    extraction = await ollama_adapter.generate(
         prompt=_render(CONCEPT_EXTRACTION_USER, {"raw_idea": raw_idea}),
         schema=ConceptExtraction,
         system_instruction=CONCEPT_EXTRACTION_SYSTEM,
@@ -271,7 +271,7 @@ async def finalize_session(session_id: str) -> IntakePackage:
         qa_pairs=answers,
     )
 
-    enriched_description = await gemini_adapter.generate_text(
+    enriched_description = await ollama_adapter.generate_text(
         prompt=synthesis_prompt,
         system_instruction=SYNTHESIS_SYSTEM,
     )
@@ -319,7 +319,7 @@ async def _generate_follow_up_questions(
         "vertical_signals": ", ".join(extraction.detected_vertical_signals),
     }
 
-    result = await gemini_adapter.generate(
+    result = await ollama_adapter.generate(
         prompt=_render(FOLLOW_UP_QUESTIONS_USER, variables),
         schema=DynamicQuestionSet,
         system_instruction=FOLLOW_UP_QUESTIONS_SYSTEM,

@@ -13,6 +13,19 @@ const toStringValue = (value: any, fallback = ''): string => {
   return fallback;
 };
 
+const toEvidenceText = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    return value.map(toEvidenceText).filter(Boolean).join(' · ');
+  }
+  if (!value || typeof value !== 'object') return '';
+
+  const evidence = value as Record<string, unknown>;
+  const source = toStringValue(evidence.source_name) || toStringValue(evidence.source_url);
+  const snippet = toStringValue(evidence.snippet);
+  return [source, snippet].filter(Boolean).join(': ');
+};
+
 class ApiError extends Error {
   status: number;
   code?: string;
@@ -296,7 +309,10 @@ export function mapTeamResponse(data: any): any {
   };
 }
 
-export function mapSwotResponse(data: any): any {
+export function mapSwotResponse(
+  data: any,
+  context: { idea?: string; industry?: string } = {},
+): any {
   if (!data) return null;
   const items: any[] = [];
   
@@ -312,6 +328,24 @@ export function mapSwotResponse(data: any): any {
   toArray(data.threats).forEach((t: string, i: number) => {
     items.push({ id: `t_${i}`, type: 'threat', content: t, priority: 'high', urgency: 'high' });
   });
+  const idea = context.idea?.trim() || 'the proposed product';
+  const industry = context.industry?.trim() || 'the target market';
+  if (!toArray(data.opportunities).length) {
+    [
+      `Validation hypothesis: customers in ${industry} will pay to solve the problem described for ${idea.slice(0, 100)}; test this with buyer interviews and a paid pilot.`,
+      `Validation hypothesis: a focused launch in ${industry} can establish a differentiated niche before broader expansion.`,
+    ].forEach((content, i) => items.push({
+      id: `o_fallback_${i}`, type: 'opportunity', content, priority: 'high', urgency: 'high',
+    }));
+  }
+  if (!toArray(data.threats).length) {
+    [
+      `Risk to validate: demand for ${idea.slice(0, 100)} may be weaker than expected; measure pilot conversion and retention.`,
+      `Risk to monitor: established alternatives in ${industry} may compete on price or copy visible features; test a durable distribution advantage.`,
+    ].forEach((content, i) => items.push({
+      id: `t_fallback_${i}`, type: 'threat', content, priority: 'high', urgency: 'high',
+    }));
+  }
 
   const riskMatrix = toArray(data.mitigations).map((m: any, i: number) => ({
     threatId: `threat_mit_${i}`,
@@ -346,39 +380,123 @@ export function mapSwotResponse(data: any): any {
   };
 }
 
-export function mapCostResponse(data: any): any {
+export function mapCostResponse(
+  data: any,
+  context: { features?: any; team?: any } = {},
+): any {
   if (!data) return null;
-  const costItems = toArray(data.operational_costs).map((c: any) => ({
+  const roles = toArray(context.team?.org_chart || context.team?.roles);
+  const payrollFromRoles = roles.reduce((total: number, role: any) => (
+    total + Number(role.estimated_salary_usd
+      ? role.estimated_salary_usd / 12
+      : role.monthlyCost || role.monthly_cost || 0)
+  ), 0);
+  const monthlyPayroll = Number(context.team?.total_monthly_payroll_usd || 0) || payrollFromRoles;
+  const sourceFeatures = toArray(context.features?.features);
+  const effortWeeks: Record<string, number> = { XS: 1, S: 2, M: 3, L: 6, XL: 10 };
+  const featureEstimates = sourceFeatures.map((feature: any) => {
+    let weeks = effortWeeks[String(feature.effort_estimate || 'M').toUpperCase()] || 3;
+    if (String(feature.complexity || '').toUpperCase() === 'HIGH' && weeks < 6) weeks += 1;
+    return {
+      id: String(feature.id || feature.name || 'feature'),
+      name: String(feature.name || 'Product feature'),
+      weeks,
+      cost: weeks * 40 * 50,
+      driver: 'Planning estimate at $50/hour using the feature effort estimate.',
+      isMvp: String(feature.priority || '').toUpperCase() === 'MUST_HAVE'
+        || String(feature.category || '').toUpperCase() === 'CORE',
+    };
+  });
+  let featureCosts = toArray(data.feature_cost_breakdown).map((item: any) => ({
+    featureId: item.feature_id || item.feature_name,
+    name: item.feature_name || 'Product feature',
+    amount: Number(item.estimated_cost_usd) || 0,
+    weeks: Number(item.estimated_weeks) || 0,
+    driver: item.cost_driver || '',
+  }));
+  if (!featureCosts.length || featureCosts.every((item: any) => !item.amount)) {
+    featureCosts = featureEstimates.map((item: any) => ({
+      featureId: item.id,
+      name: item.name,
+      amount: item.cost,
+      weeks: item.weeks,
+      driver: item.driver,
+    }));
+  }
+  const mvpBuildEstimate = featureEstimates
+    .filter((feature: any) => feature.isMvp)
+    .reduce((total: number, feature: any) => total + feature.cost, 0)
+    || featureEstimates.slice(0, 5).reduce((total: number, feature: any) => total + feature.cost, 0);
+  const monthlyOverheadEstimate = 1_700;
+  const baselineBurn = monthlyPayroll + monthlyOverheadEstimate;
+  const sourceCostItems = toArray(data.operational_costs);
+  const costItems = sourceCostItems.map((c: any) => ({
     name: c.description || c.name || 'Cost Item',
     amount: c.monthly_usd || c.amount || 0,
     category: mapCostCategory(c.category || ''),
     frequency: 'monthly',
   }));
+  if (!costItems.length || costItems.every((item: any) => !Number(item.amount))) {
+    costItems.splice(0, costItems.length,
+      { name: 'Estimated team payroll', amount: monthlyPayroll || 6_000, category: 'team', frequency: 'monthly' },
+      { name: 'Cloud, APIs, tools, and launch operations allowance', amount: monthlyOverheadEstimate, category: 'infrastructure', frequency: 'monthly' },
+    );
+  }
 
-  const scenarios = toArray(data.budget_scenarios).map((s: any, idx: number) => ({
-    id: toStringValue(s.name, `scenario_${idx}`).toLowerCase().replace(/\s+/g, '_'),
-    name: s.name || `Scenario ${idx + 1}`,
-    mvpCost: Math.round((s.monthly_burn_usd || 0) * (s.runway_months || 12) * 0.7),
-    year1Cost: Math.round((s.monthly_burn_usd || 0) * 12),
-    monthlyBurn: s.monthly_burn_usd || 0,
-    runwayMonths: s.runway_months || 12,
-    description: s.description || '',
-  }));
+  const sourceScenarios = toArray(data.budget_scenarios);
+  const scenarios = sourceScenarios.map((s: any, idx: number) => {
+    const scenarioName = toStringValue(s.name, `Scenario ${idx + 1}`).toUpperCase();
+    const factor = scenarioName === 'LEAN' ? 0.7 : scenarioName === 'AGGRESSIVE' ? 1.6 : 1;
+    const monthlyBurn = Number(s.monthly_burn_usd) || baselineBurn * factor || 7_700 * factor;
+    const runwayMonths = Number(s.runway_months) || (scenarioName === 'AGGRESSIVE' ? 24 : scenarioName === 'BALANCED' ? 18 : 12);
+    return {
+      id: toStringValue(s.name, `scenario_${idx}`).toLowerCase().replace(/\s+/g, '_'),
+      name: s.name || `Scenario ${idx + 1}`,
+      mvpCost: Math.round(monthlyBurn * runwayMonths * 0.7),
+      year1Cost: Math.round(monthlyBurn * 12),
+      monthlyBurn,
+      runwayMonths,
+      description: s.description || '',
+    };
+  });
+  if (!scenarios.length) {
+    for (const [name, factor, runway] of [
+      ['LEAN', 0.7, 12],
+      ['BALANCED', 1, 18],
+      ['AGGRESSIVE', 1.6, 24],
+    ] as const) {
+      const monthlyBurn = Math.max(baselineBurn * factor, 7_700 * factor);
+      scenarios.push({
+        id: name.toLowerCase(),
+        name,
+        mvpCost: Math.round(monthlyBurn * runway * 0.7),
+        year1Cost: Math.round(monthlyBurn * 12),
+        monthlyBurn,
+        runwayMonths: runway,
+        description: 'Planning estimate based on team compensation and baseline operating allowances.',
+      });
+    }
+  }
 
-  const mvpCost = data.mvp_cost_estimate || data.mvpCost || 0;
-  const year1Cost = data.year_1_cost_estimate || data.year1Cost || 0;
+  const mvpCost = Number(data.mvp_cost_estimate || data.mvpCost)
+    || Math.max(mvpBuildEstimate, monthlyPayroll * 2) + monthlyOverheadEstimate * 3
+    || 28_000;
+  const year1Cost = Number(data.year_1_cost_estimate || data.year1Cost)
+    || baselineBurn * 12 + mvpBuildEstimate
+    || 92_400;
   const fundingReq = data.funding_requirements?.optimal_target_usd
     ?? data.fundingRequirement
-    ?? (mvpCost * 1.5);
+    ?? (mvpCost + baselineBurn * 12);
 
   return {
     mvpCost,
     launchCost: Math.round(year1Cost / 2),
     year1Cost,
-    fundingRequirement: fundingReq,
+    fundingRequirement: Number(fundingReq) || mvpCost + baselineBurn * 12,
     riskLevel: toStringValue(data.financial_risk_level || data.riskLevel, 'MEDIUM').toLowerCase(),
     readinessRating: 80,
     costItems,
+    featureCosts,
     scenarios,
     recommendations: [data.funding_requirements?.funding_suitability].filter(Boolean),
   };
@@ -396,23 +514,74 @@ function mapCostCategory(cat: any): string {
 
 export function mapLegalComplianceResponse(data: any): any {
   if (!data) return null;
-  const checklist = toArray(
-    data.compliance_checklist || data.registration_requirements,
-  );
+  let ipProtection = toArray(data.ip_protection).map((ip: any) => (
+    typeof ip === 'string'
+      ? { asset: 'Intellectual property', protection_type: ip, status: 'review' }
+      : {
+          asset: ip.asset || ip.name || 'Intellectual property',
+          protection_type: ip.protection_type || ip.description || 'Review protection options with local counsel.',
+          status: ip.status || 'review',
+        }
+  ));
+  if (!ipProtection.length) {
+    ipProtection = [
+      {
+        asset: 'Product and company names',
+        protection_type: 'Search for conflicting marks; confirm registration options with local counsel.',
+        status: 'review',
+      },
+      {
+        asset: 'Source code and product designs',
+        protection_type: 'Maintain authorship and assignment records; confirm local rights and filing rules.',
+        status: 'review',
+      },
+    ];
+  }
+  const dataProtection = toArray(data.data_protection_requirements).length
+    ? toArray(data.data_protection_requirements)
+    : [
+        'Publish a privacy notice that explains collected data, purposes, retention, sharing, and user rights; confirm local legal requirements.',
+        'Restrict personal-data access, define deletion and incident-response procedures, and review processor agreements before launch.',
+      ];
+  const checklist = toArray(data.compliance_checklist || [
+    ...toArray(data.registration_requirements),
+    ...toArray(data.industry_specific_licenses),
+  ]);
   return {
     compliance_checklist: checklist.map((c: any) => ({
       item: c.item || c.name || c.requirement_name || '',
       status: toStringValue(c.status, 'pending').toLowerCase(),
       notes: c.notes || c.description || '',
     })),
-    ip_protection: toArray(data.ip_protection || data.data_protection_requirements),
-    regulatory_requirements: toArray(data.regulatory_requirements || data.compliance_directories),
-    grants_incentives: toArray(data.grants_incentives || data.funding_sources),
-    registrations_needed: toArray(data.registrations_needed || data.registration_requirements),
+    ip_protection: ipProtection,
+    regulatory_requirements: toArray(data.regulatory_requirements || data.compliance_directories).map((entry: any) => ({
+      ...entry,
+      regulation: entry.regulation || entry.agency_name || 'Applicable regulator',
+      applicability: entry.applicability || entry.jurisdiction || 'Confirm applicability for the target region.',
+      action_needed: entry.action_needed || toArray(entry.relevant_for).join(', ') || 'Confirm requirements with the authority.',
+    })),
+    grants_incentives: toArray(data.grants_incentives || data.funding_sources).map((grant: any) => ({
+      ...grant,
+      name: grant.name || grant.scheme_name || 'Unverified funding program',
+      eligibility: grant.eligibility || grant.description || 'Confirm current eligibility with the issuing authority.',
+      value: grant.value || grant.amount_range || 'Not verified',
+    })),
+    registrations_needed: toArray([
+      ...toArray(data.registrations_needed || data.registration_requirements),
+      ...toArray(data.industry_specific_licenses),
+    ]).map((reg: any) => ({
+      ...reg,
+      type: reg.type || reg.requirement_name || reg.name || 'Registration requirement',
+      jurisdiction: reg.jurisdiction || reg.authority || 'Confirm with local authority',
+      timeline: reg.timeline || 'Confirm current processing time',
+    })),
     overall_risk: data.overall_risk || 'medium',
     recommendations: toArray(data.recommendations),
-    summary: data.summary || '',
-    estimated_compliance_budget_usd: data.estimated_compliance_budget_usd || 0,
+    data_protection_requirements: dataProtection,
+    summary: data.summary || 'Use this as planning guidance only; verify current requirements with the relevant authorities and local counsel.',
+    estimated_compliance_budget_usd: Number(data.estimated_compliance_budget_usd) > 0
+      ? Number(data.estimated_compliance_budget_usd)
+      : null,
   };
 }
 
@@ -429,7 +598,7 @@ export function mapCompetitiveMoatResponse(data: any): any {
     moat_scores: toArray(data.moat_scores || data.scores || dimensions).map((s: any) => ({
       dimension: s.dimension || s.name || s.moat_type || '',
       score: s.score ?? s.strength ?? 0,
-      evidence: s.evidence || '',
+      evidence: toEvidenceText(s.evidence),
     })),
     positioning: toArray(data.positioning || data.competitive_position),
     copy_difficulty: toArray(data.copy_difficulty),
@@ -590,22 +759,57 @@ export function mapInvestmentCommitteeResponse(data: any): any {
 
 export function mapProductExecutionResponse(data: any): any {
   if (!data) return null;
-  return {
-    prd_summary: data.prd_summary || data.summary || '',
-    sprint_plan: toArray(data.sprint_plan || data.sprints).map((s: any) => ({
-      sprint: s.sprint || s.number || 0,
-      name: s.name || '',
-      goals: toArray(s.goals),
+  const architecture = data.technical_architecture || data.architecture || {};
+  const sprintPlan = toArray(data.sprint_plan || data.sprints).map((s: any) => {
+    const stories = toArray(s.stories);
+    return {
+      sprint: s.sprint_number || s.sprint || s.number || 0,
+      name: s.sprint_name || s.name || '',
+      goals: [
+        s.goal,
+        ...stories.map((story: any) => story.title || story.id).filter(Boolean),
+        ...toArray(s.goals),
+      ].filter(Boolean),
       duration_weeks: s.duration_weeks || 2,
-    })),
-    architecture: toArray(data.architecture).map((a: any) => ({
-      component: a.component || a.name || '',
-      technology: a.technology || a.tech || '',
-      rationale: a.rationale || a.reason || '',
-    })),
-    api_endpoints: toArray(data.api_endpoints),
+      total_effort_points: s.total_effort_points || 0,
+      risks: toArray(s.risks),
+      stories,
+    };
+  });
+  const components = toArray(architecture.components || data.components).map((component: any) => ({
+    component: component.component || component.name || 'Platform component',
+    technology: component.technology || component.tech || '',
+    rationale: component.rationale || component.description || '',
+  }));
+  const confidence = data.confidence && typeof data.confidence === 'object'
+    ? Number(data.confidence.score)
+    : Number(data.plan_confidence ?? data.launch_readiness ?? data.readiness_score);
+  const release = data.release_plan || {};
+  return {
+    product_vision: data.product_vision || '',
+    prd_summary: data.prd_summary || data.summary || '',
+    sprint_plan: sprintPlan,
+    user_stories: toArray(data.user_stories),
+    architecture: components,
+    architecture_overview: architecture.system_overview || '',
+    data_flow: architecture.data_flow || '',
+    infrastructure: architecture.infrastructure || '',
+    security_considerations: toArray(architecture.security_considerations),
+    api_endpoints: toArray(architecture.api_endpoints || data.api_endpoints),
     technical_debt: toArray(data.technical_debt),
-    launch_readiness: data.launch_readiness || data.readiness_score || 50,
+    plan_confidence: Number.isFinite(confidence) ? confidence : 0,
+    release_plan: {
+      release_name: release.release_name || '',
+      version: release.version || '',
+      target_date: release.target_date || '',
+      features: toArray(release.features),
+      milestones: toArray(release.milestones),
+      success_metrics: toArray(release.success_metrics),
+      rollback_plan: release.rollback_plan || '',
+    },
+    qa_strategy: toArray(data.qa_strategy),
+    deployment_strategy: toArray(data.deployment_strategy),
+    explanation: data.explanation || '',
     recommendations: toArray(data.recommendations),
   };
 }
@@ -645,6 +849,7 @@ export const api = {
   generator: {
     run: (projectId: string, stage?: string) => request(`/api/v1/generator/run?project_id=${projectId}${stage ? `&stage=${stage}` : ''}`, { method: 'POST' }),
     cancel: (projectId: string) => request(`/api/v1/generator/cancel?project_id=${projectId}`, { method: 'POST' }),
+    status: (projectId: string) => request(`/api/v1/generator/status/${projectId}`),
     enhance: (idea: string) => request('/api/v1/generator/enhance', {
       method: 'POST',
       body: JSON.stringify({ idea }),
@@ -704,7 +909,8 @@ export const api = {
       request(`/api/v1/meetings/${meetingId}/report/generate`, { method: 'POST' }),
     getReport: (meetingId: string) => request(`/api/v1/meetings/${meetingId}/report`),
     getHealth: (meetingId: string) => request(`/api/v1/meetings/${meetingId}/health`),
-    getTimeline: (meetingId: string) => request(`/api/v1/meetings/${meetingId}/timeline`),
+    analyzeHealth: (meetingId: string) => request(`/api/v1/meetings/${meetingId}/health`, { method: 'POST' }),
+    getAnalysis: (meetingId: string) => request(`/api/v1/meetings/${meetingId}/analysis`),
     analyze: (meetingId: string) => request(`/api/v1/meetings/${meetingId}/analyze`, { method: 'POST' }),
   },
 };

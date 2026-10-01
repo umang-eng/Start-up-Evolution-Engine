@@ -207,10 +207,19 @@ export default function WorkspacePage() {
   const [streamLog, setStreamLog] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'model' | 'target' | 'usp'>('model');
   const [selectedScenario, setSelectedScenario] = useState<'lean' | 'balanced' | 'aggressive'>('lean');
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isPending, startTransition] = useTransition();
   const activeEventSources = useRef<Record<string, EventSource>>({});
   const activeSessionIds = useRef<Record<string, string | undefined>>({});
+  const activeStatusPolls = useRef<Record<string, ReturnType<typeof setInterval>>>({});
   const pendingGenerationProjects = useRef(new Set<string>());
+
+  const clearGenerationStatusPoll = (projectId: string) => {
+    const timer = activeStatusPolls.current[projectId];
+    if (!timer) return;
+    clearInterval(timer);
+    delete activeStatusPolls.current[projectId];
+  };
 
   const activeProject = projects.find(p => p.id === activeProjectId);
   const handleStageSelect = (stage: StageName) => {
@@ -223,6 +232,42 @@ export default function WorkspacePage() {
   const formatCost = (amount: number) => {
     const paddedAmount = amount * (1 + (costBuffer || 0) / 100);
     return `${currencySymbol || '$'}${Math.round(paddedAmount).toLocaleString()}`;
+  };
+
+  const handleDownloadBlueprintPdf = async (projectId: string) => {
+    const previewWindow = window.open('', '_blank');
+    setIsExportingPdf(true);
+    try {
+      const response = await fetch(api.exports.pdf(projectId));
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.detail || `PDF export failed (${response.status}).`);
+      }
+      const pdf = await response.blob();
+      if (pdf.type !== 'application/pdf' || pdf.size < 5) {
+        throw new Error('The server response was not a valid PDF document.');
+      }
+      const signature = new Uint8Array(await pdf.slice(0, 5).arrayBuffer());
+      if (new TextDecoder().decode(signature) !== '%PDF-') {
+        throw new Error('The generated file is not a valid PDF.');
+      }
+
+      const previewUrl = URL.createObjectURL(pdf);
+      const anchor = document.createElement('a');
+      anchor.href = previewUrl;
+      anchor.download = `blueprint-${projectId}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      if (previewWindow) previewWindow.location.replace(previewUrl);
+      window.setTimeout(() => URL.revokeObjectURL(previewUrl), 60_000);
+    } catch (error) {
+      previewWindow?.close();
+      const message = error instanceof Error ? error.message : 'Unable to generate the PDF.';
+      window.alert(message);
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   // Load projects from database on startup
@@ -292,7 +337,7 @@ export default function WorkspacePage() {
     try {
       // 1. Trigger Async execution run
       const runResponse = await api.generator.run(projId, stage);
-      const sessionId = runResponse?.data?.session_id;
+      const sessionId = runResponse?.session_id ?? runResponse?.data?.session_id;
       setStreamLog(prev => ["✅ Generation pipeline triggered. Opening stream connection...", ...prev]);
 
       // 2. Open EventSource connection with token query param
@@ -300,10 +345,70 @@ export default function WorkspacePage() {
       const es = new EventSource(eventSourceUrl);
       activeEventSources.current[projId] = es;
       activeSessionIds.current[projId] = sessionId;
+      let statusCheckInFlight = false;
+      activeStatusPolls.current[projId] = setInterval(async () => {
+        if (statusCheckInFlight) return;
+        statusCheckInFlight = true;
+        try {
+          const runStatus = await api.generator.status(projId);
+          if (runStatus.session_id !== sessionId) return;
+
+          if (runStatus.status === 'RUNNING' && runStatus.current_stage && runStatus.current_stage !== 'queued') {
+            const currentPipeline = usePipelineStore.getState().activePipelines[projId];
+            if (currentPipeline?.stages[runStatus.current_stage]?.status !== 'running') {
+              usePipelineStore.getState().updateStage(projId, runStatus.current_stage, {
+                status: 'running',
+                startTime: Date.now(),
+              });
+            }
+          } else if (runStatus.status === 'COMPLETED') {
+            clearGenerationStatusPoll(projId);
+            es.close();
+            updateProjectStatus(projId, stage ? 'idle' : 'completed');
+            usePipelineStore.getState().finishPipeline(projId, 'completed');
+            delete activeEventSources.current[projId];
+            delete activeSessionIds.current[projId];
+            pendingGenerationProjects.current.delete(projId);
+            setStreamLog(prev => ['🎉 Generation completed. Results restored from the server.', ...prev]);
+            void loadBlueprint(projId);
+          } else if (['FAILED', 'ENQUEUE_FAILED', 'CANCELLED'].includes(runStatus.status)) {
+            clearGenerationStatusPoll(projId);
+            es.close();
+            const message = runStatus.error_message
+              || (runStatus.status === 'CANCELLED' ? 'Generation was cancelled.' : 'Generation failed.');
+            const pipeline = usePipelineStore.getState().activePipelines[projId];
+            const runningStage = Object.values(pipeline?.stages || {})
+              .find((pipelineStage) => pipelineStage.status === 'running')?.stage;
+            if (runningStage) {
+              usePipelineStore.getState().updateStage(projId, runningStage, {
+                status: 'failed',
+                error: message,
+                endTime: Date.now(),
+              });
+            }
+            updateProjectStatus(projId, runStatus.status === 'CANCELLED' ? 'idle' : 'error');
+            usePipelineStore.getState().finishPipeline(projId, 'failed');
+            delete activeEventSources.current[projId];
+            delete activeSessionIds.current[projId];
+            pendingGenerationProjects.current.delete(projId);
+            setStreamLog(prev => [`❌ ${message}`, ...prev]);
+            useNotificationStore.getState().addNotification({
+              title: runStatus.status === 'CANCELLED' ? 'Generation Stopped' : 'Pipeline Failed',
+              message,
+              type: runStatus.status === 'CANCELLED' ? 'warning' : 'error',
+            });
+          }
+        } catch (err) {
+          console.warn('Could not refresh generation status; will retry.', err);
+        } finally {
+          statusCheckInFlight = false;
+        }
+      }, 15000);
       let consecutiveErrors = 0;
       const MAX_ERRORS = 5;
 
       es.addEventListener('system:init', () => {
+        consecutiveErrors = 0;
         setStreamLog(prev => ["🔗 Stream channel established.", ...prev]);
       });
 
@@ -347,8 +452,13 @@ export default function WorkspacePage() {
           else if (stageName === 'features') saveFeatures(projId, mapFeaturesResponse(result));
           else if (stageName === 'roadmap') saveRoadmap(projId, mapRoadmapResponse(result));
           else if (stageName === 'team') saveTeam(projId, mapTeamResponse(result));
-          else if (stageName === 'swot') saveSWOT(projId, mapSwotResponse(result));
-          else if (stageName === 'cost') saveCost(projId, mapCostResponse(result));
+          else if (stageName === 'swot') saveSWOT(projId, mapSwotResponse(result, {
+            idea: activeProject?.ideaPrompt,
+          }));
+          else if (stageName === 'cost') saveCost(projId, mapCostResponse(result, {
+            features: activeProject?.features,
+            team: activeProject?.team,
+          }));
           else if (stageName === 'blueprint') {
             // Blueprint completion is persisted as a unified record. Reload it
             // so the compiled flag and all derived stage state update together.
@@ -390,6 +500,7 @@ export default function WorkspacePage() {
       });
 
       es.addEventListener('workflow:completed', () => {
+        clearGenerationStatusPoll(projId);
         const stageLabel = stage ? (stage === 'blueprint' ? 'Final Blueprint' : `Stage [${stage.toUpperCase()}]`) : 'Complete Blueprint';
         setStreamLog(prev => [`🎉 ${stageLabel} compiled successfully!`, ...prev]);
         updateProjectStatus(projId, stage ? 'idle' : 'completed');
@@ -402,10 +513,21 @@ export default function WorkspacePage() {
       });
 
       es.addEventListener('workflow:failed', (e: any) => {
+        clearGenerationStatusPoll(projId);
         try {
           const data = JSON.parse(e.data);
           const errMsg = data.error_info?.error_message || 'Compilation failed';
           setStreamLog(prev => [`❌ Fatal error: ${errMsg}`, ...prev]);
+          const pipeline = usePipelineStore.getState().activePipelines[projId];
+          const runningStage = Object.values(pipeline?.stages || {})
+            .find((pipelineStage) => pipelineStage.status === 'running')?.stage;
+          if (runningStage) {
+            usePipelineStore.getState().updateStage(projId, runningStage, {
+              status: 'failed',
+              error: errMsg,
+              endTime: Date.now(),
+            });
+          }
           updateProjectStatus(projId, 'error');
           usePipelineStore.getState().finishPipeline(projId, 'failed');
           es.close();
@@ -420,7 +542,7 @@ export default function WorkspacePage() {
       es.onerror = (event) => {
         consecutiveErrors++;
         if (consecutiveErrors >= MAX_ERRORS) {
-            setStreamLog(prev => ['❌ Stream connection lost. Generation may still be running; use Stop Generation before retrying.', ...prev]);
+          setStreamLog(prev => ['⚠️ Live updates disconnected. Checking generation status in the background.', ...prev]);
           es.close();
         } else {
           console.warn(`EventSource error #${consecutiveErrors} — retrying...`);
@@ -428,6 +550,7 @@ export default function WorkspacePage() {
       };
 
     } catch (err: any) {
+      clearGenerationStatusPoll(projId);
       setStreamLog(prev => [`❌ Trigger failed: ${err.message}`, ...prev]);
       updateProjectStatus(projId, 'error');
       usePipelineStore.getState().finishPipeline(projId, 'failed');
@@ -437,6 +560,7 @@ export default function WorkspacePage() {
 
   const handleStopGeneration = useCallback(async (projId: string) => {
     activeEventSources.current[projId]?.close();
+    clearGenerationStatusPoll(projId);
     delete activeEventSources.current[projId];
     delete activeSessionIds.current[projId];
     pendingGenerationProjects.current.delete(projId);
@@ -1000,6 +1124,55 @@ export default function WorkspacePage() {
                           <span className="text-lg font-bold text-primary">{formatCost(activeProject.cost.fundingRequirement)}</span>
                         </div>
                       </div>
+                      <p className="text-xs text-muted-foreground">
+                        Planning estimates in USD, derived from team compensation, feature effort, and baseline operating allowances. Confirm quotes and local rates before committing.
+                      </p>
+
+                      <div className="space-y-3">
+                        <span className="text-overline block">Estimated Monthly Operating Costs</span>
+                        {activeProject.cost.costItems.length > 0 ? (
+                          <div className="divide-y divide-border rounded-lg border border-border">
+                            {activeProject.cost.costItems.map((item: any, idx: number) => (
+                              <div key={`${item.name}-${idx}`} className="flex items-center justify-between gap-4 px-4 py-3">
+                                <div className="min-w-0">
+                                  <span className="block text-sm font-medium text-foreground">{item.name}</span>
+                                  <span className="text-xs text-muted-foreground capitalize">{item.category} · estimated monthly</span>
+                                </div>
+                                <span className="shrink-0 text-sm font-semibold text-primary">
+                                  {formatCost(item.amount)}/mo
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            Operating-cost estimates are unavailable. Regenerate the cost plan after confirming team and feature details.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <span className="text-overline block">Feature Development Estimates</span>
+                        {activeProject.cost.featureCosts.length > 0 ? (
+                          <div className="divide-y divide-border rounded-lg border border-border">
+                            {activeProject.cost.featureCosts.map((feature: any, idx: number) => (
+                              <div key={`${feature.featureId}-${idx}`} className="flex items-start justify-between gap-4 px-4 py-3">
+                                <div className="min-w-0">
+                                  <span className="block text-sm font-medium text-foreground">{feature.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {feature.weeks} engineering weeks{feature.driver ? ` · ${feature.driver}` : ''}
+                                  </span>
+                                </div>
+                                <span className="shrink-0 text-sm font-semibold text-primary">
+                                  {formatCost(feature.amount)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Feature effort details are not available yet.</p>
+                        )}
+                      </div>
 
                       <div className="space-y-3">
                         <span className="text-overline block">
@@ -1080,10 +1253,12 @@ export default function WorkspacePage() {
                         </div>
                         <div className="flex gap-2">
                           <Button 
-                            onClick={() => window.open(api.exports.pdf(activeProject.id), '_blank')}
+                            onClick={() => void handleDownloadBlueprintPdf(activeProject.id)}
+                            disabled={isExportingPdf}
                             className="gap-1.5"
                           >
-                            Download PDF Package
+                            {isExportingPdf && <Loader2 className="h-4 w-4 animate-spin" />}
+                            {isExportingPdf ? 'Preparing PDF Package…' : 'Download PDF Package'}
                           </Button>
                           <Button 
                             onClick={async () => {
@@ -1151,6 +1326,19 @@ export default function WorkspacePage() {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                      {activeProject.legalCompliance.summary && (
+                        <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm leading-relaxed text-muted-foreground">
+                          {activeProject.legalCompliance.summary}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                        <span className="text-sm font-medium text-foreground">Initial compliance budget estimate</span>
+                        <span className="text-sm font-semibold text-primary">
+                          {activeProject.legalCompliance.estimated_compliance_budget_usd
+                            ? formatCost(activeProject.legalCompliance.estimated_compliance_budget_usd)
+                            : 'Not verified'}
+                        </span>
+                      </div>
                       {/* Compliance Checklist */}
                       <div className="space-y-3">
                         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
@@ -1202,6 +1390,36 @@ export default function WorkspacePage() {
                           ))}
                         </div>
                       </div>
+
+                      {(activeProject.legalCompliance.regulatory_requirements || []).length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Regulatory Authorities & Directories
+                          </span>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {activeProject.legalCompliance.regulatory_requirements.map((entry: any, idx: number) => (
+                              <div key={idx} className="rounded-lg border border-border bg-muted/40 p-3 text-xs">
+                                <span className="block font-semibold text-primary">{entry.regulation}</span>
+                                <span className="mt-1 block text-muted-foreground">{entry.applicability}</span>
+                                <span className="mt-1 block text-muted-foreground">{entry.action_needed}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {(activeProject.legalCompliance.data_protection_requirements || []).length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                            Data Protection & Privacy
+                          </span>
+                          <div className="space-y-1.5 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                            {activeProject.legalCompliance.data_protection_requirements.map((requirement: string, idx: number) => (
+                              <p key={idx}>• {requirement}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Grants & Incentives */}
                       {(activeProject.legalCompliance.grants_incentives || []).length > 0 && (
@@ -1582,10 +1800,17 @@ export default function WorkspacePage() {
                       </CardTitle>
                       <div className="text-xs px-2.5 py-1 rounded bg-accent-blue/10 text-accent-blue font-medium flex items-center gap-1.5">
                         <Rocket className="h-4 w-4" />
-                        <span>Launch Readiness: {activeProject.productExecution.launch_readiness}%</span>
+                        <span>Plan Confidence: {activeProject.productExecution.plan_confidence}%</span>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                      {activeProject.productExecution.product_vision && (
+                        <div className="rounded-lg border border-accent-blue/20 bg-accent-blue/5 p-4">
+                          <span className="mb-2 block text-xs font-semibold text-accent-blue">Product Vision</span>
+                          <p className="text-sm leading-relaxed text-primary">{activeProject.productExecution.product_vision}</p>
+                        </div>
+                      )}
+
                       {/* PRD Summary */}
                       <div className="p-4 rounded-lg bg-muted">
                         <span className="text-xs font-semibold text-muted-foreground block mb-2">PRD Summary</span>
@@ -1605,6 +1830,9 @@ export default function WorkspacePage() {
                                   Sprint {sprint.sprint}: {sprint.name}
                                 </span>
                                 <span className="text-xs text-muted-foreground">{sprint.duration_weeks} weeks</span>
+                                {sprint.total_effort_points > 0 && (
+                                  <span className="text-xs text-muted-foreground"> · {sprint.total_effort_points} effort points</span>
+                                )}
                               </div>
                               <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
                                 {(sprint.goals || []).slice(0, 2).map((goal: string, gIdx: number) => (
@@ -1617,6 +1845,36 @@ export default function WorkspacePage() {
                           ))}
                         </div>
                       </div>
+
+                      {activeProject.productExecution.user_stories.length > 0 && (
+                        <div className="space-y-3">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            User Stories ({activeProject.productExecution.user_stories.length})
+                          </span>
+                          <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
+                            {activeProject.productExecution.user_stories.map((story: any) => (
+                              <div key={story.id} className="rounded-lg border border-border/60 bg-white p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="text-sm font-semibold text-primary">{story.id}: {story.title}</span>
+                                  <span className="rounded bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                                    {story.priority} · {story.effort_estimate}
+                                  </span>
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  As {story.user_type}, I want to {story.action} so that {story.benefit}.
+                                </p>
+                                {(story.acceptance_criteria || []).length > 0 && (
+                                  <ul className="mt-2 space-y-1 pl-4 text-xs text-muted-foreground">
+                                    {story.acceptance_criteria.map((criterion: string, idx: number) => (
+                                      <li key={idx} className="list-disc">{criterion}</li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Architecture */}
                       {(activeProject.productExecution.architecture || []).length > 0 && (
@@ -1631,11 +1889,113 @@ export default function WorkspacePage() {
                                   <span className="text-sm font-medium text-primary block">{arch.component}</span>
                                   <span className="text-xs text-muted-foreground">{arch.rationale}</span>
                                 </div>
-                                <span className="text-xs font-semibold text-accent-blue">{arch.technology}</span>
+                                {arch.technology && (
+                                  <span className="text-xs font-semibold text-accent-blue">{arch.technology}</span>
+                                )}
                               </div>
                             ))}
                           </div>
                         </div>
+                      )}
+
+                      {(activeProject.productExecution.architecture_overview
+                        || activeProject.productExecution.data_flow
+                        || activeProject.productExecution.infrastructure
+                        || activeProject.productExecution.security_considerations.length > 0) && (
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                          {[
+                            ['Architecture Overview', activeProject.productExecution.architecture_overview],
+                            ['Data Flow', activeProject.productExecution.data_flow],
+                            ['Infrastructure', activeProject.productExecution.infrastructure],
+                          ].filter(([, value]) => value).map(([label, value]) => (
+                            <div key={label as string} className="rounded-lg border border-border bg-muted/40 p-3">
+                              <span className="mb-1 block text-xs font-semibold text-primary">{label}</span>
+                              <p className="text-xs leading-relaxed text-muted-foreground">{value}</p>
+                            </div>
+                          ))}
+                          {activeProject.productExecution.security_considerations.length > 0 && (
+                            <div className="rounded-lg border border-border bg-muted/40 p-3">
+                              <span className="mb-1 block text-xs font-semibold text-primary">Security Considerations</span>
+                              <ul className="space-y-1 text-xs text-muted-foreground">
+                                {activeProject.productExecution.security_considerations.map((item: string, idx: number) => (
+                                  <li key={idx}>• {item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {activeProject.productExecution.api_endpoints.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Key API Endpoints</span>
+                          <div className="divide-y divide-border rounded-lg border border-border">
+                            {activeProject.productExecution.api_endpoints.map((endpoint: any, idx: number) => (
+                              <div key={`${endpoint.method}-${endpoint.path}-${idx}`} className="flex flex-wrap items-center gap-2 px-3 py-2 text-xs">
+                                <span className="rounded bg-blue-50 px-2 py-0.5 font-semibold text-blue-700">{endpoint.method}</span>
+                                <code className="text-primary">{endpoint.path}</code>
+                                <span className="text-muted-foreground">{endpoint.description}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {activeProject.productExecution.release_plan.features.length > 0 && (
+                        <div className="space-y-3 rounded-lg border border-border p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-primary">
+                              {activeProject.productExecution.release_plan.release_name} ({activeProject.productExecution.release_plan.version})
+                            </span>
+                            <span className="text-xs text-muted-foreground">Target: {activeProject.productExecution.release_plan.target_date}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {activeProject.productExecution.release_plan.features.map((feature: string, idx: number) => (
+                              <span key={idx} className="rounded bg-muted px-2 py-1 text-xs text-foreground">{feature}</span>
+                            ))}
+                          </div>
+                          {activeProject.productExecution.release_plan.milestones.map((milestone: any, idx: number) => (
+                            <p key={idx} className="text-xs text-muted-foreground">
+                              <strong className="text-primary">{milestone.name}:</strong> {milestone.target}
+                            </p>
+                          ))}
+                          {activeProject.productExecution.release_plan.success_metrics.length > 0 && (
+                            <div>
+                              <strong className="text-xs text-primary">Success Metrics</strong>
+                              <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                                {activeProject.productExecution.release_plan.success_metrics.map((metric: string, idx: number) => (
+                                  <li key={idx}>• {metric}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          <p className="text-xs text-muted-foreground">
+                            <strong className="text-primary">Rollback:</strong> {activeProject.productExecution.release_plan.rollback_plan}
+                          </p>
+                        </div>
+                      )}
+
+                      {(activeProject.productExecution.qa_strategy.length > 0
+                        || activeProject.productExecution.deployment_strategy.length > 0) && (
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          {[
+                            ['QA Strategy', activeProject.productExecution.qa_strategy],
+                            ['Deployment Strategy', activeProject.productExecution.deployment_strategy],
+                          ].map(([heading, items]) => (
+                            <div key={heading as string} className="rounded-lg border border-border bg-muted/40 p-3">
+                              <span className="mb-2 block text-xs font-semibold text-primary">{heading}</span>
+                              <ul className="space-y-1 text-xs text-muted-foreground">
+                                {(items as string[]).map((item, idx) => <li key={idx}>• {item}</li>)}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {activeProject.productExecution.explanation && (
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          {activeProject.productExecution.explanation}
+                        </p>
                       )}
                     </CardContent>
                   </Card>

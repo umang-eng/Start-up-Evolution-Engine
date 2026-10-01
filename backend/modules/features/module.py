@@ -2,7 +2,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.models.project import Project
@@ -91,7 +91,7 @@ Ensure all outputs strictly adhere to the requested JSON schema."""
         )
 
         # 4. Invoke LLM with structured output model validation
-        feature_output: FeatureExtractorOutput = await gemini_adapter.generate(
+        feature_output: FeatureExtractorOutput = await ollama_adapter.generate(
             prompt=rendered_prompt,
             schema=FeatureExtractorOutput,
             system_instruction=system_instruction,

@@ -27,6 +27,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.cache.redis import redis_manager
+from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger, workflow_logger
 from backend.models.project import Project
 from backend.models.results import (
@@ -194,6 +195,19 @@ class WorkflowOrchestrator:
         """Register a concrete pipeline stage runner."""
         self.modules[name] = module
 
+    def _add_output_aliases(
+        self,
+        context: dict[str, Any],
+        runtime_outputs: dict[str, dict[str, Any]] | None,
+    ) -> None:
+        """Expose persisted and in-memory stage results under legacy *_output keys."""
+        for stage_name in self.STAGES_ORDER:
+            if stage_name in context:
+                context.setdefault(f"{stage_name}_output", context[stage_name])
+        for stage_name, output in (runtime_outputs or {}).items():
+            context[stage_name] = output
+            context[f"{stage_name}_output"] = output
+
     async def execute_run(
         self,
         db: AsyncSession,
@@ -353,7 +367,7 @@ class WorkflowOrchestrator:
                 )
                 completed_stages.add(stage_name)
 
-                if not success and is_critical:
+                if not success and (is_critical or session.status == "FAILED"):
                     return session
 
                 # Refresh project after stage completion
@@ -506,15 +520,20 @@ class WorkflowOrchestrator:
 
         # Assemble context from predecessor outputs
         context = context_manager.assemble_context(project)
+        self._add_output_aliases(context, runtime_outputs)
         # Intelligence modules were introduced with a standalone context
         # contract and expect both the current pipeline names and the older
         # *_output aliases. Keep their outputs in memory because they do not
         # have dedicated result tables yet.
-        for output_stage, output in (runtime_outputs or {}).items():
-            context[output_stage] = output
-            context[f"{output_stage}_output"] = output
+        context["region"] = project.region or "Not supplied"
         context["product_description"] = context.get("description", "")
-        context["target_market"] = context.get("industry", "")
+        dna_context = context.get("dna") or {}
+        context["target_market"] = (
+            dna_context.get("target_market")
+            or dna_context.get("target_audience")
+            or dna_context.get("customer_segments")
+            or "Not specified in the project inputs"
+        )
         context = context_manager.compress_context_payload(context)
 
         # Semantic Checksum Computation
@@ -591,9 +610,18 @@ class WorkflowOrchestrator:
                             f"Module {stage_name} failed: attempt {attempt + 1}/{retry_count}",
                             exc_info=e,
                         )
-                        if attempt == retry_count - 1:
+                        is_provider_error = (
+                            isinstance(e, BaseBusinessException)
+                            and e.code.startswith("OLLAMA_")
+                        )
+                        is_non_retryable_provider_error = (
+                            is_provider_error
+                            and e.status_code in {400, 401, 402, 403, 422, 429}
+                        )
+                        if attempt == retry_count - 1 or is_non_retryable_provider_error:
                             await self._handle_stage_failure(
-                                db, session, channel_name, stage_name, is_critical, str(e)
+                                db, session, channel_name, stage_name,
+                                is_critical or is_provider_error, str(e)
                             )
                             return False
             finally:

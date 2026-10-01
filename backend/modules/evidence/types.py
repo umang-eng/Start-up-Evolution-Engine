@@ -7,9 +7,10 @@ explainability metadata.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Any, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class EvidenceSource(BaseModel):
@@ -137,6 +138,20 @@ class FinancialMetrics(BaseModel):
     break_even_month: int | None = Field(default=None, description="Month to break even")
     assumptions: list[str] = Field(default_factory=list, description="Key financial assumptions")
     evidence: list[EvidenceSource] = Field(default_factory=list, description="Evidence supporting calculations")
+
+    @field_validator("break_even_month", mode="before")
+    @classmethod
+    def parse_break_even_month(cls, value: object) -> object:
+        """Normalize common LLM labels like 'Month 22' without guessing."""
+        if isinstance(value, str):
+            if value.strip().casefold() in {
+                "", "not specified", "unspecified", "unknown", "not applicable", "n/a", "none", "tbd",
+            }:
+                return None
+            match = re.fullmatch(r"\s*month\s+(\d+)\s*", value, flags=re.IGNORECASE)
+            if match:
+                return int(match.group(1))
+        return value
 
 
 class InvestorRecommendation(BaseModel):

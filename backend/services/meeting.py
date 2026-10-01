@@ -8,7 +8,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.logging import logger
 from backend.database.session import AsyncSessionLocal
 from backend.models.meeting import Meeting, MeetingReport, Transcript, MeetingSegment
@@ -248,7 +248,7 @@ async def generate_meeting_report(
     user_prompt = f"Analyze this meeting transcript and generate a structured intelligence report:\n\n{cleaned_text}"
 
     try:
-        raw_response = await gemini_adapter.generate_text(
+        raw_response = await ollama_adapter.generate_text(
             prompt=user_prompt,
             system_instruction=REPORT_SYSTEM_PROMPT,
         )
@@ -266,6 +266,13 @@ async def generate_meeting_report(
         report_data = json.loads(text)
 
         # 6. Update report with structured data
+        report_metadata = dict(report.report_metadata or {})
+        report_metadata.update({
+            "word_count": transcript.word_count,
+            "cleaned_word_count": len(cleaned_text.split()),
+            "model": "configured_ai_provider",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        })
         update_fields = {
             "status": "COMPLETED",
             "title": report_data.get("title", meeting.title or "Untitled Meeting"),
@@ -282,12 +289,7 @@ async def generate_meeting_report(
             "follow_up_needed": report_data.get("follow_up_needed"),
             "overall_outcome": report_data.get("overall_outcome"),
             "full_report_markdown": _build_markdown(report_data),
-            "report_metadata": {
-                "word_count": transcript.word_count,
-                "cleaned_word_count": len(cleaned_text.split()),
-                "model": "configured_ai_provider",
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-            },
+            "report_metadata": report_metadata,
         }
 
         report = await meeting_report_repository.update(

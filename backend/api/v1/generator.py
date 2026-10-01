@@ -18,6 +18,10 @@ from sqlalchemy import select
 from backend.api.dependencies import get_token_payload
 from backend.api.arq_client import enqueue_compilation
 from backend.core.config import settings
+from backend.core.generation_lifecycle import (
+    generation_session_is_stale,
+    mark_generation_session_stale,
+)
 from backend.core.logging import logger
 from backend.database.session import get_db
 from backend.models.project import Project
@@ -37,6 +41,17 @@ class RunAcceptedResponse(BaseModel):
     correlation_id: str
     status: str = "PENDING"
     stream_url: str
+
+
+class RunStatusResponse(BaseModel):
+    """Current state of a project's latest generation session."""
+    project_id: str
+    session_id: str | None
+    status: str
+    current_stage: str | None
+    progress_percentage: float
+    error_message: str | None = None
+    updated_at: str | None = None
 
 
 # ── Endpoint ───────────────────────────────────────────────────────
@@ -78,17 +93,29 @@ async def trigger_run(
         )
     ).scalars().first()
     if active_session:
-        return {
-            "success": True,
-            "data": RunAcceptedResponse(
-                project_id=str(project.id),
-                session_id=str(active_session.id),
-                correlation_id=active_session.correlation_id,
-                status=active_session.status,
-                stream_url=f"/api/v1/streams/{active_session.id}",
-            ),
-            "metadata": APIResponseMetadata(),
-        }
+        if generation_session_is_stale(active_session):
+            mark_generation_session_stale(active_session)
+            await db.commit()
+            logger.warning(
+                "Marked stale generation session as failed; starting a fresh run",
+                extra_data={
+                    "project_id": str(project.id),
+                    "session_id": str(active_session.id),
+                    "stage": active_session.current_stage,
+                },
+            )
+        else:
+            return {
+                "success": True,
+                "data": RunAcceptedResponse(
+                    project_id=str(project.id),
+                    session_id=str(active_session.id),
+                    correlation_id=active_session.correlation_id,
+                    status=active_session.status,
+                    stream_url=f"/api/v1/streams/{active_session.id}",
+                ),
+                "metadata": APIResponseMetadata(),
+            }
 
     correlation_id = str(uuid.uuid4())
 
@@ -156,6 +183,58 @@ async def trigger_run(
     }
 
 
+@router.get(
+    "/status/{project_id}",
+    response_model=BaseResponse[RunStatusResponse],
+)
+async def get_run_status(
+    project_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    claims: dict[str, Any] = Depends(get_token_payload),
+) -> dict[str, Any]:
+    """Return generation status and fail sessions that have exceeded their safe timeout."""
+    user_id = uuid.UUID(claims["sub"])
+    project = await project_service.get_user_project(
+        db, project_id=project_id, user_id=user_id
+    )
+    session = (
+        await db.execute(
+            select(GenerationSession)
+            .where(GenerationSession.project_id == project.id)
+            .order_by(GenerationSession.created_at.desc())
+            .limit(1)
+        )
+    ).scalars().first()
+
+    if session and generation_session_is_stale(session):
+        mark_generation_session_stale(session)
+        await db.commit()
+        await db.refresh(session)
+        logger.warning(
+            "Marked stale generation session as failed during status check",
+            extra_data={
+                "project_id": str(project.id),
+                "session_id": str(session.id),
+                "stage": session.current_stage,
+            },
+        )
+
+    data = RunStatusResponse(
+        project_id=str(project.id),
+        session_id=str(session.id) if session else None,
+        status=session.status if session else "IDLE",
+        current_stage=session.current_stage if session else None,
+        progress_percentage=float(session.progress_percentage) if session else 0.0,
+        error_message=session.error_message if session else None,
+        updated_at=session.updated_at.isoformat() if session else None,
+    )
+    return {
+        "success": True,
+        "data": data,
+        "metadata": APIResponseMetadata(),
+    }
+
+
 @router.post("/cancel", response_model=BaseResponse[dict[str, str]])
 async def cancel_run(
     project_id: uuid.UUID,
@@ -215,7 +294,7 @@ async def enhance_idea(
     claims: dict[str, Any] = Depends(get_token_payload),
 ) -> dict[str, Any]:
     """Uses Gemini AI to enhance and expand a startup idea description with strategic context."""
-    from backend.ai.gemini import gemini_adapter
+    from backend.ai.ollama import ollama_adapter
 
     system_instruction = (
         "You are a world-class startup advisor and product strategist. "
@@ -232,7 +311,7 @@ async def enhance_idea(
     )
 
     try:
-        enhanced_text = await gemini_adapter.generate_text(
+        enhanced_text = await ollama_adapter.generate_text(
             prompt=prompt,
             system_instruction=system_instruction,
         )

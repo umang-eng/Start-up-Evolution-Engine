@@ -48,18 +48,20 @@ interface PipelineProgressProps {
 
 export function PipelineProgress({ projectId, compact = false }: PipelineProgressProps) {
   const pipeline = usePipelineStore((s) => s.activePipelines[projectId]);
+  const pipelineStatus = pipeline?.status;
+  const pipelineStartTime = pipeline?.startTime;
   const [elapsed, setElapsed] = useState(0);
   const [isExpanded, setIsExpanded] = useState(!compact);
 
   useEffect(() => {
-    if (!pipeline || pipeline.status !== 'running') return;
+    if (!pipelineStartTime || pipelineStatus !== 'running') return;
 
     const interval = setInterval(() => {
-      setElapsed(Date.now() - pipeline.startTime);
+      setElapsed(Date.now() - pipelineStartTime);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [pipeline?.status, pipeline?.startTime]);
+  }, [pipelineStatus, pipelineStartTime]);
 
   if (!pipeline || pipeline.status === 'idle') return null;
 
@@ -68,12 +70,17 @@ export function PipelineProgress({ projectId, compact = false }: PipelineProgres
   const runningCount = stages.filter((s) => s.status === 'running').length;
   const failedCount = stages.filter((s) => s.status === 'failed').length;
   const totalCount = stages.length;
-  const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
-
-  const estimatedTotal = pipeline.endTime 
-    ? pipeline.endTime - pipeline.startTime 
-    : elapsed / (progress / 100 || 1);
-  const eta = Math.max(0, estimatedTotal - elapsed);
+  const processedCount = completedCount + failedCount;
+  const progress = totalCount > 0 ? (processedCount / totalCount) * 100 : 0;
+  const averageStageDuration = processedCount > 0 ? elapsed / processedCount : null;
+  const queuedCount = stages.filter((stage) => stage.status === 'queued').length;
+  const runningStage = stages.find((stage) => stage.status === 'running');
+  const runningStageElapsed = runningStage?.startTime && pipelineStartTime
+    ? Math.max(0, elapsed - (runningStage.startTime - pipelineStartTime))
+    : 0;
+  const eta = averageStageDuration === null
+    ? null
+    : Math.max(0, averageStageDuration - runningStageElapsed) + queuedCount * averageStageDuration;
 
   return (
     <Card className="border-border">
@@ -97,9 +104,9 @@ export function PipelineProgress({ projectId, compact = false }: PipelineProgres
                 {formatTime(elapsed)} elapsed
               </Badge>
             )}
-            {pipeline.status === 'running' && eta > 0 && (
-              <Badge variant="outline" size="sm">
-                ~{formatTime(eta)} remaining
+            {pipeline.status === 'running' && (
+              <Badge variant="outline" size="sm" title="Estimated from completed stage durations; it updates as stages finish">
+                {eta === null ? 'Estimating completion…' : eta > 0 ? `~${formatTime(eta)} remaining` : 'Finishing up…'}
               </Badge>
             )}
             <button
@@ -118,7 +125,7 @@ export function PipelineProgress({ projectId, compact = false }: PipelineProgres
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">
-                {completedCount} of {totalCount} stages
+                {processedCount} of {totalCount} stages
               </span>
               <span className="font-medium text-foreground">{Math.round(progress)}%</span>
             </div>
@@ -171,6 +178,11 @@ function StageItem({ stage }: { stage: PipelineStageProgress }) {
         <Icon className={cn('h-3.5 w-3.5', stage.status === 'running' && 'animate-spin')} />
       </div>
       <span className="flex-1 text-foreground">{label}</span>
+      {stage.error && (
+        <span className="max-w-[45%] truncate text-xs text-red-600" title={stage.error}>
+          {stage.error}
+        </span>
+      )}
       {duration !== null && (
         <span className="text-xs text-muted-foreground">{formatTime(duration)}</span>
       )}

@@ -28,8 +28,27 @@ STAGE_INPUT_DEPENDENCIES: dict[str, list[str]] = {
     "team":             ["dna", "features", "roadmap"],                        # Depends on DNA + Features + Roadmap
     "swot":             ["dna", "features", "roadmap", "team"],                # Depends on DNA + Features + Roadmap + Team
     "cost":             ["dna", "features", "roadmap", "team", "swot"],        # All previous
-    "blueprint":        ["dna", "features", "roadmap", "team", "swot", "cost"],# All previous
+    "blueprint":        [
+        "dna", "features", "roadmap", "team", "swot", "cost", "legal_compliance",
+        "competitive_moat", "stress_test", "financial_intelligence",
+        "investment_committee", "product_execution", "global_expansion",
+    ],
     "legal_compliance": ["dna", "cost"],                                       # Depends on DNA + Cost
+}
+
+# Bump a stage's generation version when its output contract or repair logic
+# changes, so cached results created by an older implementation are regenerated.
+STAGE_GENERATION_VERSIONS: dict[str, str] = {
+    "blueprint": "consistent-export-narrative-v3",
+    "roadmap": "consistent-phase-duration-v2",
+    "swot": "complete-market-quadrants-v2",
+    "cost": "derived-operating-estimates-v2",
+    "legal_compliance": "complete-legal-guidance-v2",
+    "competitive_moat": "evidence-qualified-fallback-v2",
+    "financial_intelligence": "validated-financial-baseline-v2",
+    "investment_committee": "simulation-only-investor-terms-v2",
+    "product_execution": "pipeline-context-execution-plan-v2",
+    "global_expansion": "evidence-qualified-expansion-v2",
 }
 
 
@@ -99,7 +118,21 @@ def compute_stage_checksum(
     Returns:
         Hex-encoded SHA-256 hash string (64 chars)
     """
-    # 1. Build the input payload
+    from backend.core.config import settings
+
+    # Include the generation profile so model/mode changes cannot reuse stale outputs.
+    generation_profile: dict[str, Any] = {
+        "provider": "ollama",
+        "fast_mode": settings.PIPELINE_FAST_MODE,
+        "temperature": settings.OLLAMA_TEMPERATURE,
+    }
+    generation_profile.update({
+        "host": settings.OLLAMA_HOST,
+        "model": settings.OLLAMA_MODEL,
+        "num_ctx": settings.OLLAMA_NUM_CTX,
+        "num_predict": settings.OLLAMA_NUM_PREDICT,
+    })
+
     payload: dict[str, Any] = {
         "_project": {
             "title": (project_title or "").strip(),
@@ -107,6 +140,8 @@ def compute_stage_checksum(
             "description": (project_description or "").strip(),
         },
         "_stage": stage_name,
+        "_generation_version": STAGE_GENERATION_VERSIONS.get(stage_name, "v1"),
+        "_generation_profile": generation_profile,
     }
 
     # 2. Attach only the upstream dependencies this stage needs

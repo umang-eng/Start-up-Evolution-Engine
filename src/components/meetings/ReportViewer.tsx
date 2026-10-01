@@ -37,7 +37,8 @@ interface SectionProps {
 
 function Section({ title, icon, items, color = 'text-slate-900 dark:text-white', defaultOpen = true }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen);
-  if (!items || items.length === 0) return null;
+  const visibleItems = items?.filter((item) => item.trim().length > 0) || [];
+  if (visibleItems.length === 0) return null;
 
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -49,7 +50,7 @@ function Section({ title, icon, items, color = 'text-slate-900 dark:text-white',
           {icon}
           {title}
           <span className="text-xs font-normal text-slate-400 dark:text-slate-500 ml-1">
-            ({items.length})
+            ({visibleItems.length})
           </span>
         </h3>
         {open ? (
@@ -61,7 +62,7 @@ function Section({ title, icon, items, color = 'text-slate-900 dark:text-white',
       {open && (
         <div className="px-5 py-3 bg-white dark:bg-slate-950">
           <ul className="space-y-2">
-            {items.map((item, i) => (
+            {visibleItems.map((item, i) => (
               <li key={i} className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                 <span className="mt-2 h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0" />
                 {item}

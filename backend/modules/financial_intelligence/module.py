@@ -6,15 +6,19 @@ all backed by evidence and assumptions.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
+from backend.core.exceptions import BaseBusinessException
 from backend.modules.financial_intelligence.schemas import (
     FinancialIntelligenceOutput, UnitEconomics, ScenarioFinancials, FinancialProjection
 )
 from backend.modules.evidence.types import EvidenceBackedScore, ConfidenceScore, EvidenceSource, FinancialMetrics
 from backend.modules.evidence.collector import search_evidence, gather_financial_evidence
 from backend.core.config import settings
+
+logger = logging.getLogger("app.financial_intelligence")
 
 
 FINANCIAL_PROMPT = """You are a Senior Financial Analyst producing investor-grade financial analysis.
@@ -82,6 +86,10 @@ For each scenario: revenue, break-even month, funding required, runway, valuatio
 - Use industry benchmarks from evidence where available
 - Flag where data is estimated vs verified
 - Be conservative in projections
+- Keep ARR/MRR, projections, scenarios, runway, and valuation internally consistent.
+- Do not present hypothetical revenue, customers, valuation, or cash as actual results. Mark assumptions clearly.
+- When pricing, paying customers, cash, or unit-economics inputs are missing, label estimates as unvalidated
+  and do not invent a revenue forecast or a confident valuation.
 
 Return valid FinancialIntelligenceOutput JSON."""
 
@@ -103,7 +111,8 @@ class FinancialIntelligenceModule:
             evidence.extend(fin_evidence)
 
         # Gather competitor financial data
-        competitors = context.get("dna_output", {}).get("competitor_landscape", [])
+        dna = context.get("dna_output") or context.get("dna", {})
+        competitors = dna.get("competitor_landscape", [])
         for comp in ([] if settings.PIPELINE_FAST_MODE else competitors[:3]):
             if isinstance(comp, dict) and comp.get("name"):
                 comp_ev = await search_evidence(
@@ -111,9 +120,7 @@ class FinancialIntelligenceModule:
                 )
                 evidence.extend(comp_ev)
 
-        # Generate financial intelligence
-        if settings.PIPELINE_FAST_MODE:
-            return self._fallback_output(evidence, 15000).model_dump()
+        # Fast mode skips optional evidence collection, not the financial analysis itself.
         output = await self._generate_financials(context, evidence)
         return output.model_dump()
 
@@ -121,24 +128,33 @@ class FinancialIntelligenceModule:
         self, context: dict[str, Any], evidence: list[EvidenceSource]
     ) -> FinancialIntelligenceOutput:
         """Generate comprehensive financial analysis."""
-        features = context.get("features_output", {})
+        features = context.get("features_output") or context.get("features", {})
         feature_list = features.get("features", [])
         features_summary = "\n".join(
             f"- {f.get('name', 'Feature')}: effort={f.get('effort_estimate', 'M')}, value={f.get('business_value', 5)}/10"
             for f in feature_list[:10] if isinstance(f, dict)
         )
 
-        team = context.get("team_output", {})
-        roles = team.get("roles", [])
+        team = context.get("team_output") or context.get("team", {})
+        roles = team.get("org_chart") or team.get("roles", [])
         team_summary = ", ".join(
             r.get("title", "Role") for r in roles[:6] if isinstance(r, dict)
         ) or "Not specified"
 
-        cost = context.get("cost_output", {})
-        monthly_burn = cost.get("total_monthly_payroll_usd", 15000)
-        monthly_payroll = cost.get("total_monthly_payroll_usd", 15000)
+        cost = context.get("cost_output") or context.get("cost", {})
+        monthly_payroll = float(cost.get("total_monthly_payroll_usd", 0) or 0)
+        operating_costs = sum(
+            float(item.get("monthly_usd", 0) or 0)
+            for item in cost.get("operational_costs", [])
+            if isinstance(item, dict) and item.get("category") != "SALARIES"
+        )
+        monthly_burn = max(
+            float(cost.get("monthly_burn_usd", 0) or 0),
+            monthly_payroll + operating_costs,
+        )
 
-        competitors = context.get("dna_output", {}).get("competitor_landscape", [])
+        dna = context.get("dna_output") or context.get("dna", {})
+        competitors = dna.get("competitor_landscape", [])
         competitors_text = "\n".join(
             f"- {c.get('name', 'Unknown')}: {c.get('description', '')[:60]}"
             for c in competitors[:5] if isinstance(c, dict)
@@ -162,65 +178,93 @@ class FinancialIntelligenceModule:
             evidence_text=evidence_text,
         )
 
-        result = await gemini_adapter.generate(
-            prompt=prompt,
-            schema=FinancialIntelligenceOutput,
-            system_instruction="You are a Senior Financial Analyst producing investor-grade financial analysis with evidence-backed assumptions.",
-        )
+        try:
+            result = await ollama_adapter.generate(
+                prompt=prompt,
+                schema=FinancialIntelligenceOutput,
+                system_instruction="You are a Senior Financial Analyst producing investor-grade financial analysis with evidence-backed assumptions.",
+            )
+        except BaseBusinessException as exc:
+            if exc.code != "OLLAMA_VALIDATION_ERROR":
+                raise
+            logger.warning(
+                "Financial intelligence output did not match its schema; returning a conservative, "
+                "explicitly unvalidated baseline instead."
+            )
+            return self._fallback_output(evidence, monthly_burn)
 
         if isinstance(result, FinancialIntelligenceOutput):
             result.evidence = evidence[:15]
+            uncertainty_text = " ".join([
+                result.explanation,
+                *result.key_assumptions,
+                *result.metrics.assumptions,
+            ]).lower()
+            if any(marker in uncertainty_text for marker in (
+                "fallback", "requires actual financial data", "not validated", "unvalidated baseline",
+            )):
+                return self._fallback_output(evidence, monthly_burn)
             return result
 
         return self._fallback_output(evidence, monthly_burn)
 
     def _fallback_output(self, evidence: list[EvidenceSource], monthly_burn: float) -> FinancialIntelligenceOutput:
-        """Fallback financial analysis."""
+        """Return an explicitly unvalidated baseline without inventing revenue or unit economics."""
+        monthly_burn = max(float(monthly_burn or 0), 0)
+        assumptions = [
+            "No validated customer, pricing, cash-balance, or unit-economics data was supplied.",
+            "Revenue and valuation are left at zero; this is an unvalidated baseline, not a forecast.",
+        ]
         return FinancialIntelligenceOutput(
             metrics=FinancialMetrics(
-                arr=0.0, mrr=0.0, gross_margin_percent=70.0,
-                cac=100.0, ltv=300.0, ltv_cac_ratio=3.0,
-                burn_rate=monthly_burn, burn_multiple=2.0,
-                payback_period_months=12, cash_runway_months=18,
-                assumptions=["Fallback values — require actual financial data"],
+                arr=0.0, mrr=0.0, gross_margin_percent=0.0,
+                cac=0.0, ltv=0.0, ltv_cac_ratio=0.0,
+                burn_rate=monthly_burn, burn_multiple=0.0,
+                payback_period_months=0, cash_runway_months=0,
+                assumptions=assumptions,
                 evidence=evidence[:5],
             ),
             unit_economics=UnitEconomics(
-                cac=100.0, ltv=300.0, ltv_cac_ratio=3.0,
-                payback_period_months=12, gross_margin_percent=70.0,
-                net_margin_percent=20.0, contribution_margin_percent=60.0,
-                churn_rate_percent=5.0, expansion_rate_percent=10.0,
+                cac=0.0, ltv=0.0, ltv_cac_ratio=0.0,
+                payback_period_months=0, gross_margin_percent=0.0,
+                net_margin_percent=0.0, contribution_margin_percent=0.0,
+                churn_rate_percent=0.0, expansion_rate_percent=0.0,
                 evidence=evidence[:3],
             ),
             projections=[
                 FinancialProjection(
                     period="Month 1", revenue=0, costs=monthly_burn,
-                    profit=-monthly_burn, cash_balance=180000,
+                    profit=-monthly_burn, cash_balance=0,
                     customers=0, arr=0, mrr=0,
                 )
             ],
             scenarios=[
                 ScenarioFinancials(
-                    scenario_name="Base Case", probability=0.6,
-                    year1_revenue=120000, year3_revenue=600000,
-                    break_even_month=18, total_funding_required=300000,
-                    runway_months=18, valuation_estimate=2000000,
+                    scenario_name="Unvalidated baseline", probability=1.0,
+                    year1_revenue=0, year3_revenue=0,
+                    break_even_month=None, total_funding_required=monthly_burn * 12,
+                    runway_months=0, valuation_estimate=0,
                 )
             ],
             funding_requirements={
-                "current_round": "Pre-Seed",
-                "amount": 300000,
-                "use_of proceeds": {"product": "60%", "marketing": "25%", "operations": "15%"},
+                "current_round": "Not determined",
+                "amount": round(monthly_burn * 12),
+                "basis": "Twelve months of estimated operating burn; validate scope, cash, and runway before fundraising.",
             },
             valuation={
-                "method": "Revenue Multiple",
-                "estimated_value": 2000000,
-                "confidence": "LOW",
+                "method": "Not estimable from supplied data",
+                "estimated_value": 0,
+                "confidence": "INSUFFICIENT_DATA",
             },
-            key_assumptions=["Fallback analysis — replace with actual financial modeling"],
-            financial_risks=["No actual financial data available"],
-            recommendations=["Build detailed financial model with real data"],
+            key_assumptions=assumptions,
+            financial_risks=["Revenue, pricing, cash balance, and customer acquisition costs have not been validated."],
+            recommendations=["Collect paid-pilot, pricing, cash, and customer-acquisition data before presenting a forecast or valuation."],
             evidence=evidence[:10],
-            confidence=ConfidenceScore(score=30.0, evidence=evidence[:5]),
-            explanation="Fallback financial analysis — requires actual financial data for accuracy.",
+            confidence=ConfidenceScore(
+                score=0.0,
+                evidence=evidence[:5],
+                missing_information=["Validated pricing", "Paying-customer pipeline", "Cash balance", "Customer acquisition costs"],
+                assumptions=assumptions,
+            ),
+            explanation="Unvalidated baseline only; no revenue forecast or valuation is implied.",
         )

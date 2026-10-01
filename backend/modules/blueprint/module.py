@@ -3,7 +3,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.models.project import Project
@@ -148,7 +148,7 @@ Ensure the output conforms strictly to the requested JSON schema."""
         )
 
         logger.info("Generating narrative Executive Summary + Competitive Analysis...")
-        summary_output: ExecutiveSummary = await gemini_adapter.generate(
+        summary_output: ExecutiveSummary = await ollama_adapter.generate(
             prompt=rendered_prompt,
             schema=ExecutiveSummary,
             system_instruction=system_instruction,
@@ -229,17 +229,24 @@ Ensure the output conforms strictly to the requested JSON schema."""
         )
 
     def _build_positioning_statement(self, dna: dict) -> str:
-        """Build a one-sentence positioning statement."""
+        """Build a concise positioning sentence that does not end in a truncated word."""
+        def concise(value: Any, limit: int, default: str) -> str:
+            text = " ".join(str(value or default).split()).strip()
+            if len(text) <= limit:
+                return text.rstrip(" .")
+            shortened = text[:limit].rsplit(" ", 1)[0].rstrip(" ,;:.")
+            return shortened or default
+
         segments = dna.get("target_segments", ["customers"])
-        target = segments[0] if segments else "customers"
-        value = dna.get("value_proposition", "")
-        usp = dna.get("usp", "")
-        category = dna.get("category", "solution")
-        statement = (
-            f"For {target}, {dna.get('business_model', 'solution')} is a "
-            f"{category} that {value}. Unlike alternatives, {usp}."
+        target = concise(segments[0] if segments else "customers", 60, "customers")
+        product = concise(dna.get("business_model"), 60, "the product")
+        category = concise(dna.get("category"), 40, "solution")
+        value = concise(dna.get("value_proposition"), 145, "solves a defined customer need")
+        usp = concise(dna.get("usp"), 110, "it focuses on a differentiated customer workflow")
+        return (
+            f"For {target}, {product} is a {category} that {value}. "
+            f"Unlike alternatives, it {usp}."
         )
-        return statement[:500]
 
     def _build_investment_checklist(self, features: dict, roadmap: dict, team: dict, cost: dict) -> list:
         """Build investment readiness checklist from pipeline data."""
@@ -312,6 +319,10 @@ Ensure the output conforms strictly to the requested JSON schema."""
         risks.extend(cost_risks[:2])
         threats = swot.get("threats", [])
         risks.extend(threats[:2])
+        if not risks:
+            risks.append(
+                "Validate customer demand, representative data access, and delivery estimates before committing launch dates or investment."
+            )
         return risks[:5]
 
     def _build_legal_compliance_doc(self, context: dict[str, Any]) -> LegalComplianceDoc:

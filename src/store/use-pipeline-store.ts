@@ -43,9 +43,6 @@ export const usePipelineStore = create<PipelineState>((set, get) => ({
   activePipelines: {},
 
   beginPipeline: (projectId: string, stage?: string) => {
-    const existing = get().activePipelines[projectId];
-    if (existing?.status === 'running') return;
-
     const stagesToRun = stage ? [stage] : STAGE_ORDER;
     const stages: Record<string, PipelineStageProgress> = {};
     stagesToRun.forEach((s) => {
@@ -107,6 +104,16 @@ export const usePipelineStore = create<PipelineState>((set, get) => ({
       const pipeline = state.activePipelines[projectId];
       if (!pipeline) return state;
 
+      const stages = { ...pipeline.stages };
+      const currentStageIndex = STAGE_ORDER.indexOf(stage);
+      if (update.status === 'running' && Object.keys(stages).length > 1 && currentStageIndex > 0) {
+        for (const previousStage of STAGE_ORDER.slice(0, currentStageIndex)) {
+          if (stages[previousStage]?.status === 'queued') {
+            stages[previousStage] = { ...stages[previousStage], status: 'completed' };
+          }
+        }
+      }
+
       return {
         activePipelines: {
           ...state.activePipelines,
@@ -118,8 +125,8 @@ export const usePipelineStore = create<PipelineState>((set, get) => ({
                 ? null
                 : pipeline.currentStage,
             stages: {
-              ...pipeline.stages,
-              [stage]: { ...pipeline.stages[stage], ...update, stage },
+              ...stages,
+              [stage]: { ...stages[stage], ...update, stage },
             },
           },
         },
@@ -228,6 +235,22 @@ function connectSSE(projectId: string, targetStage?: string) {
 
   es.addEventListener('workflow:failed', (e: any) => {
     es.close();
+    const initialPipeline = usePipelineStore.getState().activePipelines[projectId];
+    let message = 'Generation failed.';
+    try {
+      message = JSON.parse(e.data).error_info?.error_message || message;
+    } catch {
+      // Keep the generic failure message when the stream payload is malformed.
+    }
+    const runningStage = Object.values(initialPipeline?.stages || {})
+      .find((pipelineStage) => pipelineStage.status === 'running')?.stage;
+    if (runningStage) {
+      usePipelineStore.getState().updateStage(projectId, runningStage, {
+        status: 'failed',
+        error: message,
+        endTime: Date.now(),
+      });
+    }
     const pipeline = usePipelineStore.getState().activePipelines[projectId];
     if (pipeline) {
       usePipelineStore.setState((state) => ({
@@ -239,7 +262,7 @@ function connectSSE(projectId: string, targetStage?: string) {
     }
     notify.addNotification({
       title: 'Pipeline Failed',
-      message: 'An error occurred during generation. Please retry.',
+      message,
       type: 'error',
     });
     window.dispatchEvent(new CustomEvent('pipeline:failed', { detail: { projectId } }));

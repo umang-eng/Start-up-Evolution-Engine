@@ -77,27 +77,8 @@ export interface MeetingHealthReport {
   timestamp: string;
 }
 
-export interface TimelineEvent {
-  id: string;
-  event_type: string;
-  title: string;
-  description: string;
-  date: string;
-  meeting_id: string;
-  meeting_title: string;
-  importance: string;
-  affected_areas: string[];
-  related_events: string[];
-  metadata: Record<string, any>;
-  created_at: string;
-}
-
 export interface MeetingAnalysis {
   health: MeetingHealthReport;
-  timeline: {
-    events: TimelineEvent[];
-    total_events: number;
-  };
   meeting_id: string;
 }
 
@@ -108,7 +89,6 @@ interface MeetingState {
   transcript: Transcript | null;
   report: MeetingReport | null;
   health: MeetingHealthReport | null;
-  timeline: TimelineEvent[];
   analysis: MeetingAnalysis | null;
   recording: Blob | null;
 
@@ -117,7 +97,6 @@ interface MeetingState {
   error: string | null;
   generating: boolean;
   analyzingHealth: boolean;
-  analyzingTimeline: boolean;
   analyzingCombined: boolean;
 
   // Actions
@@ -129,7 +108,6 @@ interface MeetingState {
   uploadAudio: (meetingId: string, audioBlob: Blob, filename?: string) => Promise<void>;
   generateReport: (meetingId: string) => Promise<MeetingReport>;
   fetchHealth: (meetingId: string) => Promise<void>;
-  fetchTimeline: (meetingId: string) => Promise<void>;
   runAnalysis: (meetingId: string) => Promise<void>;
   clearCurrent: () => void;
 }
@@ -143,21 +121,27 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
   transcript: null,
   report: null,
   health: null,
-  timeline: [],
   analysis: null,
   recording: null,
   loading: false,
   error: null,
   generating: false,
   analyzingHealth: false,
-  analyzingTimeline: false,
   analyzingCombined: false,
 
   fetchMeetings: async () => {
     set({ loading: true, error: null });
     try {
       const data = await api.meetings.list();
-      set({ meetings: Array.isArray(data) ? data : [], loading: false });
+      const meetings = Array.isArray(data) ? data as Meeting[] : [];
+      set({ meetings, loading: false });
+      if (!get().currentMeeting && meetings.length > 0) {
+        const savedMeetingId = typeof window !== 'undefined'
+          ? window.localStorage.getItem('selected_meeting_id')
+          : null;
+        const initialMeeting = meetings.find((meeting) => meeting.id === savedMeetingId) || meetings[0];
+        await get().selectMeeting(initialMeeting.id);
+      }
     } catch (err: any) {
       set({ error: err.message || 'Failed to load meetings', loading: false });
     }
@@ -176,6 +160,9 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
         currentMeeting: meeting,
         loading: false,
       }));
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('selected_meeting_id', meeting.id);
+      }
       return meeting;
     } catch (err: any) {
       set({ error: err.message || 'Failed to create meeting', loading: false });
@@ -184,12 +171,23 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
   },
 
   selectMeeting: async (meetingId: string) => {
-    set({ loading: true, error: null });
+    set({
+      loading: true,
+      error: null,
+      currentMeeting: null,
+      transcript: null,
+      report: null,
+      health: null,
+      analysis: null,
+      recording: null,
+    });
     try {
-      const [meeting, transcript, report] = await Promise.allSettled([
+      const [meeting, transcript, report, health, analysis] = await Promise.allSettled([
         api.meetings.get(meetingId),
         api.meetings.getTranscript(meetingId),
         api.meetings.getReport(meetingId),
+        api.meetings.getHealth(meetingId),
+        api.meetings.getAnalysis(meetingId),
       ]);
       const selectedMeeting = meeting.status === 'fulfilled' ? meeting.value : null;
       const recording = typeof window !== 'undefined'
@@ -199,9 +197,14 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
         currentMeeting: selectedMeeting,
         transcript: transcript.status === 'fulfilled' ? transcript.value : null,
         report: report.status === 'fulfilled' ? report.value : null,
+        health: health.status === 'fulfilled' ? health.value : null,
+        analysis: analysis.status === 'fulfilled' ? analysis.value : null,
         recording,
         loading: false,
       });
+      if (selectedMeeting && typeof window !== 'undefined') {
+        window.localStorage.setItem('selected_meeting_id', meetingId);
+      }
       return selectedMeeting;
     } catch (err: any) {
       set({ error: err.message || 'Failed to load meeting', loading: false });
@@ -212,11 +215,16 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
   deleteMeeting: async (meetingId: string) => {
     try {
       await api.meetings.delete(meetingId);
+      if (get().currentMeeting?.id === meetingId && typeof window !== 'undefined') {
+        window.localStorage.removeItem('selected_meeting_id');
+      }
       set((state) => ({
         meetings: state.meetings.filter((m) => m.id !== meetingId),
         currentMeeting: state.currentMeeting?.id === meetingId ? null : state.currentMeeting,
         transcript: state.currentMeeting?.id === meetingId ? null : state.transcript,
         report: state.currentMeeting?.id === meetingId ? null : state.report,
+        health: state.currentMeeting?.id === meetingId ? null : state.health,
+        analysis: state.currentMeeting?.id === meetingId ? null : state.analysis,
         recording: state.currentMeeting?.id === meetingId ? null : state.recording,
       }));
       await deleteMeetingRecording(meetingId).catch(() => undefined);
@@ -263,20 +271,10 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
   fetchHealth: async (meetingId: string) => {
     set({ analyzingHealth: true, error: null });
     try {
-      const health = await api.meetings.getHealth(meetingId);
+      const health = await api.meetings.analyzeHealth(meetingId);
       set({ health, analyzingHealth: false });
     } catch (err: any) {
       set({ error: err.message || 'Failed to fetch health analysis', analyzingHealth: false });
-    }
-  },
-
-  fetchTimeline: async (meetingId: string) => {
-    set({ analyzingTimeline: true, error: null });
-    try {
-      const data = await api.meetings.getTimeline(meetingId);
-      set({ timeline: data?.events || [], analyzingTimeline: false });
-    } catch (err: any) {
-      set({ error: err.message || 'Failed to fetch timeline', analyzingTimeline: false });
     }
   },
 
@@ -287,7 +285,6 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
       set({ 
         analysis, 
         health: analysis?.health || null,
-        timeline: analysis?.timeline?.events || [],
         analyzingCombined: false 
       });
     } catch (err: any) {
@@ -296,6 +293,6 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
   },
 
   clearCurrent: () => {
-    set({ currentMeeting: null, transcript: null, report: null, recording: null, health: null, timeline: [], analysis: null });
+    set({ currentMeeting: null, transcript: null, report: null, recording: null, health: null, analysis: null });
   },
 }));

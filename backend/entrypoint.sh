@@ -32,28 +32,11 @@ async def wait():
 asyncio.run(wait())
 "
 
-# ── 1b. Wait for Ollama and pull model if needed ────────────────
-OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
-OLLAMA_MODEL="${OLLAMA_MODEL:-nemotron-3-super:cloud}"
-if [ -n "$OLLAMA_HOST" ]; then
-    echo "[entrypoint] Waiting for Ollama at ${OLLAMA_HOST}..."
-    for i in $(seq 1 30); do
-        if python -c "import httpx; httpx.get('${OLLAMA_HOST}/api/tags').raise_for_status()" 2>/dev/null; then
-            echo "[entrypoint] Ollama ready after ${i}s"
-            # Pull model if not already present
-            echo "[entrypoint] Ensuring model '${OLLAMA_MODEL}' is available..."
-            python -c "
-import httpx, json, sys
-try:
-    r = httpx.post('${OLLAMA_HOST}/api/pull', json={'name': '${OLLAMA_MODEL}'}, timeout=300.0)
-    print('[entrypoint] Model pull response:', r.status_code)
-except Exception as e:
-    print(f'[entrypoint] WARNING: Model pull failed: {e}', file=sys.stderr)
-" 2>&1 || echo "[entrypoint] WARNING: Model pull skipped"
-            break
-        fi
-        sleep 1
-    done
+# ── 1b. Confirm remote Ollama Cloud is reachable; never pull weights ─
+OLLAMA_HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
+if [[ "$OLLAMA_HOST" == https://ollama.com* ]]; then
+    echo "[entrypoint] Using remote Ollama Cloud at ${OLLAMA_HOST}; no local model pull."
+    python -c "import os, httpx; key=os.environ.get('OLLAMA_API_KEY'); headers={'Authorization': f'Bearer {key}'} if key else {}; httpx.get(os.environ['OLLAMA_HOST'].rstrip('/') + '/api/tags', headers=headers, timeout=15.0).raise_for_status()"
 fi
 
 # ── 2. Run Alembic migrations ────────────────────────────────────

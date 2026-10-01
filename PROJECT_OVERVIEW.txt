@@ -273,7 +273,7 @@ authenticated user, then becomes the active workspace.
 The frontend also contains an intake assistant and a dedicated intake state store.
 Its purpose is to help a founder develop a more useful initial description before
 generation, rather than replace the structured stage workflow. Idea enhancement is
-available through the generator API and asks the configured Gemini adapter to expand
+available through the generator API and asks the configured Ollama adapter to expand
 the initial idea with target market, monetization, differentiators, and positioning.
 That feature requires valid provider configuration and can fail independently of
 account, project, or pipeline operations.
@@ -639,8 +639,10 @@ PAGE 18 OF 20 - AI, SEARCH, CACHING, AND OUTPUT RELIABILITY
 ========================================================================
 
 AI functionality is integrated through server-side adapters and stage modules.
-Configuration supports Ollama (default host/model values are supplied in the example
-configuration), Gemini for idea enhancement and other configured uses, Tavily or Google
+Configuration uses Ollama Cloud for idea enhancement and other model generation.
+Local development routes through the signed-in Ollama client, while Docker can call
+the Ollama Cloud API directly with an Ollama account key. Ollama's free starter
+allowance is limited and model eligibility can change. Tavily or Google
 Custom Search for optional live market grounding, and a Whisper-compatible transcription
 endpoint. The browser-based Puter transcription route is separately loaded on the
 frontend. Each integration must be tested independently.

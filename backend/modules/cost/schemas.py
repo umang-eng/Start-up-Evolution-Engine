@@ -1,5 +1,7 @@
 from typing import Literal
-from pydantic import BaseModel, Field
+import re
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class CostCategoryItem(BaseModel):
@@ -77,7 +79,7 @@ class CostOutput(BaseModel):
     )
     break_even_month: int | None = Field(
         default=None,
-        description="Estimated month to break even (None if not estimable)"
+        description="Estimated month number to break even (None if not estimable)"
     )
     key_cost_risks: list[str] = Field(
         default_factory=list,
@@ -87,3 +89,13 @@ class CostOutput(BaseModel):
         ge=0.0, default=0.0,
         description="Computed from team salaries for cross-validation"
     )
+
+    @field_validator("break_even_month", mode="before")
+    @classmethod
+    def parse_break_even_month(cls, value: object) -> object:
+        """Accept common LLM phrasing while keeping the stored value numeric."""
+        if isinstance(value, str):
+            match = re.fullmatch(r"\s*month\s+(\d+)\s*", value, flags=re.IGNORECASE)
+            if match:
+                return int(match.group(1))
+        return value

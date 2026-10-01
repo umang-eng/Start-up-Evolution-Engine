@@ -2,7 +2,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.models.project import Project
@@ -31,6 +31,35 @@ The feature catalog above contains {{ features.features | length }} features. Sc
 Return exactly 3 phases with exactly 2 tasks per phase. Use short descriptions and one acceptance criterion per task.
 Include total duration, critical path, dependencies, and a short launch checklist.
 Return only the requested JSON object."""
+
+    @staticmethod
+    def normalize_roadmap(data: dict[str, Any]) -> dict[str, Any]:
+        """Reconcile the overall duration and critical-path list with the phase/task plan."""
+        normalized = dict(data)
+        phases = [dict(phase) for phase in normalized.get("phases", []) if isinstance(phase, dict)]
+        if not phases:
+            return normalized
+
+        normalized["phases"] = phases
+        normalized["total_estimated_weeks"] = sum(
+            max(int(phase.get("duration_months", 1) or 1), 1) * 4
+            for phase in phases
+        )
+        tasks = [
+            task
+            for phase in phases
+            for task in phase.get("tasks", [])
+            if isinstance(task, dict) and task.get("id")
+        ]
+        task_ids = [str(task["id"]) for task in tasks]
+        declared_path = set(normalized.get("critical_path") or [])
+        flagged_path = {str(task["id"]) for task in tasks if task.get("is_critical_path")}
+        critical_path = [task_id for task_id in task_ids if task_id in (declared_path or flagged_path)]
+        normalized["critical_path"] = critical_path
+        critical_set = set(critical_path)
+        for task in tasks:
+            task["is_critical_path"] = str(task["id"]) in critical_set
+        return normalized
 
     async def run(
         self,
@@ -66,13 +95,13 @@ Return only the requested JSON object."""
         )
 
         # 4. Call LLM structured validation client
-        roadmap_output: RoadmapOutput = await gemini_adapter.generate(
+        roadmap_output: RoadmapOutput = await ollama_adapter.generate(
             prompt=rendered_prompt,
             schema=RoadmapOutput,
             system_instruction=system_instruction,
         )
 
-        output_dict = roadmap_output.model_dump()
+        output_dict = self.normalize_roadmap(roadmap_output.model_dump())
 
         # 5. DB upsert persistence
         stmt = select(RoadmapResult).where(RoadmapResult.project_id == project.id)

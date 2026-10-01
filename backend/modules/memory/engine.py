@@ -13,7 +13,7 @@ from backend.modules.memory.types import (
     MemoryEntry, MemoryType, StartupMemory, MemoryCluster, MemoryDiff,
     AffectedComponent,
 )
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.logging import logger
 
 
@@ -162,7 +162,7 @@ class MemoryEngine:
         )
 
         try:
-            result = await gemini_adapter.generate(
+            result = await ollama_adapter.generate(
                 prompt=prompt,
                 schema=list[dict[str, Any]],
                 system_instruction="You extract structured startup knowledge from meeting transcripts.",
@@ -209,7 +209,7 @@ class MemoryEngine:
         )
 
         try:
-            result = await gemini_adapter.generate(
+            result = await ollama_adapter.generate(
                 prompt=prompt,
                 schema=list[dict[str, Any]],
                 system_instruction="You detect contradictions and issues in startup knowledge.",

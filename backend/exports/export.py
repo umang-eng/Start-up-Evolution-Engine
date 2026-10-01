@@ -2,6 +2,8 @@ import logging
 import os
 from typing import Any
 import uuid
+import io
+from collections.abc import Sequence
 
 # Graceful import check for pptx and weasyprint
 try:
@@ -378,19 +380,232 @@ class ExportCompiler:
 """
         return html
 
-    def compile_blueprint_to_pdf(self, blueprint_data: dict[str, Any]) -> bytes | None:
-        """Compiles the blueprint JSON into binary PDF formats using WeasyPrint if available."""
-        if not weasyprint:
-            logger.warning("WeasyPrint binary libraries are not available on this runtime environment. Falling back to None.")
-            return None
+    @staticmethod
+    def _pdf_text(value: Any) -> str:
+        """Convert structured data into reportlab-safe, readable text."""
+        from xml.sax.saxutils import escape
 
-        try:
-            html_content = self.compile_blueprint_to_html(blueprint_data)
-            pdf_bytes = weasyprint.HTML(string=html_content).write_pdf()
-            return pdf_bytes
-        except Exception as e:
-            logger.error("Failed to compile blueprint PDF using WeasyPrint", exc_info=e)
-            return None
+        if value is None:
+            text = "Not provided"
+        elif isinstance(value, bool):
+            text = "Yes" if value else "No"
+        elif isinstance(value, (dict, list, tuple)):
+            text = str(value)
+        else:
+            text = str(value)
+        return escape(text.encode("latin-1", errors="replace").decode("latin-1"))
+
+    def compile_blueprint_to_pdf(self, blueprint_data: dict[str, Any]) -> bytes:
+        """Compile every generated blueprint section into an actual, paginated PDF."""
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import mm
+        from reportlab.platypus import (
+            HRFlowable,
+            PageBreak,
+            Paragraph,
+            SimpleDocTemplate,
+            Spacer,
+        )
+
+        buffer = io.BytesIO()
+        styles = getSampleStyleSheet()
+        styles.add(ParagraphStyle(
+            name="BlueprintTitle",
+            parent=styles["Title"],
+            fontName="Helvetica-Bold",
+            fontSize=27,
+            leading=32,
+            textColor=colors.HexColor("#173b75"),
+            alignment=TA_CENTER,
+            spaceAfter=16,
+        ))
+        styles.add(ParagraphStyle(
+            name="BlueprintSubtitle",
+            parent=styles["Normal"],
+            fontSize=11,
+            leading=16,
+            textColor=colors.HexColor("#52627a"),
+            alignment=TA_CENTER,
+            spaceAfter=8,
+        ))
+        styles.add(ParagraphStyle(
+            name="BlueprintSection",
+            parent=styles["Heading1"],
+            fontName="Helvetica-Bold",
+            fontSize=17,
+            leading=22,
+            textColor=colors.HexColor("#173b75"),
+            spaceBefore=10,
+            spaceAfter=9,
+            keepWithNext=True,
+        ))
+        styles.add(ParagraphStyle(
+            name="BlueprintField",
+            parent=styles["Heading3"],
+            fontSize=10,
+            leading=13,
+            textColor=colors.HexColor("#2457a6"),
+            spaceBefore=6,
+            spaceAfter=3,
+            keepWithNext=True,
+        ))
+        styles.add(ParagraphStyle(
+            name="BlueprintBody",
+            parent=styles["BodyText"],
+            fontName="Helvetica",
+            fontSize=9,
+            leading=13,
+            textColor=colors.HexColor("#263445"),
+            spaceAfter=5,
+            splitLongWords=True,
+        ))
+
+        document = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=20 * mm,
+            leftMargin=20 * mm,
+            topMargin=19 * mm,
+            bottomMargin=19 * mm,
+            title="Startup Operating Blueprint",
+            author="Start-up Evolution Engine",
+            pageCompression=0,
+        )
+        title = blueprint_data.get("_project_title") or "Startup Operating Blueprint"
+        executive = blueprint_data.get("executive_summary")
+        if isinstance(executive, dict):
+            title = (
+                executive.get("startup_name")
+                or executive.get("company_name")
+                or title
+            )
+        if not isinstance(title, str):
+            title = "Startup Operating Blueprint"
+
+        section_order = [
+            ("executive_summary", "Executive Summary"),
+            ("startup_dna", "Startup DNA & Market Opportunity"),
+            ("product_architecture", "Product Architecture & Features"),
+            ("execution_roadmap", "Execution Roadmap"),
+            ("team_structure", "Team & Organization"),
+            ("swot_analysis", "SWOT Analysis"),
+            ("financial_plan", "Financial Plan & Cost Estimates"),
+            ("legal_compliance", "Legal & Compliance"),
+            ("competitive_moat", "Competitive Moat"),
+            ("stress_test", "Business Stress Test"),
+            ("financial_intelligence", "Financial Intelligence"),
+            ("investment_committee", "Investment Committee"),
+            ("product_execution", "Product Execution Plan"),
+            ("global_expansion", "Global Expansion"),
+            ("competitive_analysis", "Competitive Analysis"),
+            ("market_positioning", "Market Positioning"),
+            ("investment_readiness_checklist", "Investment Readiness Checklist"),
+            ("key_assumptions", "Key Assumptions"),
+            ("next_steps", "Founder Next Steps"),
+            ("expansion_opportunities", "Expansion Opportunities"),
+            ("execution_risks", "Execution Risks"),
+            ("health_indicators", "Startup Health Indicators"),
+            ("conflict_resolution_log", "Conflict Resolution Log"),
+        ]
+        aliases = {
+            "startup_dna": ("dna",),
+            "product_architecture": ("features",),
+            "execution_roadmap": ("roadmap",),
+            "team_structure": ("team",),
+            "swot_analysis": ("swot",),
+            "financial_plan": ("cost",),
+            "legal_compliance": ("legal_compliance_result",),
+        }
+        story: list[Any] = [
+            Spacer(1, 42 * mm),
+            Paragraph(self._pdf_text(title), styles["BlueprintTitle"]),
+            HRFlowable(width="46%", thickness=2, color=colors.HexColor("#3978df"), hAlign="CENTER"),
+            Spacer(1, 7 * mm),
+            Paragraph("Strategic, product, operational, and financial plan", styles["BlueprintSubtitle"]),
+            Paragraph("Generated from this project's persisted pipeline outputs", styles["BlueprintSubtitle"]),
+            Spacer(1, 5 * mm),
+            Paragraph("Start-up Evolution Engine", styles["BlueprintSubtitle"]),
+            PageBreak(),
+        ]
+
+        def append_value(label: str, value: Any, depth: int = 0) -> None:
+            if value is None or value == "" or value == [] or value == {}:
+                return
+            if isinstance(value, dict):
+                if depth > 0:
+                    story.append(Paragraph(self._pdf_text(label.replace("_", " ").title()), styles["BlueprintField"]))
+                for key, child in value.items():
+                    if key == "estimated_compliance_budget_usd" and not float(child or 0):
+                        child = "Unverified — confirm applicable fees with local counsel or official authorities"
+                    append_value(str(key), child, depth + 1)
+                return
+            if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+                value = [item for item in value if item is not None and item != "" and item != [] and item != {}]
+                if not value:
+                    return
+                story.append(Paragraph(self._pdf_text(label.replace("_", " ").title()), styles["BlueprintField"]))
+                for item in value:
+                    if isinstance(item, (dict, list, tuple)):
+                        append_value("Item", item, depth + 1)
+                    else:
+                        story.append(Paragraph(f"&bull; {self._pdf_text(item)}", styles["BlueprintBody"]))
+                return
+            story.append(Paragraph(
+                f"<b>{self._pdf_text(label.replace('_', ' ').title())}:</b> {self._pdf_text(value)}",
+                styles["BlueprintBody"],
+            ))
+
+        consumed: set[str] = set()
+        section_number = 0
+        for key, heading in section_order:
+            candidates = (key, *aliases.get(key, ()))
+            source_key = next(
+                (
+                    candidate for candidate in candidates
+                    if blueprint_data.get(candidate) not in (None, {}, [])
+                ),
+                None,
+            )
+            if source_key is None:
+                continue
+            section_data = blueprint_data[source_key]
+            consumed.add(source_key)
+            if section_data is None or section_data == {} or section_data == []:
+                continue
+            section_number += 1
+            story.append(Paragraph(f"{section_number}. {self._pdf_text(heading)}", styles["BlueprintSection"]))
+            story.append(HRFlowable(width="100%", thickness=0.6, color=colors.HexColor("#d8e2f0")))
+            story.append(Spacer(1, 3 * mm))
+            append_value(heading, section_data)
+            story.append(Spacer(1, 4 * mm))
+
+        for key, value in blueprint_data.items():
+            if key in consumed or key.startswith("_") or value is None:
+                continue
+            section_number += 1
+            heading = key.replace("_", " ").title()
+            story.append(Paragraph(f"{section_number}. {self._pdf_text(heading)}", styles["BlueprintSection"]))
+            story.append(HRFlowable(width="100%", thickness=0.6, color=colors.HexColor("#d8e2f0")))
+            story.append(Spacer(1, 3 * mm))
+            append_value(heading, value)
+            story.append(Spacer(1, 4 * mm))
+
+        if section_number == 0:
+            story.append(Paragraph("No generated project sections are available.", styles["BlueprintBody"]))
+
+        def draw_page(canvas: Any, doc: Any) -> None:
+            canvas.saveState()
+            canvas.setFont("Helvetica", 8)
+            canvas.setFillColor(colors.HexColor("#68778c"))
+            canvas.drawString(20 * mm, 11 * mm, "Start-up Evolution Engine · Operating Blueprint")
+            canvas.drawRightString(A4[0] - 20 * mm, 11 * mm, f"Page {doc.page}")
+            canvas.restoreState()
+
+        document.build(story, onFirstPage=draw_page, onLaterPages=draw_page)
+        return buffer.getvalue()
 
     def compile_blueprint_to_deck(self, blueprint_data: dict[str, Any]) -> bytes | None:
         """Compiles the blueprint JSON into a PPTX presentation document using python-pptx."""

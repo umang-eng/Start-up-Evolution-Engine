@@ -132,14 +132,21 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
       const projects = await Promise.all(metadataProjects.map(async (project) => {
         try {
           const data = await api.blueprints.get(project.id, true);
+          const features = mapFeaturesResponse(data?.product_architecture);
+          const team = mapTeamResponse(data?.team_structure);
           return {
             ...project,
             dna: mapDnaResponse(data?.startup_dna),
-            features: mapFeaturesResponse(data?.product_architecture),
+            features,
             roadmap: mapRoadmapResponse(data?.execution_roadmap),
-            team: mapTeamResponse(data?.team_structure),
-            swot: mapSwotResponse(data?.swot_analysis),
-            cost: mapCostResponse(data?.financial_plan),
+            team,
+            swot: mapSwotResponse(data?.swot_analysis, {
+              idea: project.ideaPrompt,
+            }),
+            cost: mapCostResponse(data?.financial_plan, {
+              features: data?.product_architecture,
+              team: data?.team_structure,
+            }),
             legalCompliance: mapLegalComplianceResponse(data?.legal_compliance),
             competitiveMoat: mapCompetitiveMoatResponse(data?.competitive_moat),
             stressTest: mapStressTestResponse(data?.stress_test),
@@ -236,8 +243,14 @@ export const useBlueprintStore = create<BlueprintState>()((set, get) => ({
       const features = mapFeaturesResponse(blueprintData.product_architecture);
       const roadmap = mapRoadmapResponse(blueprintData.execution_roadmap);
       const team = mapTeamResponse(blueprintData.team_structure);
-      const swot = mapSwotResponse(blueprintData.swot_analysis);
-      const cost = mapCostResponse(blueprintData.financial_plan);
+      const baseProject = get().projects.find((project) => project.id === projectId);
+      const swot = mapSwotResponse(blueprintData.swot_analysis, {
+        idea: baseProject?.ideaPrompt,
+      });
+      const cost = mapCostResponse(blueprintData.financial_plan, {
+        features: blueprintData.product_architecture,
+        team: blueprintData.team_structure,
+      });
       const legalCompliance = mapLegalComplianceResponse(blueprintData.legal_compliance);
       const competitiveMoat = mapCompetitiveMoatResponse(blueprintData.competitive_moat);
       const stressTest = mapStressTestResponse(blueprintData.stress_test);

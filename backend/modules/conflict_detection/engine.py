@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Any, List, Literal, Optional
 from pydantic import BaseModel, Field
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.logging import logger
 
 
@@ -106,7 +106,7 @@ class ConflictDetectionEngine:
         )
 
         try:
-            result = await gemini_adapter.generate(
+            result = await ollama_adapter.generate(
                 prompt=prompt,
                 schema=ConflictDetectionResult,
                 system_instruction="You detect disagreements and conflicts in meeting discussions.",

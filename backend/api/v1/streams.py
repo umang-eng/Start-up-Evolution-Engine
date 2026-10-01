@@ -19,6 +19,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.dependencies import get_token_payload
 from backend.cache.redis import redis_manager
+from backend.core.generation_lifecycle import (
+    generation_session_is_stale,
+    mark_generation_session_stale,
+)
 from backend.core.logging import logger
 from backend.database.session import get_db
 from backend.models.workflow import GenerationSession
@@ -35,6 +39,7 @@ async def _event_generator(
     session_id: str,
     project_id: str,
     max_duration: float = SSE_MAX_DURATION_SECONDS,
+    terminal_event: dict[str, Any] | None = None,
 ) -> AsyncGenerator[dict, None]:
     """Async generator yielding SSE event dicts from a Redis Pub/Sub channel.
 
@@ -57,6 +62,10 @@ async def _event_generator(
             "message": "SSE channel established",
         }),
     }
+
+    if terminal_event:
+        yield terminal_event
+        return
 
     loop_start = asyncio.get_event_loop().time()
     last_heartbeat = loop_start
@@ -168,8 +177,30 @@ async def stream_project_progress(
     else:
         session_id = str(session.id)
 
+    terminal_event = None
+    if generation_session_is_stale(session):
+        message = mark_generation_session_stale(session)
+        await db.commit()
+        logger.warning(
+            "Closed progress stream for stale generation session",
+            extra_data={
+                "project_id": project_id,
+                "session_id": session_id,
+                "stage": session.current_stage,
+            },
+        )
+        terminal_event = {
+            "event": "workflow:failed",
+            "data": json.dumps({
+                "event_type": "workflow:failed",
+                "project_id": project_id,
+                "session_id": session_id,
+                "error_info": {"error_message": message},
+            }),
+        }
+
     return EventSourceResponse(
-        _event_generator(request, session_id, project_id),
+        _event_generator(request, session_id, project_id, terminal_event=terminal_event),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

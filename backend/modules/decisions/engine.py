@@ -12,7 +12,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from backend.modules.memory.types import MemoryEntry, MemoryType
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.logging import logger
 
 
@@ -140,7 +140,7 @@ class DecisionIntelligence:
         )
 
         try:
-            result = await gemini_adapter.generate(
+            result = await ollama_adapter.generate(
                 prompt=prompt,
                 schema=list[dict[str, Any]],
                 system_instruction="You extract structured decisions from meeting transcripts.",

@@ -35,6 +35,13 @@ class ComplianceDirectory(BaseModel):
     relevant_for: list[str] = Field(description="Which compliance areas this agency covers")
 
 
+class IPProtectionRecommendation(BaseModel):
+    """A practical IP action whose filing choices need jurisdiction-specific review."""
+    asset: str = Field(description="Business asset or intellectual-property category")
+    protection_type: str = Field(description="Recommended protection and verification action")
+    status: str = Field(default="review", description="Always a planning recommendation, not a legal determination")
+
+
 class LegalComplianceOutput(BaseModel):
     """Structured output from the Legal & Compliance Doc Generator Module.
 
@@ -59,6 +66,10 @@ class LegalComplianceOutput(BaseModel):
     industry_specific_licenses: list[RegistrationRequirement] = Field(
         default_factory=list,
         description="Industry-specific permits (e.g. FSSAI, SEBI, Drug License)"
+    )
+    ip_protection: list[IPProtectionRecommendation] = Field(
+        default_factory=list,
+        description="General IP protection actions; identify jurisdiction-specific requirements as counsel-verification items"
     )
     data_protection_requirements: list[str] = Field(
         default_factory=list,

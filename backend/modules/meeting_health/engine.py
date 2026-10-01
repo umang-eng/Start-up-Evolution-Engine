@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 from pydantic import BaseModel, Field
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.logging import logger
 
 
@@ -94,7 +94,7 @@ class MeetingHealthEngine:
         )
 
         try:
-            result = await gemini_adapter.generate(
+            result = await ollama_adapter.generate(
                 prompt=prompt,
                 schema=MeetingHealthReport,
                 system_instruction="You analyze meeting effectiveness and provide constructive feedback.",

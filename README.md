@@ -108,7 +108,7 @@ Every stage uses **structured Pydantic output schemas** validated against the LL
                     +------------------+ +---------------+ +---------------+
                               |                  |                  |
                     +---------v--------+ +-------v-------+ +-------v-------+
-                    |  LLM (Gemini)    | | Evidence      | | Search        |
+                    | Ollama (local)   | | Evidence      | | Search        |
                     |  Structured JSON  | | Collector     | | (Tavily/Google)|
                     +------------------+ +---------------+ +---------------+
 ```
@@ -243,9 +243,9 @@ Page Routing:
 
 | Category | Technology |
 |----------|------------|
-| Primary LLM | Ollama (local + cloud model proxy) |
-| Default Model | `nemotron-3-super:cloud` (NVIDIA cloud) |
-| Structured Output | JSON schema-constrained generation |
+| Primary LLM | Ollama |
+| Default Model | `gemma2:2b` (runs locally) |
+| Structured Output | Ollama JSON mode with Pydantic validation |
 | Primary Search | Tavily Search API (AI-optimized) |
 | Fallback Search | Google Custom Search JSON API |
 | Transcription | Whisper.cpp (`base` model) |
@@ -261,7 +261,7 @@ Page Routing:
 │   │   ├── main.py               # FastAPI application factory
 │   │   └── health.py             # Liveness + readiness probes
 │   ├── ai/
-│   │   ├── gemini.py             # LLM adapter (structured JSON generation)
+│   │   ├── ollama.py             # Ollama adapter (structured JSON generation)
 │   │   ├── context.py            # Context assembly + checksum computation
 │   │   └── provider.py           # Abstract LLM provider interface
 │   ├── api/
@@ -705,7 +705,7 @@ Upload Text/File                                          Executive Summary
 - **Whisper setup guide**: [WHISPER_CPP_SETUP.md](WHISPER_CPP_SETUP.md)
 - **Whisper.cpp transcription** with Bearer token authentication
 - **Streaming transcript segments** (real-time upload during recording)
-- **AI-powered intelligence reports** via Gemini/Ollama
+- **AI-powered intelligence reports** via Ollama
 - **Structured report fields**: executive summary, decisions, action items with owners, risks, agreements, technical topics, business opportunities
 - **Report viewer** with collapsible sections, priority badges, copy-to-clipboard
 - **Meeting Health Analysis** — 9-dimension scoring (Focus, Clarity, Participation, Decision Quality, Execution Readiness, Innovation, Strategic Alignment, Conflict Resolution, Time Efficiency)
@@ -821,7 +821,7 @@ Context dictionaries are compressed before injection into prompts:
 | Docker | Latest | Containerized deployment |
 | Docker Compose | v2+ | Multi-container orchestration |
 | Tavily API Key | — | Free tier: 1000 queries/month (recommended) |
-| Gemini API Key | — | For LLM inference (or use Ollama cloud proxy) |
+| Ollama CLI | Latest | Install and pull `gemma2:2b` for local inference |
 
 ---
 
@@ -864,11 +864,17 @@ SECRET_KEY=<generate a 64-char random string>
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 POSTGRES_DB=startup_evolution
-GEMINI_API_KEY=your_key_here
+OLLAMA_HOST=http://127.0.0.1:11434
+OLLAMA_MODEL=gemma2:2b
 TAVILY_API_KEY=your_key_here     # optional but recommended
-OLLAMA_API_KEY=your_key_here     # for cloud models
-WHISPER_API_KEY=see-whisper-secret-key-2026
 ```
+
+The local app uses the locally installed `gemma2:2b` model through Ollama. Install
+Ollama, then run `ollama pull gemma2:2b` and verify it with
+`ollama run gemma2:2b "Reply with the word ready"`. Inference uses this computer's
+compute and does not require an Ollama Cloud account or API key. Pipeline checksums
+include the Ollama model and generation profile so outputs from a different model
+are not reused.
 
 ### 3. Start databases (if not using Docker)
 
@@ -889,13 +895,21 @@ cd ..
 ### 5. Start all services
 
 ```bash
-npm run dev
+npm run "Run the project baby"
 ```
 
-This runs concurrently:
+This single command starts the local development servers concurrently:
 - **Frontend:** http://localhost:3000
 - **Backend:** http://localhost:8000
 - **API Docs:** http://localhost:8000/docs
+- **Whisper.cpp transcription API:** http://localhost:8080
+
+It requires the backend virtual environment at `backend/venv`, FFmpeg, and the
+base Whisper server/model installed under `~/whisper.cpp` (or set
+`WHISPER_CPP_DIR` / `WHISPER_MODEL_PATH`). The processes stop together with
+Ctrl+C. PostgreSQL/Redis are optional in local development because the backend
+automatically falls back to its SQLite development database when PostgreSQL
+isn't available; Ollama is used if configured and running.
 
 ### 6. Create an account and project
 
@@ -950,6 +964,11 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
+Docker Compose connects to the host's Ollama server at
+`http://host.docker.internal:11434` and uses the host-installed `gemma2:2b` model.
+Start Ollama and pull that model on the host before starting Compose. Compose does
+not download model weights into a container.
+
 ### Verify services
 
 ```bash
@@ -958,7 +977,7 @@ docker compose ps
 # Expected:
 # see-postgres      running   0.0.0.0:5432->5432/tcp
 # see-redis         running   0.0.0.0:6379->6379/tcp
-# see-ollama        running   0.0.0.0:11435->11434/tcp
+# Ollama inference runs locally on the host
 # whisper.cpp       running on the host at 0.0.0.0:8080
 # see-api-gateway   running   0.0.0.0:8000->8000/tcp
 # see-worker-engine running
@@ -994,7 +1013,6 @@ docker compose up -d --build api-gateway worker-engine
 | Variable | Description |
 |----------|-------------|
 | `SECRET_KEY` | JWT signing key (min 32 chars). Generate with: `python -c "import secrets; print(secrets.token_hex(32))"` |
-| `GEMINI_API_KEY` | Gemini / Ollama API key for LLM inference |
 
 ### Database
 
@@ -1018,9 +1036,9 @@ docker compose up -d --build api-gateway worker-engine
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OLLAMA_HOST` | `http://localhost:11434` | Ollama endpoint (`http://ollama:11434` in Docker) |
-| `OLLAMA_MODEL` | `nemotron-3-super:cloud` | Model to use |
-| `OLLAMA_API_KEY` | — | Required for cloud models |
+| `OLLAMA_HOST` | `http://127.0.0.1:11434` | Local Ollama endpoint; Docker uses the host Ollama service |
+| `OLLAMA_MODEL` | `gemma2:2b` | Model to use for local inference |
+| `OLLAMA_API_KEY` | — | Optional bearer key for an authenticated remote Ollama endpoint |
 
 ### Whisper (Speech-to-Text)
 
@@ -1061,7 +1079,6 @@ not expose port 8080 to untrusted networks.
 | `REDIS_EXTERNAL_PORT` | `6379` | Host port for Redis |
 | `API_EXTERNAL_PORT` | `8000` | Host port for API gateway |
 | `FRONTEND_EXTERNAL_PORT` | `3000` | Host port for frontend |
-| `OLLAMA_EXTERNAL_PORT` | `11435` | Host port for Ollama |
 
 ---
 
@@ -1455,9 +1472,9 @@ Tests use mocked LLM responses and in-memory databases. No external services req
 - Follow [WHISPER_CPP_SETUP.md](WHISPER_CPP_SETUP.md) for setup and API verification.
 
 ### Ollama model not found
-- The default model `nemotron-3-super:cloud` is proxied to NVIDIA cloud
-- For local models, pull first: `docker exec see-ollama ollama pull llama3`
-- Set `OLLAMA_MODEL` to the pulled model name
+- Run `ollama pull gemma2:2b` and verify with `ollama list`.
+- Ensure the Ollama server is running on `127.0.0.1:11434` locally.
+- In Docker, the backend reaches host Ollama via `host.docker.internal:11434`.
 
 ### Agent mesh not activating
 - All stages default to `enabled=False` in `backend/agents/config.py`
@@ -1472,7 +1489,7 @@ Tests use mocked LLM responses and in-memory databases. No external services req
 ### Intelligence pipeline failures
 - Intelligence modules are non-critical — core pipeline continues if they fail
 - Check logs: `docker compose logs worker-engine | grep -i "competitive_moat\|stress_test\|financial"`
-- Intelligence modules require Gemini API key for LLM generation
+- Intelligence modules use the configured local Ollama model for LLM generation
 - Evidence collection requires Tavily or Google Search API key
 
 ---

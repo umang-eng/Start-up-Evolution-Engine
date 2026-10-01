@@ -10,11 +10,11 @@ redis>=5.0.3
 python-jose[cryptography]>=3.3.0
 passlib[argon2]>=1.7.4
 argon2-cffi>=23.1.0
-google-genai>=2.0.0
 pyyaml>=6.0.1
 jinja2>=3.1.3
 python-multipart>=0.0.9
 httpx>=0.27.0
+reportlab>=4.2.0
 
 # ── Background Task Queue ──────────────────────────────────────
 arq>=0.25.0

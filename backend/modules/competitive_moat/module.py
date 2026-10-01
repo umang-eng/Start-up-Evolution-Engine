@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.modules.competitive_moat.schemas import (
     CompetitiveMoatOutput, MoatDimension, MoatType
 )
@@ -16,6 +16,7 @@ from backend.modules.evidence.types import EvidenceBackedScore, ConfidenceScore,
 from backend.modules.evidence.collector import search_evidence, gather_competitor_evidence
 from backend.modules.evidence.pipeline import run_decision_pipeline
 from backend.core.config import settings
+from backend.core.exceptions import BaseBusinessException
 
 
 MOAT_ANALYSIS_PROMPT = """You are a Competitive Strategy Analyst specializing in moat analysis.
@@ -113,11 +114,7 @@ class CompetitiveMoatModule:
                 {**context, "stage": "competitive_moat"}, evidence
             )
 
-        # Build moat dimensions from evidence and agent opinions
-        if settings.PIPELINE_FAST_MODE:
-            return (await self._generate_moat_output(
-                context, self._fallback_dimensions(evidence), evidence
-            )).model_dump()
+        # Fast mode skips optional research and agent opinions, not the model-backed assessment.
         moat_dimensions = await self._assess_moat_dimensions(context, evidence, decision_result)
 
         # Generate overall moat output
@@ -130,6 +127,9 @@ class CompetitiveMoatModule:
         decision_result: dict[str, Any]
     ) -> list[MoatDimension]:
         """Assess each moat dimension using evidence and LLM analysis."""
+        if not evidence:
+            return self._fallback_dimensions([])
+
         features = context.get("features_output", {})
         feature_list = features.get("features", [])
         features_summary = "\n".join(
@@ -159,11 +159,15 @@ class CompetitiveMoatModule:
         )
 
         try:
-            result = await gemini_adapter.generate(
+            result = await ollama_adapter.generate(
                 prompt=prompt,
                 schema=CompetitiveMoatOutput,
                 system_instruction="You are a Competitive Strategy Analyst. Analyze competitive moats with evidence-backed scoring.",
             )
+        except BaseBusinessException as exc:
+            if exc.code.startswith("OLLAMA_"):
+                raise
+            return self._fallback_dimensions(evidence)
         except Exception:
             # Competitive Moat is non-critical, but it must still produce a
             # stage result so the pipeline and UI do not silently skip it.
@@ -175,15 +179,15 @@ class CompetitiveMoatModule:
         return self._fallback_dimensions(evidence)
 
     def _fallback_dimensions(self, evidence: list[EvidenceSource]) -> list[MoatDimension]:
-        """Create fallback moat dimensions when LLM fails."""
+        """Represent an unavailable assessment without fabricating cost or defensibility."""
         return [
             MoatDimension(
                 moat_type=MoatType.NETWORK_EFFECTS,
-                strength=3.0,
+                strength=0.0,
                 difficulty_to_copy="EASY",
-                time_to_copy_months=6,
-                cost_to_copy_usd=500000,
-                explanation="Fallback assessment — insufficient evidence",
+                time_to_copy_months=0,
+                cost_to_copy_usd=0,
+                explanation="Assessment unavailable — insufficient evidence; strength, time, and cost are not estimated.",
             )
         ]
 
@@ -203,17 +207,22 @@ class CompetitiveMoatModule:
         else:
             avg_strength = 3.0
             strongest = MoatDimension(
-                moat_type=MoatType.TECHNOLOGY_MOAT, strength=3.0,
-                difficulty_to_copy="EASY", time_to_copy_months=6,
-                cost_to_copy_usd=500000, explanation="Default"
+                moat_type=MoatType.TECHNOLOGY_MOAT, strength=0.0,
+                difficulty_to_copy="EASY", time_to_copy_months=0,
+                cost_to_copy_usd=0, explanation="Assessment unavailable — insufficient evidence."
             )
             weakest = strongest
+            avg_strength = 0.0
 
         # Find gaps
         gaps = [d for d in dimensions if d.strength < 4.0]
         strong = [d for d in dimensions if d.strength >= 7.0]
 
-        overall_confidence = min(100.0, 50.0 + len(evidence) * 3)
+        fallback_assessment = not evidence and all(
+            "assessment unavailable" in dimension.explanation.casefold()
+            for dimension in dimensions
+        )
+        overall_confidence = 0.0 if fallback_assessment else min(100.0, 50.0 + len(evidence) * 3)
 
         return CompetitiveMoatOutput(
             overall_moat_score=EvidenceBackedScore(
@@ -230,22 +239,37 @@ class CompetitiveMoatModule:
             moat_dimensions=dimensions,
             strongest_moat=strongest.moat_type.value,
             weakest_moat=weakest.moat_type.value,
-            moat_gap_analysis=[
-                f"{d.moat_type.value}: strength {d.strength}/10 — needs significant investment"
-                for d in gaps
-            ],
-            build_recommendations=[
-                f"Focus on building {d.moat_type.value} moat (currently {d.strength}/10)"
-                for d in gaps[:3]
-            ],
+            moat_gap_analysis=(
+                [] if fallback_assessment else [
+                    f"{d.moat_type.value}: strength {d.strength}/10 — needs significant investment"
+                    for d in gaps
+                ]
+            ),
+            build_recommendations=(
+                ["Gather customer retention, proprietary-data, IP, and competitor evidence before setting moat priorities."]
+                if fallback_assessment else [
+                    f"Focus on building {d.moat_type.value} moat (currently {d.strength}/10)"
+                    for d in gaps[:3]
+                ]
+            ),
             competitive_position=(
+                "Insufficient evidence to assess competitive position" if fallback_assessment else
                 f"Strong competitive position with {len(strong)} strong moats" if strong else
                 f"Limited competitive moats — {len(gaps)} dimensions need improvement"
             ),
-            time_to_defensible=f"{max(d.time_to_copy_months for d in dimensions)} months" if dimensions else "Unknown",
+            time_to_defensible=(
+                "Unknown — insufficient evidence" if fallback_assessment
+                else f"{max(d.time_to_copy_months for d in dimensions)} months" if dimensions else "Unknown"
+            ),
             evidence=evidence[:15],
-            assumptions=["Competitor intelligence is current", "Market dynamics are stable"],
+            assumptions=(
+                ["Moat analysis was not available because supporting evidence was insufficient."]
+                if fallback_assessment else
+                ["Competitor intelligence is current", "Market dynamics are stable"]
+            ),
             explanation=(
+                "Assessment unavailable; no defensibility, replication cost, or timeline is inferred from the supplied evidence."
+                if fallback_assessment else
                 f"Competitive moat analysis across {len(dimensions)} dimensions. "
                 f"Strongest: {strongest.moat_type.value} ({strongest.strength}/10). "
                 f"Weakest: {weakest.moat_type.value} ({weakest.strength}/10). "

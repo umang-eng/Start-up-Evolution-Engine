@@ -213,6 +213,7 @@ export interface CostEstimation {
   riskLevel: 'low' | 'medium' | 'high';
   readinessRating: number;
   costItems: CostItem[];
+  featureCosts: { featureId: string; name: string; amount: number; weeks: number; driver: string }[];
   scenarios: BudgetScenario[];
   recommendations: string[];
 }
@@ -227,6 +228,9 @@ export interface LegalComplianceResult {
   registrations_needed: { type: string; jurisdiction: string; timeline: string }[];
   overall_risk: string;
   recommendations: string[];
+  data_protection_requirements: string[];
+  summary: string;
+  estimated_compliance_budget_usd: number | null;
 }
 
 export interface CompetitiveMoatResult {
@@ -279,13 +283,43 @@ export interface InvestmentCommitteeResult {
   conditions: string[];
 }
 
+export interface ProductExecutionStory {
+  id: string;
+  title: string;
+  user_type: string;
+  action: string;
+  benefit: string;
+  acceptance_criteria: string[];
+  priority: string;
+  effort_estimate: string;
+  feature_id: string;
+}
+
 export interface ProductExecutionResult {
+  product_vision: string;
   prd_summary: string;
-  sprint_plan: { sprint: number; name: string; goals: string[]; duration_weeks: number }[];
+  sprint_plan: { sprint: number; name: string; goals: string[]; duration_weeks: number; total_effort_points: number; risks: string[]; stories: ProductExecutionStory[] }[];
+  user_stories: ProductExecutionStory[];
   architecture: { component: string; technology: string; rationale: string }[];
+  architecture_overview: string;
+  data_flow: string;
+  infrastructure: string;
+  security_considerations: string[];
   api_endpoints: { method: string; path: string; description: string }[];
   technical_debt: { item: string; severity: string; effort: string }[];
-  launch_readiness: number;
+  plan_confidence: number;
+  release_plan: {
+    release_name: string;
+    version: string;
+    target_date: string;
+    features: string[];
+    milestones: { name: string; target: string }[];
+    success_metrics: string[];
+    rollback_plan: string;
+  };
+  qa_strategy: string[];
+  deployment_strategy: string[];
+  explanation: string;
   recommendations: string[];
 }
 

@@ -2,7 +2,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.models.project import Project
@@ -141,7 +141,7 @@ Ensure all output strictly adheres to the requested JSON schema structure, provi
         )
 
         # 4. Call AI Layer for structured validation
-        dna_output: DNAOutput = await gemini_adapter.generate(
+        dna_output: DNAOutput = await ollama_adapter.generate(
             prompt=rendered_prompt,
             schema=DNAOutput,
             system_instruction=system_instruction,

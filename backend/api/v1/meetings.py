@@ -1,3 +1,4 @@
+import hashlib
 import uuid
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
@@ -21,6 +22,49 @@ from backend.repositories.meeting import (
 )
 
 router = APIRouter(prefix="/meetings", tags=["Conversation Intelligence"])
+
+
+def _transcript_fingerprint(transcript_text: str) -> str:
+    return hashlib.sha256(transcript_text.encode("utf-8")).hexdigest()
+
+
+async def _get_cached_analysis(
+    db: AsyncSession,
+    meeting_id: uuid.UUID,
+    key: str,
+    fingerprint: str,
+) -> dict[str, Any] | None:
+    report = await meeting_report_repository.get_by_meeting(db, meeting_id)
+    if not report:
+        return None
+    stored = (report.report_metadata or {}).get(key)
+    if not isinstance(stored, dict) or stored.get("transcript_sha256") != fingerprint:
+        return None
+    result = stored.get("data")
+    return result if isinstance(result, dict) else None
+
+
+async def _save_analysis(
+    db: AsyncSession,
+    meeting_id: uuid.UUID,
+    key: str,
+    fingerprint: str,
+    result: dict[str, Any],
+) -> None:
+    report = await meeting_report_repository.get_by_meeting(db, meeting_id)
+    if not report:
+        report = await meeting_report_repository.create(
+            db,
+            obj_in={
+                "meeting_id": meeting_id,
+                "status": "ANALYSIS_ONLY",
+                "report_metadata": {},
+            },
+        )
+    metadata = dict(report.report_metadata or {})
+    metadata[key] = {"transcript_sha256": fingerprint, "data": result}
+    report.report_metadata = metadata
+    await db.commit()
 
 
 # ── Meeting Endpoints ─────────────────────────────────────────────
@@ -282,7 +326,7 @@ async def get_report(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting not found")
 
     report = await meeting_report_repository.get_by_meeting(db, meeting_id)
-    if not report:
+    if not report or report.status == "ANALYSIS_ONLY":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found. Generate one first.")
     return {
         "success": True,
@@ -299,7 +343,7 @@ async def get_meeting_health(
     claims: dict[str, Any] = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Run health analysis on a meeting's transcript across 9 dimensions."""
+    """Fetch a previously generated health analysis."""
     user_id = uuid.UUID(claims["sub"])
     meeting = await meeting_repository.get_by_meeting_and_user(db, meeting_id, user_id)
     if not meeting:
@@ -309,64 +353,74 @@ async def get_meeting_health(
     if not transcript:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")
 
+    result = await _get_cached_analysis(
+        db, meeting_id, "meeting_health", _transcript_fingerprint(transcript.raw_text)
+    )
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Health analysis not found. Run an analysis first.")
+    return {
+        "success": True,
+        "data": result,
+        "metadata": APIResponseMetadata(),
+    }
+
+
+@router.post("/{meeting_id}/health")
+async def analyze_meeting_health(
+    meeting_id: uuid.UUID,
+    claims: dict[str, Any] = Depends(get_token_payload),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Generate and persist health analysis for a meeting transcript."""
+    user_id = uuid.UUID(claims["sub"])
+    meeting = await meeting_repository.get_by_meeting_and_user(db, meeting_id, user_id)
+    if not meeting:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting not found")
+    transcript = await transcript_repository.get_by_meeting(db, meeting_id)
+    if not transcript:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")
+
+    fingerprint = _transcript_fingerprint(transcript.raw_text)
+    cached = await _get_cached_analysis(db, meeting_id, "meeting_health", fingerprint)
+    if cached is not None:
+        return {"success": True, "data": cached, "metadata": APIResponseMetadata()}
+
     from backend.modules.meeting_health.engine import MeetingHealthEngine
-    engine = MeetingHealthEngine()
 
     participants = [f"Speaker {meeting.speaker_count or i}" for i in range(1, (meeting.speaker_count or 2) + 1)]
     duration_str = f"{meeting.duration_seconds // 60}m {meeting.duration_seconds % 60}s" if meeting.duration_seconds else "unknown"
-
-    health_report = await engine.analyze(
+    engine = MeetingHealthEngine()
+    result = (await engine.analyze(
         meeting_id=str(meeting_id),
         title=meeting.title or "Untitled Meeting",
         duration=duration_str,
         participants=participants,
         transcript=transcript.raw_text,
-    )
-    return {
-        "success": True,
-        "data": health_report.model_dump(),
-        "metadata": APIResponseMetadata(),
-    }
+    )).model_dump(mode="json")
+    await _save_analysis(db, meeting_id, "meeting_health", fingerprint, result)
+    return {"success": True, "data": result, "metadata": APIResponseMetadata()}
 
 
-@router.get("/{meeting_id}/timeline")
-async def get_meeting_timeline(
+@router.get("/{meeting_id}/analysis")
+async def get_meeting_analysis(
     meeting_id: uuid.UUID,
     claims: dict[str, Any] = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Extract timeline-worthy events from a meeting transcript."""
+    """Fetch the persisted combined analysis for a meeting."""
     user_id = uuid.UUID(claims["sub"])
     meeting = await meeting_repository.get_by_meeting_and_user(db, meeting_id, user_id)
     if not meeting:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting not found")
-
     transcript = await transcript_repository.get_by_meeting(db, meeting_id)
     if not transcript:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")
-
-    from backend.modules.meeting_timeline.engine import TimelineEngine
-    project_id = str(meeting.project_id) if meeting.project_id else str(meeting_id)
-    engine = TimelineEngine(project_id=project_id)
-
-    participants = [f"Speaker {meeting.speaker_count or i}" for i in range(1, (meeting.speaker_count or 2) + 1)]
-
-    events = await engine.extract_events(
-        meeting_id=str(meeting_id),
-        title=meeting.title or "Untitled Meeting",
-        date=meeting.created_at.isoformat(),
-        participants=participants,
-        transcript=transcript.raw_text,
+    result = await _get_cached_analysis(
+        db, meeting_id, "combined_analysis", _transcript_fingerprint(transcript.raw_text)
     )
-    return {
-        "success": True,
-        "data": {
-            "events": [e.model_dump() for e in events],
-            "total_events": len(events),
-            "meeting_id": str(meeting_id),
-        },
-        "metadata": APIResponseMetadata(),
-    }
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Combined analysis not found. Run an analysis first.")
+    return {"success": True, "data": result, "metadata": APIResponseMetadata()}
 
 
 @router.post("/{meeting_id}/analyze")
@@ -375,7 +429,7 @@ async def analyze_meeting(
     claims: dict[str, Any] = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Run all intelligence engines on a meeting: health analysis + timeline extraction."""
+    """Generate and persist combined health analysis without timeline events."""
     user_id = uuid.UUID(claims["sub"])
     meeting = await meeting_repository.get_by_meeting_and_user(db, meeting_id, user_id)
     if not meeting:
@@ -385,41 +439,27 @@ async def analyze_meeting(
     if not transcript:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")
 
-    participants = [f"Speaker {meeting.speaker_count or i}" for i in range(1, (meeting.speaker_count or 2) + 1)]
-    duration_str = f"{meeting.duration_seconds // 60}m {meeting.duration_seconds % 60}s" if meeting.duration_seconds else "unknown"
+    fingerprint = _transcript_fingerprint(transcript.raw_text)
+    cached = await _get_cached_analysis(db, meeting_id, "combined_analysis", fingerprint)
+    if cached is not None:
+        return {"success": True, "data": cached, "metadata": APIResponseMetadata()}
 
-    # Run health analysis
-    from backend.modules.meeting_health.engine import MeetingHealthEngine
-    health_engine = MeetingHealthEngine()
-    health_report = await health_engine.analyze(
-        meeting_id=str(meeting_id),
-        title=meeting.title or "Untitled Meeting",
-        duration=duration_str,
-        participants=participants,
-        transcript=transcript.raw_text,
-    )
+    health_report = await _get_cached_analysis(db, meeting_id, "meeting_health", fingerprint)
+    if health_report is None:
+        from backend.modules.meeting_health.engine import MeetingHealthEngine
 
-    # Run timeline extraction
-    from backend.modules.meeting_timeline.engine import TimelineEngine
-    project_id = str(meeting.project_id) if meeting.project_id else str(meeting_id)
-    timeline_engine = TimelineEngine(project_id=project_id)
-    events = await timeline_engine.extract_events(
-        meeting_id=str(meeting_id),
-        title=meeting.title or "Untitled Meeting",
-        date=meeting.created_at.isoformat(),
-        participants=participants,
-        transcript=transcript.raw_text,
-    )
+        participants = [f"Speaker {meeting.speaker_count or i}" for i in range(1, (meeting.speaker_count or 2) + 1)]
+        duration_str = f"{meeting.duration_seconds // 60}m {meeting.duration_seconds % 60}s" if meeting.duration_seconds else "unknown"
+        engine = MeetingHealthEngine()
+        health_report = (await engine.analyze(
+            meeting_id=str(meeting_id),
+            title=meeting.title or "Untitled Meeting",
+            duration=duration_str,
+            participants=participants,
+            transcript=transcript.raw_text,
+        )).model_dump(mode="json")
+        await _save_analysis(db, meeting_id, "meeting_health", fingerprint, health_report)
 
-    return {
-        "success": True,
-        "data": {
-            "health": health_report.model_dump(),
-            "timeline": {
-                "events": [e.model_dump() for e in events],
-                "total_events": len(events),
-            },
-            "meeting_id": str(meeting_id),
-        },
-        "metadata": APIResponseMetadata(),
-    }
+    result = {"health": health_report, "meeting_id": str(meeting_id)}
+    await _save_analysis(db, meeting_id, "combined_analysis", fingerprint, result)
+    return {"success": True, "data": result, "metadata": APIResponseMetadata()}

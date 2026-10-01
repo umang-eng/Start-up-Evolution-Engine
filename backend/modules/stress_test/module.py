@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.ai.gemini import gemini_adapter
+from backend.ai.ollama import ollama_adapter
 from backend.modules.stress_test.schemas import (
     StressTestOutput, StressTestScenario
 )
@@ -16,6 +16,7 @@ from backend.modules.evidence.collector import search_evidence
 from backend.modules.evidence.pipeline import run_decision_pipeline
 from backend.core.logging import logger
 from backend.core.config import settings
+from backend.core.exceptions import BaseBusinessException
 
 
 STRESS_TEST_PROMPT = """You are a Risk Simulation Analyst. Perform comprehensive market stress testing.
@@ -99,9 +100,7 @@ class StressTestModule:
                 {**context, "stage": "stress_test"}, evidence
             )
 
-        # Generate stress test scenarios
-        if settings.PIPELINE_FAST_MODE:
-            return self._fallback_output(evidence).model_dump()
+        # Fast mode skips optional evidence and agent opinions, not scenario generation.
         output = await self._generate_stress_test(context, evidence, decision_result)
 
         return output.model_dump()
@@ -147,11 +146,16 @@ class StressTestModule:
         )
 
         try:
-            result = await gemini_adapter.generate(
+            result = await ollama_adapter.generate(
                 prompt=prompt,
                 schema=StressTestOutput,
                 system_instruction="You are a Risk Simulation Analyst. Perform comprehensive market stress testing with evidence-backed scenarios.",
             )
+        except BaseBusinessException as exc:
+            if exc.code.startswith("OLLAMA_"):
+                raise
+            logger.warning("Stress test generation unavailable; using fallback", exc_info=exc)
+            return self._fallback_output(evidence)
         except Exception as exc:
             # Stress testing is non-critical; preserve pipeline continuity
             # with a clearly marked conservative baseline when local Ollama

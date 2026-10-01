@@ -46,9 +46,9 @@ class SynthesizerAgent(BaseAgent):
         """Call the LLM to generate structured output matching the stage schema.
 
         Collects context from research and analysis agents via the bus,
-        then calls gemini_adapter.generate() with the stage-specific schema.
+        then calls ollama_adapter.generate() with the stage-specific schema.
         """
-        from backend.ai.gemini import gemini_adapter
+        from backend.ai.ollama import ollama_adapter
         from jinja2 import Template
 
         # Gather context from upstream agents
@@ -116,7 +116,7 @@ class SynthesizerAgent(BaseAgent):
 
         # Call LLM with schema-constrained generation
         if self.output_schema:
-            result = await gemini_adapter.generate(
+            result = await ollama_adapter.generate(
                 prompt=rendered_prompt,
                 schema=self.output_schema,
                 system_instruction=system_instruction,

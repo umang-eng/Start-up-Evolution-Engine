@@ -7,8 +7,10 @@ from backend.modules.dna.module import DNAModule
 from backend.models.project import Project
 from backend.models.user import User
 from backend.orchestrator.engine import BaseModule, WorkflowOrchestrator
+from backend.core.exceptions import BaseBusinessException
 from backend.schemas.user import UserCreate
 from backend.services.user import user_service
+from backend.core.config import settings
 from backend.utils.checksum import compute_stage_checksum, STAGE_INPUT_DEPENDENCIES
 
 class DummySuccessModule(BaseModule):
@@ -21,6 +23,15 @@ class DummyFailureModule(BaseModule):
     """Mock module raising exceptions."""
     async def run(self, db: AsyncSession, project: Project, context: dict) -> dict:
         raise RuntimeError("Failure module execution failed exception")
+
+
+class DummyCloudFailureModule(BaseModule):
+    async def run(self, db: AsyncSession, project: Project, context: dict) -> dict:
+        raise BaseBusinessException(
+            "Ollama Cloud usage credits are required.",
+            code="OLLAMA_CLOUD_CREDITS_REQUIRED",
+            status_code=402,
+        )
 
 
 @pytest.mark.asyncio
@@ -104,6 +115,51 @@ async def test_workflow_orchestrator_non_critical_failure(db_session: AsyncSessi
     assert session.status == "COMPLETED"
 
 
+@pytest.mark.asyncio
+async def test_ollama_cloud_failure_stops_after_noncritical_stage(db_session: AsyncSession) -> None:
+    success_module = DummySuccessModule()
+    user_payload = UserCreate(
+        email="workflow-cloud-fail@test.com",
+        password="Test-password-for-cloud-error-123!",
+    )
+    user = await user_service.register_user(db_session, obj_in=user_payload)
+    project = Project(
+        user_id=user.id,
+        title="Cloud failure startup",
+        description="Test stopping on a cloud provider error",
+        industry="SaaS",
+    )
+    db_session.add(project)
+    await db_session.commit()
+    await db_session.refresh(project)
+
+    orchestrator = WorkflowOrchestrator()
+    for stage in ["dna", "features", "roadmap", "team", "cost", "blueprint"]:
+        orchestrator.register_module(stage, success_module)
+    orchestrator.register_module("swot", DummyCloudFailureModule())
+
+    session = await orchestrator.execute_run(db_session, project, correlation_id="cloud-402")
+
+    assert session.status == "FAILED"
+    assert session.current_stage == "swot"
+    assert "credits are required" in (session.error_message or "")
+
+
+def test_legacy_stage_context_receives_persisted_and_runtime_outputs() -> None:
+    orchestrator = WorkflowOrchestrator()
+    context = {
+        "dna": {"category": "industrial"},
+        "features": {"features": [{"name": "Prediction"}]},
+    }
+    runtime_outputs = {"financial_intelligence": {"metrics": {"arr": 0}}}
+
+    orchestrator._add_output_aliases(context, runtime_outputs)
+
+    assert context["dna_output"] is context["dna"]
+    assert context["features_output"] is context["features"]
+    assert context["financial_intelligence_output"] is runtime_outputs["financial_intelligence"]
+
+
 # ── Checksum Unit Tests ────────────────────────────────────────────
 
 
@@ -145,6 +201,32 @@ def test_checksum_ignores_irrelevant_context() -> None:
     h1 = compute_stage_checksum("features", "MyApp", "Tech", "Desc", ctx_base)
     h2 = compute_stage_checksum("features", "MyApp", "Tech", "Desc", ctx_extra)
     assert h1 == h2
+
+
+def test_blueprint_checksum_includes_intelligence_results() -> None:
+    context_a = {
+        "dna": {"category": "SaaS"},
+        "financial_intelligence": {"metrics": {"arr": 0}},
+    }
+    context_b = {
+        "dna": {"category": "SaaS"},
+        "financial_intelligence": {"metrics": {"arr": 25_000}},
+    }
+
+    checksum_a = compute_stage_checksum("blueprint", "MyApp", "Tech", "Desc", context_a)
+    checksum_b = compute_stage_checksum("blueprint", "MyApp", "Tech", "Desc", context_b)
+
+    assert checksum_a != checksum_b
+
+
+def test_checksum_changes_when_model_profile_changes(monkeypatch: pytest.MonkeyPatch) -> None:
+    context = {"dna": {"category": "SaaS"}}
+    current = compute_stage_checksum("features", "MyApp", "Tech", "Desc", context)
+    monkeypatch.setattr(settings, "OLLAMA_MODEL", "test-cloud-model")
+
+    updated = compute_stage_checksum("features", "MyApp", "Tech", "Desc", context)
+
+    assert current != updated
 
 
 def test_stage_dependency_graph_completeness() -> None:
