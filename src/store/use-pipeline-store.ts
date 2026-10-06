@@ -25,7 +25,7 @@ export interface PipelineProgress {
 
 interface PipelineState {
   activePipelines: Record<string, PipelineProgress>;
-  beginPipeline: (projectId: string, stage?: string) => void;
+  beginPipeline: (projectId: string, stage?: string, startFromStage?: string) => void;
   finishPipeline: (projectId: string, status: 'completed' | 'failed') => void;
   startPipeline: (projectId: string, stage?: string) => void;
   stopPipeline: (projectId: string) => void;
@@ -42,9 +42,17 @@ const STAGE_ORDER = [
 export const usePipelineStore = create<PipelineState>((set, get) => ({
   activePipelines: {},
 
-  beginPipeline: (projectId: string, stage?: string) => {
-    const stagesToRun = stage ? [stage] : STAGE_ORDER;
+  beginPipeline: (projectId: string, stage?: string, startFromStage?: string) => {
+    const startIndex = startFromStage ? STAGE_ORDER.indexOf(startFromStage) : 0;
+    const stagesToRun = stage
+      ? [stage]
+      : STAGE_ORDER.slice(Math.max(startIndex, 0));
     const stages: Record<string, PipelineStageProgress> = {};
+    if (startFromStage) {
+      STAGE_ORDER.slice(0, startIndex).forEach((completedStage) => {
+        stages[completedStage] = { stage: completedStage, status: 'completed' };
+      });
+    }
     stagesToRun.forEach((s) => {
       stages[s] = { stage: s, status: 'queued' };
     });

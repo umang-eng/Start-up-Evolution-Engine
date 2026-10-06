@@ -43,8 +43,8 @@ class Settings(BaseSettings):
     OLLAMA_MODEL: str = "gemma2:2b"
     OLLAMA_API_KEY: str = ""
     OLLAMA_TEMPERATURE: float = 0.2
-    OLLAMA_NUM_CTX: int = 32768
-    OLLAMA_NUM_PREDICT: int = 8192
+    OLLAMA_NUM_CTX: int = 8192
+    OLLAMA_NUM_PREDICT: int = 4096
     OLLAMA_TIMEOUT_SECONDS: float = 240.0
     OLLAMA_KEEP_ALIVE: str = "10m"
     PIPELINE_STAGE_RETRIES: int = 1

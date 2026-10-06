@@ -31,6 +31,7 @@ export default function MeetingsPage() {
     analyzingHealth,
     analyzingCombined,
     selectMeeting,
+    createMeeting,
     generateReport,
     fetchHealth,
     runAnalysis,
@@ -44,6 +45,15 @@ export default function MeetingsPage() {
   const handleSelectMeeting = async (meetingId: string) => {
     setRequestedTab(null);
     await selectMeeting(meetingId);
+  };
+
+  const handleCreateMeeting = async () => {
+    try {
+      await createMeeting('New Conversation');
+      setRequestedTab('record');
+    } catch {
+      // The meeting history displays the store error.
+    }
   };
 
   const handleRecordComplete = async (meetingId: string) => {
@@ -117,7 +127,10 @@ export default function MeetingsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Sidebar - Meeting History */}
           <div className="lg:col-span-4 xl:col-span-3">
-            <MeetingsList onSelectMeeting={handleSelectMeeting} />
+            <MeetingsList
+              onSelectMeeting={handleSelectMeeting}
+              onCreateMeeting={handleCreateMeeting}
+            />
           </div>
 
           {/* Main Panel */}

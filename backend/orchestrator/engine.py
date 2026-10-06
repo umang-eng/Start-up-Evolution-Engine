@@ -214,6 +214,7 @@ class WorkflowOrchestrator:
         project: Project,
         correlation_id: str,
         target_stage: str | None = None,
+        start_from_stage: str | None = None,
     ) -> GenerationSession:
         """Execute the compilation pipeline (full sequence or single stage).
 
@@ -225,6 +226,13 @@ class WorkflowOrchestrator:
         """
         from backend.ai.context import context_manager
         from sqlalchemy.orm import selectinload
+
+        if target_stage and start_from_stage:
+            raise ValueError("Choose either target_stage or start_from_stage, not both.")
+        if target_stage and target_stage not in self.STAGES_CONFIG:
+            raise ValueError(f"Invalid stage name: {target_stage}")
+        if start_from_stage and start_from_stage not in self.STAGES_CONFIG:
+            raise ValueError(f"Invalid resume stage: {start_from_stage}")
 
         # ── Session initialization ────────────────────────────────
         stmt = (
@@ -239,7 +247,12 @@ class WorkflowOrchestrator:
             session.status = "INITIALIZING"
             session.correlation_id = correlation_id
             session.error_message = None
-            session.stage_cache_map = {}
+            local_execution = (session.stage_cache_map or {}).get("_local_execution")
+            session.stage_cache_map = (
+                {"_local_execution": local_execution}
+                if isinstance(local_execution, dict)
+                else {}
+            )
             session.cache_hits = 0
             session.cache_misses = 0
             await db.commit()
@@ -270,9 +283,13 @@ class WorkflowOrchestrator:
 
         # ── Stage sequence resolution ─────────────────────────────
         if target_stage:
-            if target_stage not in self.STAGES_CONFIG:
-                raise ValueError(f"Invalid stage name: {target_stage}")
             sequence = [target_stage]
+        elif start_from_stage:
+            start_index = self.STAGES_ORDER.index(start_from_stage)
+            sequence = [
+                stage for stage in self.STAGES_ORDER[start_index:]
+                if stage in self.modules
+            ]
         else:
             # A partially configured orchestrator is useful for local tests and
             # staged deployments. Skip stages that have no registered runner;
@@ -324,7 +341,15 @@ class WorkflowOrchestrator:
 
         # Flatten for progress tracking, but execute in groups
         completed_stages: set[str] = set()
-        runtime_outputs: dict[str, dict[str, Any]] = {}
+        runtime_outputs = (
+            await self._load_completed_intelligence_outputs(
+                db,
+                project.id,
+                self.STAGES_ORDER[:self.STAGES_ORDER.index(start_from_stage)],
+            )
+            if start_from_stage
+            else {}
+        )
         progress_base = 0.0
 
         for group in PARALLEL_GROUPS:
@@ -637,9 +662,10 @@ class WorkflowOrchestrator:
         cache_status = "hit" if cache_hit else "miss"
         session.cache_hits = int(session.cache_hits) + (1 if cache_hit else 0)
         session.cache_misses = int(session.cache_misses) + (0 if cache_hit else 1)
-        if session.stage_cache_map is None:
-            session.stage_cache_map = {}
-        session.stage_cache_map[stage_name] = cache_status
+        session.stage_cache_map = {
+            **(session.stage_cache_map or {}),
+            stage_name: cache_status,
+        }
         await db.commit()
 
         # Persist event log
@@ -690,6 +716,41 @@ class WorkflowOrchestrator:
         if record and record.data:
             return record.data
         return None
+
+    async def _load_completed_intelligence_outputs(
+        self,
+        db: AsyncSession,
+        project_id: uuid.UUID,
+        stages: list[str],
+    ) -> dict[str, dict[str, Any]]:
+        """Restore completed event-backed stage outputs skipped by a resumed run."""
+        event_stages = [
+            stage for stage in stages
+            if STAGE_RESULT_MODEL_MAP.get(stage) is None
+        ]
+        if not event_stages:
+            return {}
+
+        stmt = (
+            select(WorkflowEvent)
+            .join(GenerationSession, WorkflowEvent.session_id == GenerationSession.id)
+            .where(
+                GenerationSession.project_id == project_id,
+                WorkflowEvent.event_type == "module:completed",
+                WorkflowEvent.stage.in_(event_stages),
+            )
+            .order_by(WorkflowEvent.created_at.desc())
+        )
+        events = (await db.execute(stmt)).scalars().all()
+        outputs: dict[str, dict[str, Any]] = {}
+        for event in events:
+            if event.stage and event.stage not in outputs:
+                outputs[event.stage] = {
+                    key: value
+                    for key, value in (event.payload or {}).items()
+                    if not key.startswith("_")
+                }
+        return outputs
 
     async def _save_checksum(
         self,

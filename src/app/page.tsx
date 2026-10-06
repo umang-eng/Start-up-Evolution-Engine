@@ -312,7 +312,11 @@ export default function WorkspacePage() {
   };
 
   // Run real generation sequence using Server-Sent Events (SSE)
-  const handleStartGeneration = async (projId: string, stage?: string) => {
+  const handleStartGeneration = async (
+    projId: string,
+    stage?: string,
+    startFromStage?: string,
+  ) => {
     if (pendingGenerationProjects.current.has(projId)) return;
     pendingGenerationProjects.current.add(projId);
 
@@ -320,7 +324,7 @@ export default function WorkspacePage() {
       setActiveStage(getFrontendStageName(stage));
     }
     updateProjectStatus(projId, 'generating');
-    usePipelineStore.getState().beginPipeline(projId, stage);
+    usePipelineStore.getState().beginPipeline(projId, stage, startFromStage);
     setStreamLog([stage
       ? `Contacting intelligence orchestrator for stage [${stage.toUpperCase()}]...`
       : 'Contacting intelligence orchestrator for the complete blueprint...']);
@@ -335,8 +339,14 @@ export default function WorkspacePage() {
     }
 
     try {
+      const provider = await api.generator.providerStatus();
+      setStreamLog(prev => [
+        `✅ Inference provider ready (${provider.model}).`,
+        ...prev,
+      ]);
+
       // 1. Trigger Async execution run
-      const runResponse = await api.generator.run(projId, stage);
+      const runResponse = await api.generator.run(projId, stage, startFromStage);
       const sessionId = runResponse?.session_id ?? runResponse?.data?.session_id;
       setStreamLog(prev => ["✅ Generation pipeline triggered. Opening stream connection...", ...prev]);
 
@@ -603,16 +613,14 @@ export default function WorkspacePage() {
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
 
-    updateProjectStatus(projectId, 'generating');
     const firstIncompleteStage = PIPELINE_STAGE_ORDER.find((stage) => !isStageCompleted(stage, project));
-    if (firstIncompleteStage) {
-      setActiveStage(firstIncompleteStage);
-    }
+    if (!firstIncompleteStage) return;
+
+    updateProjectStatus(projectId, 'generating');
+    setActiveStage(firstIncompleteStage);
     setStreamLog(['Starting complete venture blueprint generation...']);
-    
-    // Start one server-side run. The orchestrator executes stages in dependency order
-    // and this page's single SSE connection updates each result as it completes.
-    await handleStartGeneration(projectId);
+    const startFromStage = getBackendStageName(firstIncompleteStage);
+    await handleStartGeneration(projectId, undefined, startFromStage);
   }, [projects, handleStartGeneration, updateProjectStatus]);
 
   // Request notification permission on mount
@@ -670,8 +678,9 @@ export default function WorkspacePage() {
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <p className="text-sm text-red-600 dark:text-red-400/80 leading-relaxed">
-                        The AI analysis service encountered an error while processing this stage.
-                        <br /><strong>Wait a moment</strong> and retry, or check the provider and worker status.
+                        {streamLog.find((log) => log.startsWith('❌'))?.replace(/^❌\s*/, '')
+                          || 'The AI analysis service encountered an error while processing this stage.'}
+                        <br /><strong>Check the provider and worker status</strong>, then retry.
                       </p>
                       <div className="flex gap-2">
                         <Button
@@ -1631,13 +1640,33 @@ export default function WorkspacePage() {
                         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
                           Unit Economics
                         </span>
+                        {(activeProject.financialIntelligence.unit_economics_assumptions?.length ?? 0) > 0 && (
+                          <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                            Illustrative planning estimates, not verified company results. Validate pricing, retention, and acquisition costs before using these figures.
+                            <ul className="mt-1 list-disc pl-4">
+                              {activeProject.financialIntelligence.unit_economics_assumptions?.map((assumption, idx) => (
+                                <li key={idx}>{assumption}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                           {(activeProject.financialIntelligence.unit_economics || []).map((item: any, idx: number) => (
                             <div key={idx} className="p-3 rounded-lg border border-border/60 bg-muted/50 text-center">
                               <span className="text-[10px] text-muted-foreground block">{item.metric}</span>
-                              <span className="text-lg font-bold text-primary">{item.value}</span>
+                              <span className="text-lg font-bold text-primary">
+                                {item.benchmark === 'USD'
+                                  ? `$${Number(item.value).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                                  : item.benchmark === '%'
+                                    ? `${item.value}%`
+                                    : item.benchmark === 'ratio'
+                                      ? `${item.value}x`
+                                      : item.benchmark === 'months'
+                                        ? `${item.value} mo`
+                                        : item.value}
+                              </span>
                               {item.benchmark && (
-                                <span className="text-[10px] text-muted-foreground block">Bench: {item.benchmark}</span>
+                                <span className="text-[10px] text-muted-foreground block">Unit: {item.benchmark}</span>
                               )}
                             </div>
                           ))}

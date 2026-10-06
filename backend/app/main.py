@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 
 from backend.api.middleware import CorrelationIdMiddleware, RequestLoggingMiddleware
 from backend.api.v1.router import api_router
-from backend.cache.redis import redis_manager
+from backend.cache.redis import MockRedis, redis_manager
 from backend.core.config import settings
 from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import setup_logging, logger
@@ -48,6 +48,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 2. Redis connection pool
     redis_manager.initialize()
     await redis_manager.is_healthy()
+
+    if settings.ENVIRONMENT == "development" and isinstance(redis_manager.client, MockRedis):
+        from backend.database.session import AsyncSessionLocal
+        from backend.worker.tasks import (
+            recover_local_pipeline_sessions,
+            schedule_local_pipeline,
+        )
+
+        async with AsyncSessionLocal() as db:
+            interrupted_runs = await recover_local_pipeline_sessions(db)
+        for project_id, correlation_id, target_stage, start_from_stage in interrupted_runs:
+            logger.warning(
+                "Resuming a local generation interrupted by an API restart",
+                extra_data={
+                    "project_id": project_id,
+                    "target_stage": target_stage,
+                    "start_from_stage": start_from_stage,
+                },
+            )
+            schedule_local_pipeline(
+                project_id, correlation_id, target_stage, start_from_stage
+            )
 
     yield
 

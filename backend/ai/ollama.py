@@ -56,6 +56,49 @@ class OllamaAdapter(LLMProvider):
         "WEB_SEARCH", "DATABASE", "LLM_KNOWLEDGE", "USER_INPUT", "CALCULATION", "API",
     }
 
+    async def check_availability(self) -> dict[str, str]:
+        """Verify that the configured Ollama endpoint serves the requested model."""
+        import httpx
+
+        headers = {"Content-Type": "application/json"}
+        if settings.OLLAMA_API_KEY:
+            headers["Authorization"] = f"Bearer {settings.OLLAMA_API_KEY}"
+
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{settings.OLLAMA_HOST}/api/tags", headers=headers)
+                if response.status_code != 200:
+                    _raise_ollama_response_error(response, settings.OLLAMA_MODEL)
+                model_names = {
+                    str(model.get("name", "")).casefold()
+                    for model in response.json().get("models", [])
+                    if isinstance(model, dict)
+                }
+        except BaseBusinessException:
+            raise
+        except Exception as exc:
+            raise BaseBusinessException(
+                message=(
+                    f"Cannot connect to Ollama at {settings.OLLAMA_HOST}. "
+                    f"Start Ollama and make sure model '{settings.OLLAMA_MODEL}' is installed. "
+                    f"Connection error: {exc}"
+                ),
+                code="OLLAMA_UNAVAILABLE",
+                status_code=503,
+            ) from exc
+
+        if settings.OLLAMA_MODEL.casefold() not in model_names:
+            raise BaseBusinessException(
+                message=(
+                    f"Ollama is reachable, but model '{settings.OLLAMA_MODEL}' is not installed. "
+                    f"Run `ollama pull {settings.OLLAMA_MODEL}` and retry."
+                ),
+                code="OLLAMA_MODEL_NOT_FOUND",
+                status_code=503,
+            )
+
+        return {"model": settings.OLLAMA_MODEL, "host": settings.OLLAMA_HOST}
+
     @classmethod
     def _sanitize_financial_intelligence_data(cls, data: Any) -> Any:
         """Discard malformed model-generated evidence instead of mislabeling its source."""
@@ -140,6 +183,8 @@ class OllamaAdapter(LLMProvider):
             "POLITICAL": "REGULATORY",
             "POLITICS": "REGULATORY",
             "OPERATIONS": "OPERATIONAL",
+            "CUSTOMER": "MARKET",
+            "MANAGEMENT": "OPERATIONAL",
         }
         normalized = dict(data)
         normalized_scenarios = []
@@ -154,6 +199,112 @@ class OllamaAdapter(LLMProvider):
                 normalized_scenario["category"] = category_aliases.get(canonical, canonical)
             normalized_scenarios.append(normalized_scenario)
         normalized["scenarios"] = normalized_scenarios
+        return normalized
+
+    @staticmethod
+    def _sanitize_investment_committee_data(data: Any) -> Any:
+        """Normalize model shortcuts for fields whose schema requires dictionaries."""
+        if not isinstance(data, dict):
+            return data
+
+        normalized = dict(data)
+        vote_tally = normalized.get("vote_tally")
+        if isinstance(vote_tally, str):
+            vote = vote_tally.strip().upper()
+            if vote not in {"INVEST", "PASS", "CONDITIONAL"}:
+                members = normalized.get("committee_members", [])
+                votes = [
+                    member.get("vote", "").strip().upper()
+                    for member in members
+                    if isinstance(member, dict)
+                ] if isinstance(members, list) else []
+                vote = next(
+                    (candidate for candidate in votes if candidate in {"INVEST", "PASS", "CONDITIONAL"}),
+                    "PASS",
+                )
+            normalized["vote_tally"] = {
+                "INVEST": int(vote == "INVEST"),
+                "PASS": int(vote == "PASS"),
+                "CONDITIONAL": int(vote == "CONDITIONAL"),
+            }
+
+        term_sheet = normalized.get("term_sheet")
+        if isinstance(term_sheet, str):
+            normalized["term_sheet"] = {"status": term_sheet}
+
+        diligence = normalized.get("due_diligence_status")
+        if isinstance(diligence, str):
+            status = diligence.strip().upper()
+            if status not in {"PENDING", "IN_PROGRESS", "COMPLETE"}:
+                status = "PENDING"
+            normalized["due_diligence_status"] = {"General diligence": status}
+
+        return normalized
+
+    @staticmethod
+    def _sanitize_product_execution_data(data: Any) -> Any:
+        """Convert concise model-generated labels into schema-compatible objects."""
+        if not isinstance(data, dict):
+            return data
+
+        normalized = dict(data)
+        architecture = normalized.get("technical_architecture")
+        if isinstance(architecture, dict):
+            architecture = dict(architecture)
+            for field, text_key in (
+                ("components", "name"),
+                ("api_endpoints", "path"),
+                ("database_schema", "name"),
+            ):
+                items = architecture.get(field)
+                if isinstance(items, list):
+                    architecture[field] = [
+                        {text_key: item} if isinstance(item, str) else item
+                        for item in items
+                    ]
+            normalized["technical_architecture"] = architecture
+
+        release_plan = normalized.get("release_plan")
+        if isinstance(release_plan, dict):
+            release_plan = dict(release_plan)
+            milestones = release_plan.get("milestones")
+            if isinstance(milestones, list):
+                release_plan["milestones"] = [
+                    {"name": item} if isinstance(item, str) else item
+                    for item in milestones
+                ]
+            normalized["release_plan"] = release_plan
+
+        return normalized
+
+    @staticmethod
+    def _sanitize_executive_summary_data(data: Any) -> Any:
+        """Convert model-produced narrative lists and maps into readable strings."""
+        if not isinstance(data, dict):
+            return data
+
+        def as_text(value: Any) -> str:
+            if isinstance(value, str):
+                return value
+            if isinstance(value, list):
+                return "\n".join(text for item in value if (text := as_text(item)))
+            if isinstance(value, dict):
+                return "\n".join(
+                    f"{key.replace('_', ' ')}: {text}"
+                    for key, item in value.items()
+                    if (text := as_text(item))
+                )
+            return "" if value is None else str(value)
+
+        normalized = dict(data)
+        for field in (
+            "business_summary",
+            "strategic_summary",
+            "execution_summary",
+            "financial_summary",
+        ):
+            if field in normalized and not isinstance(normalized[field], str):
+                normalized[field] = as_text(normalized[field])
         return normalized
 
     def _generate_json_template(self, model: Type[BaseModel]) -> dict:
@@ -591,14 +742,15 @@ class OllamaAdapter(LLMProvider):
                 response = await work_client.post(f"{settings.OLLAMA_HOST}/api/chat", json=payload, headers=headers)
                 response_text = str(getattr(response, "text", ""))
                 if (
-                    schema.__name__ == "SWOTOutput"
+                    schema.__name__ in {"SWOTOutput", "ExecutiveSummary", "BlueprintOutput"}
                     and response.status_code >= 500
                     and "token repeat limit reached" in response_text.casefold()
                 ):
                     logger.warning(
-                        "Ollama hit its token-repeat limit during SWOT generation; retrying with "
-                        "a shorter response budget and less repetitive sampling."
+                        "Ollama hit its token-repeat limit during structured generation; retrying "
+                        "with a shorter response budget and less repetitive sampling."
                     )
+                    retry_num_predict = 1024 if schema.__name__ == "SWOTOutput" else 2048
                     retry_payload = {
                         **payload,
                         "options": {
@@ -606,7 +758,7 @@ class OllamaAdapter(LLMProvider):
                             "temperature": max(settings.OLLAMA_TEMPERATURE, 0.5),
                             "repeat_penalty": 1.2,
                             "repeat_last_n": 128,
-                            "num_predict": 1024,
+                            "num_predict": retry_num_predict,
                         },
                     }
                     response = await work_client.post(
@@ -636,6 +788,12 @@ class OllamaAdapter(LLMProvider):
                         parsed_data = self._sanitize_swot_data(parsed_data)
                     elif schema.__name__ == "StressTestOutput":
                         parsed_data = self._sanitize_stress_test_data(parsed_data)
+                    elif schema.__name__ == "InvestmentCommitteeOutput":
+                        parsed_data = self._sanitize_investment_committee_data(parsed_data)
+                    elif schema.__name__ == "ProductExecutionOutput":
+                        parsed_data = self._sanitize_product_execution_data(parsed_data)
+                    elif schema.__name__ == "ExecutiveSummary":
+                        parsed_data = self._sanitize_executive_summary_data(parsed_data)
                     # Small local models sometimes wrap roadmap phases under a
                     # `roadmap` key. Accept that compact form and let the
                     # roadmap schema defaults fill optional planning details.

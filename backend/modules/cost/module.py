@@ -7,7 +7,7 @@ from backend.core.exceptions import BaseBusinessException
 from backend.core.logging import logger
 from backend.models.project import Project
 from backend.models.results import CostResult
-from backend.modules.cost.schemas import CostOutput
+from backend.modules.cost.schemas import BudgetScenario, CostOutput, FundingRequirement
 from backend.orchestrator.engine import BaseModule
 from backend.utils.search import search_provider
 
@@ -315,6 +315,40 @@ Ensure the output conforms strictly to the requested JSON schema, ensuring finan
         data["budget_scenarios"] = normalized_scenarios
         return data
 
+    @classmethod
+    def _fallback_output(cls, context: dict[str, Any]) -> dict[str, Any]:
+        """Build a labeled, input-derived cost baseline when the model returns invalid JSON."""
+        baseline = CostOutput(
+            operational_costs=[],
+            budget_scenarios=[
+                BudgetScenario(
+                    name=name,
+                    monthly_burn_usd=0,
+                    runway_months=runway,
+                    description=f"{name.title()} planning baseline; validate assumptions before use.",
+                    assumptions=["Derived from project feature, roadmap, and team inputs; not a vendor quote."],
+                )
+                for name, runway in (("LEAN", 12), ("BALANCED", 18), ("AGGRESSIVE", 24))
+            ],
+            funding_requirements=FundingRequirement(
+                minimum_target_usd=0,
+                optimal_target_usd=0,
+                runway_months=12,
+                funding_suitability=(
+                    "Planning baseline derived from the project team, feature, and roadmap inputs. "
+                    "Validate salaries, vendor pricing, and local funding eligibility."
+                ),
+            ),
+            mvp_cost_estimate=0,
+            year_1_cost_estimate=0,
+            financial_risk_level="HIGH",
+            contingency_percent=25,
+            key_cost_risks=[
+                "AI cost output was invalid JSON; validate this input-derived planning baseline before budgeting."
+            ],
+        )
+        return cls._build_estimates(baseline, context)
+
     async def run(
         self,
         db: AsyncSession,
@@ -361,13 +395,21 @@ Ensure the output conforms strictly to the requested JSON schema, ensuring finan
         )
 
         # 5. Invoke LLM structured validation
-        cost_output: CostOutput = await ollama_adapter.generate(
-            prompt=rendered_prompt,
-            schema=CostOutput,
-            system_instruction=system_instruction,
-        )
-
-        output_dict = self._build_estimates(cost_output, context)
+        try:
+            cost_output: CostOutput = await ollama_adapter.generate(
+                prompt=rendered_prompt,
+                schema=CostOutput,
+                system_instruction=system_instruction,
+            )
+            output_dict = self._build_estimates(cost_output, context)
+        except BaseBusinessException as exc:
+            if exc.code != "OLLAMA_VALIDATION_ERROR":
+                raise
+            logger.warning(
+                "Cost model returned invalid structured output; using an input-derived planning baseline.",
+                exc_info=exc,
+            )
+            output_dict = self._fallback_output(context)
 
         # 6. Database persistence upsert logic
         stmt = select(CostResult).where(CostResult.project_id == project.id)

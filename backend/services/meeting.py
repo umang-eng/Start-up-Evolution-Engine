@@ -187,12 +187,25 @@ async def finalize_transcript(
     language_detected: str | None = None,
 ) -> Transcript:
     """Store the complete raw transcript for a meeting."""
-    # Check if transcript already exists
+    word_count = len(raw_text.split())
     existing = await transcript_repository.get_by_meeting(db, meeting_id)
     if existing:
+        if existing.raw_text != raw_text:
+            existing_report = await meeting_report_repository.get_by_meeting(db, meeting_id)
+            if existing_report:
+                meeting = await meeting_repository.get_with_relations(db, meeting_id)
+                if meeting:
+                    meeting.report = None
+                else:
+                    await db.delete(existing_report)
+        existing.raw_text = raw_text
+        existing.word_count = word_count
+        existing.language_detected = language_detected
+        db.add(existing)
+        await db.commit()
+        await db.refresh(existing)
         return existing
 
-    word_count = len(raw_text.split())
     transcript = Transcript(
         meeting_id=meeting_id,
         raw_text=raw_text,

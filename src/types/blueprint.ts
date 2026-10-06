@@ -268,6 +268,7 @@ export interface FinancialIntelligenceResult {
     month_24: number;
   }[];
   unit_economics: { metric: string; value: number; benchmark: string }[];
+  unit_economics_assumptions?: string[];
   funding_analysis: { stage: string; amount: string; timeline: string; milestones_needed: string[] }[];
   valuation_model: { method: string; estimated_value: string; confidence: string }[];
   financial_health_score: number;

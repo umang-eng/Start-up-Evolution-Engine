@@ -15,7 +15,8 @@ import {
   LayoutDashboard,
   Settings,
   HelpCircle,
-  Search
+  Search,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SettingsDialog } from './settings-dialog';
@@ -37,7 +38,8 @@ export function Sidebar() {
     sidebarOpen, 
     toggleSidebar, 
     createNewProject,
-    setActiveProject
+    setActiveProject,
+    deleteProject,
   } = useBlueprintStore();
 
   const [newProjectOpen, setNewProjectOpen] = useState(false);
@@ -46,6 +48,9 @@ export function Sidebar() {
   const [isCreating, setIsCreating] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleNewProject = () => {
     setProjectName('');
@@ -64,6 +69,20 @@ export function Sidebar() {
       console.error(err);
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!projectToDelete) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteProject(projectToDelete);
+      setProjectToDelete(null);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Failed to delete project. Please try again.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -152,21 +171,40 @@ export function Sidebar() {
             <span className="text-overline px-3 block mb-2">Recent Projects</span>
             <div className="space-y-0.5">
               {projects.slice(0, 5).map((proj) => (
-                <button
+              <div
                   key={proj.id}
+                className={cn(
+                  "group flex items-center gap-1 rounded-lg transition-colors text-sm",
+                  activeProjectId === proj.id
+                    ? "bg-muted text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+              >
+                <button
+                  type="button"
                   onClick={() => setActiveProject(proj.id)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors text-sm",
-                    activeProjectId === proj.id 
-                      ? "bg-muted text-foreground font-medium" 
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  )}
+                  className="min-w-0 flex flex-1 items-center gap-3 px-3 py-2 rounded-lg text-left"
                 >
                   <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center shrink-0">
                     <Activity className="h-3.5 w-3.5" />
                   </div>
                   <span className="truncate">{proj.name}</span>
                 </button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Delete ${proj.name}`}
+                  title={`Delete ${proj.name}`}
+                  onClick={() => {
+                    setDeleteError(null);
+                    setProjectToDelete(proj.id);
+                  }}
+                  className="mr-1 h-7 w-7 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
               ))}
             </div>
           </div>
@@ -238,6 +276,46 @@ export function Sidebar() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={projectToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) {
+            setProjectToDelete(null);
+            setDeleteError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this project?</DialogTitle>
+            <DialogDescription>
+              This permanently deletes “{projects.find((project) => project.id === projectToDelete)?.name ?? 'this project'}” and its generated data. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError && (
+            <p role="alert" className="text-sm text-destructive">{deleteError}</p>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isDeleting}
+              onClick={() => setProjectToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={() => void handleDeleteProject()}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete project'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

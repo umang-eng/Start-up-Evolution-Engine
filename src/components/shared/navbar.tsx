@@ -9,7 +9,6 @@ import {
   Search, 
   Bell, 
   Share2, 
-  Download, 
   ChevronDown,
   LogOut,
   User,
@@ -41,7 +40,6 @@ export function Navbar() {
   const [searchQuery, setSearchQuery] = useState('');
   
   const [shareStatus, setShareStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [exportStatus, setExportStatus] = useState<'idle' | 'loading'>('idle');
 
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -87,13 +85,6 @@ export function Navbar() {
       setShareStatus('error');
       setTimeout(() => setShareStatus('idle'), 2500);
     }
-  };
-
-  const handleExport = () => {
-    if (!activeProject) return;
-    setExportStatus('loading');
-    window.open(api.exports.pdf(activeProject.id), '_blank');
-    setTimeout(() => setExportStatus('idle'), 1500);
   };
 
   const getSearchResults = () => {
@@ -196,7 +187,7 @@ export function Navbar() {
 
   return (
     <>
-      <header className="h-14 w-full flex items-center justify-between px-6 bg-card border-b border-border z-20">
+      <header className="relative z-50 h-14 w-full flex items-center justify-between px-6 bg-card border-b border-border">
         {/* Left: Workspace */}
         <div className="flex items-center gap-3">
           {activeProject ? (
@@ -258,20 +249,6 @@ export function Navbar() {
                   {shareStatus === 'success' ? 'Copied!' : 'Share'}
                 </span>
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleExport}
-                disabled={exportStatus === 'loading'}
-                className="gap-1.5"
-              >
-                {exportStatus === 'loading' ? (
-                  <span className="h-4 w-4 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                <span className="hidden sm:inline">Export</span>
-              </Button>
             </>
           )}
 
@@ -290,7 +267,7 @@ export function Navbar() {
             </Button>
 
             {notificationsOpen && (
-              <div className="absolute right-0 mt-2 w-80 bg-card border border-border rounded-xl shadow-xl py-2 z-30 animate-slide-down">
+              <div className="absolute right-0 mt-2 w-80 bg-card border border-border rounded-xl shadow-xl py-2 z-50 animate-slide-down">
                 <div className="px-4 py-2 border-b border-border">
                   <span className="text-overline">Activity</span>
                 </div>
@@ -332,7 +309,7 @@ export function Navbar() {
             </button>
 
             {profileOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-xl shadow-xl py-2 z-30 animate-slide-down">
+              <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-xl shadow-xl py-2 z-50 animate-slide-down">
                 <div className="px-4 py-3 border-b border-border">
                   <span className="text-sm font-semibold text-foreground block">{settings.founderName}</span>
                   <span className="text-xs text-muted-foreground block">{settings.founderTitle}</span>

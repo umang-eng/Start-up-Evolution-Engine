@@ -692,6 +692,7 @@ export function mapFinancialIntelligenceResponse(data: any): any {
       month_24: p.month_24 ?? p.m24 ?? 0,
     })),
     unit_economics: unitEconomics,
+    unit_economics_assumptions: toArray(economics?.assumptions),
     funding_analysis: Array.isArray(funding)
       ? funding
       : funding && typeof funding === 'object'
@@ -847,7 +848,11 @@ export const api = {
     delete: (id: string) => request(`/api/v1/projects/${id}`, { method: 'DELETE' }),
   },
   generator: {
-    run: (projectId: string, stage?: string) => request(`/api/v1/generator/run?project_id=${projectId}${stage ? `&stage=${stage}` : ''}`, { method: 'POST' }),
+    providerStatus: () => request('/api/v1/generator/provider-status'),
+    run: (projectId: string, stage?: string, startFromStage?: string) => request(
+      `/api/v1/generator/run?project_id=${projectId}${stage ? `&stage=${stage}` : ''}${startFromStage ? `&start_from_stage=${startFromStage}` : ''}`,
+      { method: 'POST' },
+    ),
     cancel: (projectId: string) => request(`/api/v1/generator/cancel?project_id=${projectId}`, { method: 'POST' }),
     status: (projectId: string) => request(`/api/v1/generator/status/${projectId}`),
     enhance: (idea: string) => request('/api/v1/generator/enhance', {

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
 import uuid
+from unittest.mock import AsyncMock
 import pytest
 from httpx import AsyncClient
 from backend.models.blueprint import Blueprint
@@ -194,3 +195,38 @@ async def test_generator_run_specific_stage(client: AsyncClient, db_session: Any
     assert run_data["success"] is True
     assert run_data["data"]["status"] == "QUEUED"
 
+
+async def test_generator_can_resume_from_the_first_incomplete_stage(
+    client: AsyncClient,
+    db_session: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user = await user_service.register_user(
+        db_session,
+        obj_in=UserCreate(
+            email="resume-generator@test.com",
+            password="StrongPassword123!",
+        ),
+    )
+    project = Project(
+        user_id=user.id,
+        title="Resume generation",
+        description="A startup project to test resuming generation.",
+        industry="SaaS",
+    )
+    db_session.add(project)
+    await db_session.flush()
+    headers = {
+        "Authorization": f"Bearer {user_service.generate_user_tokens(user).access_token}"
+    }
+    enqueue = AsyncMock(return_value="resume-job")
+    monkeypatch.setattr("backend.api.v1.generator.enqueue_compilation", enqueue)
+
+    response = await client.post(
+        f"/api/v1/generator/run?project_id={project.id}&start_from_stage=product_execution",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert enqueue.await_args.kwargs["start_from_stage"] == "product_execution"
+    assert enqueue.await_args.kwargs["target_stage"] is None

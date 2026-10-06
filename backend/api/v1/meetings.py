@@ -22,6 +22,7 @@ from backend.repositories.meeting import (
 )
 
 router = APIRouter(prefix="/meetings", tags=["Conversation Intelligence"])
+MAX_AUDIO_UPLOAD_BYTES = 100 * 1024 * 1024
 
 
 def _transcript_fingerprint(transcript_text: str) -> str:
@@ -231,8 +232,13 @@ async def upload_audio_for_transcription(
     if not meeting:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting not found")
 
-    # Read audio bytes
-    audio_bytes = await file.read()
+    # Bound the read so large uploads cannot consume unbounded memory.
+    audio_bytes = await file.read(MAX_AUDIO_UPLOAD_BYTES + 1)
+    if len(audio_bytes) > MAX_AUDIO_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Audio files must be 100 MB or smaller.",
+        )
     if len(audio_bytes) < 100:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Audio file is too small or empty")
 

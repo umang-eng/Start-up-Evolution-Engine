@@ -39,6 +39,7 @@ async def enqueue_compilation(
     project_id: uuid.UUID,
     correlation_id: str,
     target_stage: str | None = None,
+    start_from_stage: str | None = None,
 ) -> str:
     """
     Enqueue a compilation pipeline job onto the worker-engine queue.
@@ -75,13 +76,18 @@ async def enqueue_compilation(
         str(project_id),
         correlation_id,
         target_stage,
+        start_from_stage,
         _job_id=f"compile:{project_id}:{correlation_id}",
         _queue_name="see:queue",
     )
 
+    stage_description = (
+        target_stage
+        or (f"from {start_from_stage}" if start_from_stage else "all")
+    )
     logger.info(
         f"Enqueued compilation job | project={project_id} "
-        f"stage={target_stage or 'all'} job_id={job_id}"
+        f"stage={stage_description} job_id={job_id}"
     )
 
     return job_id

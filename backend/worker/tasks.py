@@ -6,6 +6,7 @@ Each task is a standalone async function that creates its own database session a
 the orchestrator pipeline stage-by-stage, publishing progress events to Redis Pub/Sub.
 """
 
+import asyncio
 import uuid
 import json
 from datetime import datetime, timezone
@@ -14,11 +15,82 @@ from typing import Any
 from backend.core.logging import logger
 from backend.database.session import AsyncSessionLocal
 from backend.models.project import Project
+from backend.models.workflow import GenerationSession
 from backend.cache.redis import redis_manager
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 # ── Lazy-loaded orchestrator (avoids import-time side effects) ─────
 _orchestrator = None
+_local_pipeline_tasks: set[asyncio.Task[Any]] = set()
+
+
+def schedule_local_pipeline(
+    project_id: str,
+    correlation_id: str,
+    target_stage: str | None = None,
+    start_from_stage: str | None = None,
+) -> asyncio.Task[Any]:
+    """Keep development fallback tasks referenced while they run."""
+    task = asyncio.create_task(
+        run_compilation_pipeline(
+            {}, project_id, correlation_id, target_stage, start_from_stage
+        )
+    )
+    _local_pipeline_tasks.add(task)
+    task.add_done_callback(_local_pipeline_tasks.discard)
+    return task
+
+
+async def recover_local_pipeline_sessions(
+    db: AsyncSession,
+) -> list[tuple[str, str, str | None, str | None]]:
+    """Requeue one interrupted local run after an API reload; fail repeated interruptions."""
+    stmt = (
+        select(GenerationSession)
+        .where(GenerationSession.status.in_({"PENDING", "INITIALIZING", "RUNNING"}))
+        .order_by(GenerationSession.created_at.asc())
+    )
+    sessions = (await db.execute(stmt)).scalars().all()
+    jobs: list[tuple[str, str, str | None, str | None]] = []
+
+    for session in sessions:
+        cache_map = session.stage_cache_map or {}
+        local_execution = cache_map.get("_local_execution")
+        if not isinstance(local_execution, dict):
+            continue
+
+        recovery_attempts = int(local_execution.get("recovery_attempts", 0))
+        if recovery_attempts >= 1:
+            session.status = "FAILED"
+            session.error_message = (
+                "The development API restarted repeatedly during generation. "
+                "Retry the run; completed stages will be reused where possible."
+            )
+            continue
+
+        local_execution = {
+            **local_execution,
+            "recovery_attempts": recovery_attempts + 1,
+        }
+        session.stage_cache_map = {
+            **cache_map,
+            "_local_execution": local_execution,
+        }
+        session.status = "PENDING"
+        session.current_stage = "queued"
+        session.error_message = None
+        jobs.append((
+            str(session.project_id),
+            session.correlation_id,
+            local_execution.get("target_stage"),
+            local_execution.get("start_from_stage"),
+        ))
+
+    if sessions:
+        await db.commit()
+    return jobs
 
 
 def _get_orchestrator():
@@ -101,6 +173,7 @@ async def run_compilation_pipeline(
     project_id: str,
     correlation_id: str,
     target_stage: str | None = None,
+    start_from_stage: str | None = None,
 ) -> dict[str, Any]:
     """
     ARQ task: Execute the full 7-stage compilation pipeline for a project.
@@ -116,14 +189,19 @@ async def run_compilation_pipeline(
         project_id: UUID string of the target project
         correlation_id: Unique correlation ID for tracing
         target_stage: Optional single stage name to run (e.g. "dna")
+        start_from_stage: Optional stage from which to resume the remaining pipeline
     """
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
 
     job_id = ctx.get("job_id", "unknown")
+    stage_description = (
+        target_stage
+        or (f"from {start_from_stage}" if start_from_stage else "all")
+    )
     logger.info(
         f"[Worker] Starting compilation pipeline | job={job_id} "
-        f"project={project_id} stage={target_stage or 'all'}"
+        f"project={project_id} stage={stage_description}"
     )
 
     async with AsyncSessionLocal() as db:
@@ -147,7 +225,7 @@ async def run_compilation_pipeline(
             if not project:
                 err = f"Project {project_id} not found — aborting worker job."
                 logger.error(err)
-                return {"success": False, "error": err}
+                raise RuntimeError(err)
 
             # 2. Run the orchestrator pipeline
             orchestrator = _get_orchestrator()
@@ -156,6 +234,7 @@ async def run_compilation_pipeline(
                 project=project,
                 correlation_id=correlation_id,
                 target_stage=target_stage,
+                start_from_stage=start_from_stage,
             )
 
             logger.info(
@@ -175,4 +254,32 @@ async def run_compilation_pipeline(
                 f"[Worker] Pipeline crashed for project {project_id}",
                 exc_info=e,
             )
+            await db.rollback()
+            try:
+                session_stmt = (
+                    select(GenerationSession)
+                    .where(GenerationSession.project_id == uuid.UUID(project_id))
+                    .order_by(GenerationSession.created_at.desc())
+                    .limit(1)
+                )
+                session = (await db.execute(session_stmt)).scalars().first()
+                if session and session.status in {"PENDING", "INITIALIZING", "RUNNING"}:
+                    session.status = "FAILED"
+                    session.error_message = f"Pipeline worker crashed: {e}"
+                    await db.commit()
+                    await _publish_event(
+                        f"project:run:{project_id}:stream",
+                        {
+                            "event_type": "workflow:failed",
+                            "project_id": project_id,
+                            "session_id": str(session.id),
+                            "error_info": {"error_message": session.error_message},
+                        },
+                    )
+            except Exception as status_error:
+                await db.rollback()
+                logger.error(
+                    f"[Worker] Could not persist failed status for project {project_id}",
+                    exc_info=status_error,
+                )
             return {"success": False, "error": str(e)}

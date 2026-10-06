@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { usePipelineStore, PipelineStageProgress, PipelineStageStatus } from '@/store/use-pipeline-store';
 import { cn } from '@/lib/utils';
 import { 
@@ -33,6 +33,12 @@ const STAGE_LABELS: Record<string, string> = {
   global_expansion: 'Global Expansion',
 };
 
+const STAGE_ORDER = [
+  'dna', 'features', 'roadmap', 'team', 'swot', 'cost', 'legal_compliance',
+  'competitive_moat', 'stress_test', 'financial_intelligence',
+  'investment_committee', 'product_execution', 'global_expansion', 'blueprint',
+];
+
 const STATUS_CONFIG: Record<PipelineStageStatus, { icon: React.ComponentType<any>; color: string; label: string }> = {
   queued: { icon: Clock, color: 'text-muted-foreground bg-muted', label: 'Queued' },
   running: { icon: Loader2, color: 'text-primary bg-primary/10', label: 'Running' },
@@ -52,6 +58,7 @@ export function PipelineProgress({ projectId, compact = false }: PipelineProgres
   const pipelineStartTime = pipeline?.startTime;
   const [elapsed, setElapsed] = useState(0);
   const [isExpanded, setIsExpanded] = useState(!compact);
+  const progressRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!pipelineStartTime || pipelineStatus !== 'running') return;
@@ -63,6 +70,26 @@ export function PipelineProgress({ projectId, compact = false }: PipelineProgres
     return () => clearInterval(interval);
   }, [pipelineStatus, pipelineStartTime]);
 
+  useEffect(() => {
+    if (!compact || !isExpanded) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!progressRef.current?.contains(event.target as Node)) {
+        setIsExpanded(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsExpanded(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [compact, isExpanded]);
+
   if (!pipeline || pipeline.status === 'idle') return null;
 
   const stages = Object.values(pipeline.stages);
@@ -72,18 +99,41 @@ export function PipelineProgress({ projectId, compact = false }: PipelineProgres
   const totalCount = stages.length;
   const processedCount = completedCount + failedCount;
   const progress = totalCount > 0 ? (processedCount / totalCount) * 100 : 0;
-  const averageStageDuration = processedCount > 0 ? elapsed / processedCount : null;
+  const completedDurations = stages
+    .filter((stage) => stage.status === 'completed' && stage.startTime && stage.endTime)
+    .map((stage) => {
+      if (stage.startTime === undefined || stage.endTime === undefined) return null;
+      return Math.max(0, stage.endTime - stage.startTime);
+    })
+    .filter((duration): duration is number => duration !== null);
+  const averageStageDuration = completedDurations.length > 0
+    ? completedDurations.reduce((total, duration) => total + duration, 0) / completedDurations.length
+    : null;
   const queuedCount = stages.filter((stage) => stage.status === 'queued').length;
   const runningStage = stages.find((stage) => stage.status === 'running');
+  const runningStageIndex = runningStage ? STAGE_ORDER.indexOf(runningStage.stage) : -1;
   const runningStageElapsed = runningStage?.startTime && pipelineStartTime
     ? Math.max(0, elapsed - (runningStage.startTime - pipelineStartTime))
     : 0;
   const eta = averageStageDuration === null
     ? null
-    : Math.max(0, averageStageDuration - runningStageElapsed) + queuedCount * averageStageDuration;
+    : (runningStage ? Math.max(0, averageStageDuration - runningStageElapsed) : 0)
+      + queuedCount * averageStageDuration;
 
   return (
-    <Card className="border-border">
+    <div
+      className={cn(
+        compact && 'relative z-20 min-h-[66px]',
+        compact && isExpanded && 'z-40'
+      )}
+    >
+    <Card
+      ref={progressRef}
+      className={cn(
+        'border-border',
+        compact && isExpanded && 'absolute right-0 top-0 z-30 w-[min(32rem,calc(100vw-2rem))] max-w-full bg-card/95 shadow-xl backdrop-blur-md'
+      )}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -105,13 +155,19 @@ export function PipelineProgress({ projectId, compact = false }: PipelineProgres
               </Badge>
             )}
             {pipeline.status === 'running' && (
-              <Badge variant="outline" size="sm" title="Estimated from completed stage durations; it updates as stages finish">
-                {eta === null ? 'Estimating completion…' : eta > 0 ? `~${formatTime(eta)} remaining` : 'Finishing up…'}
+              <Badge variant="outline" size="sm" title="Estimate is based on completed stage durations">
+                {eta === null
+                  ? 'ETA after first stage'
+                  : eta > 0
+                    ? `~${formatTime(eta)} remaining`
+                    : 'Finishing up…'}
               </Badge>
             )}
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-muted-foreground hover:text-foreground"
+              aria-label={isExpanded ? 'Collapse pipeline progress' : 'Expand pipeline progress'}
+              aria-expanded={isExpanded}
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
@@ -120,12 +176,17 @@ export function PipelineProgress({ projectId, compact = false }: PipelineProgres
       </CardHeader>
 
       {isExpanded && (
-        <CardContent className="space-y-4">
+        <CardContent className={cn(
+          'space-y-4',
+          compact && 'max-h-[min(55vh,320px)] overflow-y-auto'
+        )}>
           {/* Progress Bar */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">
-                {processedCount} of {totalCount} stages
+                {runningStage && runningStageIndex >= 0
+                  ? `Stage ${runningStageIndex + 1} of ${STAGE_ORDER.length}: ${STAGE_LABELS[runningStage.stage] || runningStage.stage}`
+                  : `${processedCount} of ${totalCount} stages completed`}
               </span>
               <span className="font-medium text-foreground">{Math.round(progress)}%</span>
             </div>
@@ -163,6 +224,7 @@ export function PipelineProgress({ projectId, compact = false }: PipelineProgres
         </CardContent>
       )}
     </Card>
+    </div>
   );
 }
 

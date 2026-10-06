@@ -13,7 +13,7 @@ import {
   RefreshCw,
   Calendar,
   Users,
-  Search,
+  Plus,
 } from 'lucide-react';
 import { useMeetingStore, Meeting } from '@/store/use-meeting-store';
 
@@ -143,9 +143,10 @@ function MeetingCard({ meeting, onSelect, onDelete, selected }: MeetingCardProps
 
 interface MeetingsListProps {
   onSelectMeeting?: (meetingId: string) => void;
+  onCreateMeeting?: () => void;
 }
 
-export function MeetingsList({ onSelectMeeting }: MeetingsListProps) {
+export function MeetingsList({ onSelectMeeting, onCreateMeeting }: MeetingsListProps) {
   const { meetings, loading, error, fetchMeetings, deleteMeeting, currentMeeting } =
     useMeetingStore();
 
@@ -166,18 +167,30 @@ export function MeetingsList({ onSelectMeeting }: MeetingsListProps) {
   return (
     <div className="space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
           History
         </h2>
-        <Button
-          onClick={fetchMeetings}
-          variant="ghost"
-          size="sm"
-          className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            onClick={onCreateMeeting}
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1 px-2 text-xs"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            New Conversation
+          </Button>
+          <Button
+            onClick={fetchMeetings}
+            variant="ghost"
+            size="sm"
+            aria-label="Refresh conversation history"
+            className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
       </div>
 
       {/* Error */}

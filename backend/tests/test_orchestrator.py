@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 from types import SimpleNamespace
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +8,7 @@ from backend.ai.context import context_manager
 from backend.modules.dna.module import DNAModule
 from backend.models.project import Project
 from backend.models.user import User
+from backend.models.workflow import GenerationSession
 from backend.orchestrator.engine import BaseModule, WorkflowOrchestrator
 from backend.core.exceptions import BaseBusinessException
 from backend.schemas.user import UserCreate
@@ -32,6 +35,19 @@ class DummyCloudFailureModule(BaseModule):
             code="OLLAMA_CLOUD_CREDITS_REQUIRED",
             status_code=402,
         )
+
+
+class DummyLegacyContextModule:
+    def __init__(self, output: dict[str, Any], captured_context: list[dict[str, Any]] | None = None):
+        self.output = output
+        self.captured_context = captured_context
+        self.calls = 0
+
+    async def run(self, context: dict[str, Any], _evidence: list[Any]) -> dict[str, Any]:
+        self.calls += 1
+        if self.captured_context is not None:
+            self.captured_context.append(context)
+        return self.output
 
 
 @pytest.mark.asyncio
@@ -63,6 +79,22 @@ async def test_workflow_orchestrator_success(db_session: AsyncSession) -> None:
     await db_session.commit()
     await db_session.refresh(project)
 
+    session = GenerationSession(
+        project_id=project.id,
+        status="PENDING",
+        correlation_id="corr-test-123",
+        current_stage="queued",
+        progress_percentage=0,
+        stage_cache_map={
+            "_local_execution": {
+                "target_stage": None,
+                "recovery_attempts": 0,
+            }
+        },
+    )
+    db_session.add(session)
+    await db_session.commit()
+
     # 2. Create a fresh orchestrator instance and register dummy modules
     orchestrator = WorkflowOrchestrator()
     success_module = DummySuccessModule()
@@ -82,7 +114,11 @@ async def test_workflow_orchestrator_success(db_session: AsyncSession) -> None:
     assert session.cache_hits == 0
     assert session.cache_misses == 7
     assert session.stage_cache_map is not None
-    assert all(v == "miss" for v in session.stage_cache_map.values())
+    assert session.stage_cache_map["_local_execution"]["recovery_attempts"] == 0
+    assert all(
+        session.stage_cache_map[stage] == "miss"
+        for stage in ["dna", "features", "roadmap", "team", "swot", "cost", "blueprint"]
+    )
 
 
 @pytest.mark.asyncio
@@ -143,6 +179,54 @@ async def test_ollama_cloud_failure_stops_after_noncritical_stage(db_session: As
     assert session.status == "FAILED"
     assert session.current_stage == "swot"
     assert "credits are required" in (session.error_message or "")
+
+
+@pytest.mark.asyncio
+async def test_resumed_pipeline_skips_completed_stages_and_restores_their_outputs(
+    db_session: AsyncSession,
+) -> None:
+    user = await user_service.register_user(
+        db_session,
+        obj_in=UserCreate(
+            email="workflow-resume@test.com",
+            password="StrongPassword123!",
+        ),
+    )
+    project = Project(
+        user_id=user.id,
+        title="Resume pipeline",
+        description="A pipeline resume regression test",
+        industry="SaaS",
+    )
+    db_session.add(project)
+    await db_session.commit()
+    await db_session.refresh(project)
+
+    prior_stage = DummyLegacyContextModule({"moat_score": 82})
+    resumed_contexts: list[dict[str, Any]] = []
+    next_stage = DummyLegacyContextModule({"scenarios": ["market shock"]}, resumed_contexts)
+    orchestrator = WorkflowOrchestrator()
+    orchestrator.register_module("competitive_moat", prior_stage)  # type: ignore[arg-type]
+    orchestrator.register_module("stress_test", next_stage)  # type: ignore[arg-type]
+
+    await orchestrator.execute_run(
+        db_session,
+        project,
+        correlation_id="resume-prior-run",
+        target_stage="competitive_moat",
+    )
+    session = await orchestrator.execute_run(
+        db_session,
+        project,
+        correlation_id="resume-next-run",
+        start_from_stage="stress_test",
+    )
+
+    assert session.status == "COMPLETED"
+    assert prior_stage.calls == 1
+    assert next_stage.calls == 1
+    assert resumed_contexts[0]["competitive_moat"] == {"moat_score": 82}
+    assert resumed_contexts[0]["competitive_moat_output"] == {"moat_score": 82}
 
 
 def test_legacy_stage_context_receives_persisted_and_runtime_outputs() -> None:

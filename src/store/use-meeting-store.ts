@@ -158,6 +158,14 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
       set((state) => ({
         meetings: [meeting, ...state.meetings],
         currentMeeting: meeting,
+        transcript: null,
+        report: null,
+        health: null,
+        analysis: null,
+        recording: null,
+        generating: false,
+        analyzingHealth: false,
+        analyzingCombined: false,
         loading: false,
       }));
       if (typeof window !== 'undefined') {
@@ -237,7 +245,7 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const transcript = await api.meetings.uploadTranscript(meetingId, rawText, language);
-      set({ transcript, loading: false });
+      set({ transcript, report: null, health: null, analysis: null, loading: false });
     } catch (err: any) {
       set({ error: err.message || 'Failed to upload transcript', loading: false });
       throw err;
@@ -248,7 +256,7 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const transcript = await api.meetings.uploadAudio(meetingId, audioBlob, filename);
-      set({ transcript, loading: false });
+      set({ transcript, report: null, health: null, analysis: null, loading: false });
     } catch (err: any) {
       set({ error: err.message || 'Failed to transcribe audio', loading: false });
       throw err;

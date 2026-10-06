@@ -7,6 +7,7 @@ all backed by evidence and assumptions.
 from __future__ import annotations
 
 import logging
+from math import ceil
 from typing import Any
 
 from backend.ai.ollama import ollama_adapter
@@ -191,7 +192,7 @@ class FinancialIntelligenceModule:
                 "Financial intelligence output did not match its schema; returning a conservative, "
                 "explicitly unvalidated baseline instead."
             )
-            return self._fallback_output(evidence, monthly_burn)
+            return self._fallback_output(evidence, monthly_burn, context)
 
         if isinstance(result, FinancialIntelligenceOutput):
             result.evidence = evidence[:15]
@@ -203,32 +204,138 @@ class FinancialIntelligenceModule:
             if any(marker in uncertainty_text for marker in (
                 "fallback", "requires actual financial data", "not validated", "unvalidated baseline",
             )):
-                return self._fallback_output(evidence, monthly_burn)
-            return result
+                return self._fallback_output(evidence, monthly_burn, context)
+            return self._complete_unit_economics(result, context, monthly_burn)
 
-        return self._fallback_output(evidence, monthly_burn)
+        return self._fallback_output(evidence, monthly_burn, context)
 
-    def _fallback_output(self, evidence: list[EvidenceSource], monthly_burn: float) -> FinancialIntelligenceOutput:
-        """Return an explicitly unvalidated baseline without inventing revenue or unit economics."""
+    @staticmethod
+    def _estimate_unit_economics(context: dict[str, Any]) -> tuple[UnitEconomics, list[str]]:
+        """Calculate a clearly labeled planning estimate when company metrics are unavailable."""
+        dna = context.get("dna_output") or context.get("dna") or {}
+        customer_type = str(dna.get("customer_type", "")).upper() if isinstance(dna, dict) else ""
+        business_model = str(dna.get("business_model", "")).lower() if isinstance(dna, dict) else ""
+        context_text = " ".join((
+            str(context.get("industry", "")),
+            str(context.get("product_description", "")),
+            str(context.get("description", "")),
+            business_model,
+        )).lower()
+
+        if customer_type == "B2B":
+            monthly_revenue_per_customer = 500.0
+            cac = 750.0
+            gross_margin = 80.0
+            monthly_churn = 3.0
+            segment_assumption = "B2B subscription planning profile: $500 monthly revenue per customer."
+        elif customer_type == "B2C":
+            monthly_revenue_per_customer = 25.0
+            cac = 150.0
+            gross_margin = 75.0
+            monthly_churn = 5.0
+            segment_assumption = "B2C subscription planning profile: $25 monthly revenue per customer."
+        else:
+            monthly_revenue_per_customer = 100.0
+            cac = 300.0
+            gross_margin = 70.0
+            monthly_churn = 4.0
+            segment_assumption = "General subscription planning profile: $100 monthly revenue per customer."
+
+        if any(term in context_text for term in ("marketplace", "commission", "transaction fee")):
+            gross_margin = min(gross_margin, 60.0)
+            segment_assumption += " Marketplace delivery costs reduce assumed gross margin to 60%."
+        elif any(term in context_text for term in ("consulting", "agency", "professional service")):
+            gross_margin = min(gross_margin, 55.0)
+            segment_assumption += " Service delivery labor reduces assumed gross margin to 55%."
+
+        ltv = monthly_revenue_per_customer * (gross_margin / 100) / (monthly_churn / 100)
+        contribution_margin = max(gross_margin - 10.0, 0.0)
+        assumptions = [
+            segment_assumption,
+            f"Estimated CAC is ${cac:,.0f} per acquired customer; replace with actual channel spend and conversion data.",
+            f"Monthly churn is assumed at {monthly_churn:.0f}%; LTV uses monthly revenue × gross margin ÷ monthly churn.",
+            "These are illustrative planning estimates, not measured company results or verified market benchmarks.",
+        ]
+        return UnitEconomics(
+            cac=cac,
+            ltv=round(ltv, 2),
+            ltv_cac_ratio=round(ltv / cac, 2),
+            payback_period_months=max(
+                1,
+                ceil(cac / (monthly_revenue_per_customer * gross_margin / 100)),
+            ),
+            gross_margin_percent=gross_margin,
+            net_margin_percent=-20.0,
+            contribution_margin_percent=contribution_margin,
+            churn_rate_percent=monthly_churn,
+            expansion_rate_percent=2.0,
+            assumptions=assumptions,
+        ), assumptions
+
+    @classmethod
+    def _complete_unit_economics(
+        cls,
+        output: FinancialIntelligenceOutput,
+        context: dict[str, Any],
+        monthly_burn: float,
+    ) -> FinancialIntelligenceOutput:
+        """Fill missing unit metrics from explicit, visible planning assumptions."""
+        estimate, assumptions = cls._estimate_unit_economics(context)
+        current = output.unit_economics
+        used_estimates = False
+        for field in (
+            "cac", "ltv", "ltv_cac_ratio", "payback_period_months",
+            "gross_margin_percent", "net_margin_percent",
+            "contribution_margin_percent", "churn_rate_percent",
+            "expansion_rate_percent",
+        ):
+            if getattr(current, field) == 0:
+                setattr(current, field, getattr(estimate, field))
+                used_estimates = True
+        if used_estimates:
+            current.assumptions = list(dict.fromkeys([*current.assumptions, *assumptions]))
+
+        metrics = output.metrics
+        for field in (
+            "cac", "ltv", "ltv_cac_ratio", "payback_period_months",
+            "gross_margin_percent",
+        ):
+            if getattr(metrics, field) == 0:
+                metrics_value = getattr(current, field)
+                setattr(metrics, field, metrics_value)
+        if metrics.burn_rate == 0 and monthly_burn > 0:
+            metrics.burn_rate = monthly_burn
+        if used_estimates:
+            metrics.assumptions = list(dict.fromkeys([*metrics.assumptions, *assumptions]))
+        return output
+
+    def _fallback_output(
+        self,
+        evidence: list[EvidenceSource],
+        monthly_burn: float,
+        context: dict[str, Any] | None = None,
+    ) -> FinancialIntelligenceOutput:
+        """Return an unvalidated baseline with explicit, nonzero unit-economics assumptions."""
         monthly_burn = max(float(monthly_burn or 0), 0)
+        unit_economics, unit_assumptions = self._estimate_unit_economics(context or {})
         assumptions = [
             "No validated customer, pricing, cash-balance, or unit-economics data was supplied.",
             "Revenue and valuation are left at zero; this is an unvalidated baseline, not a forecast.",
+            *unit_assumptions,
         ]
         return FinancialIntelligenceOutput(
             metrics=FinancialMetrics(
-                arr=0.0, mrr=0.0, gross_margin_percent=0.0,
-                cac=0.0, ltv=0.0, ltv_cac_ratio=0.0,
+                arr=0.0, mrr=0.0, gross_margin_percent=unit_economics.gross_margin_percent,
+                cac=unit_economics.cac, ltv=unit_economics.ltv,
+                ltv_cac_ratio=unit_economics.ltv_cac_ratio,
                 burn_rate=monthly_burn, burn_multiple=0.0,
-                payback_period_months=0, cash_runway_months=0,
+                payback_period_months=unit_economics.payback_period_months,
+                cash_runway_months=0,
                 assumptions=assumptions,
                 evidence=evidence[:5],
             ),
             unit_economics=UnitEconomics(
-                cac=0.0, ltv=0.0, ltv_cac_ratio=0.0,
-                payback_period_months=0, gross_margin_percent=0.0,
-                net_margin_percent=0.0, contribution_margin_percent=0.0,
-                churn_rate_percent=0.0, expansion_rate_percent=0.0,
+                **unit_economics.model_dump(exclude={"evidence"}),
                 evidence=evidence[:3],
             ),
             projections=[

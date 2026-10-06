@@ -35,6 +35,7 @@ class UnitEconomics(BaseModel):
     churn_rate_percent: float = Field(ge=0.0, le=100.0)
     expansion_rate_percent: float = Field(ge=0.0, description="Revenue expansion rate")
     evidence: list[EvidenceSource] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list, description="Unvalidated assumptions used for estimates")
 
 
 class ScenarioFinancials(BaseModel):

@@ -7,7 +7,6 @@ When a user hits POST /api/v1/generator/run, this module:
 3. Returns 202 Accepted with session_id so the frontend can subscribe to SSE
 """
 
-import asyncio
 import uuid
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -17,6 +16,7 @@ from sqlalchemy import select
 
 from backend.api.dependencies import get_token_payload
 from backend.api.arq_client import enqueue_compilation
+from backend.ai.ollama import ollama_adapter
 from backend.core.config import settings
 from backend.core.generation_lifecycle import (
     generation_session_is_stale,
@@ -54,7 +54,34 @@ class RunStatusResponse(BaseModel):
     updated_at: str | None = None
 
 
+class ProviderStatusResponse(BaseModel):
+    """Configured inference provider readiness."""
+    available: bool
+    model: str
+    host: str
+
+
 # ── Endpoint ───────────────────────────────────────────────────────
+
+@router.get(
+    "/provider-status",
+    response_model=BaseResponse[ProviderStatusResponse],
+)
+async def get_provider_status(
+    claims: dict[str, Any] = Depends(get_token_payload),
+) -> dict[str, Any]:
+    """Check model availability before accepting a costly pipeline run."""
+    provider = await ollama_adapter.check_availability()
+    return {
+        "success": True,
+        "data": ProviderStatusResponse(
+            available=True,
+            model=provider["model"],
+            host=provider["host"],
+        ),
+        "metadata": APIResponseMetadata(),
+    }
+
 
 @router.post(
     "/run",
@@ -64,6 +91,7 @@ class RunStatusResponse(BaseModel):
 async def trigger_run(
     project_id: uuid.UUID,
     stage: str | None = None,
+    start_from_stage: str | None = None,
     db: AsyncSession = Depends(get_db),
     claims: dict[str, Any] = Depends(get_token_payload),
 ) -> dict[str, Any]:
@@ -75,6 +103,21 @@ async def trigger_run(
     - Returns 202 Accepted with session_id and stream_url
     """
     user_id = uuid.UUID(claims["sub"])
+
+    if stage and start_from_stage:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Choose either a single stage or a resume stage, not both.",
+        )
+    if stage or start_from_stage:
+        from backend.orchestrator.engine import WorkflowOrchestrator
+
+        requested_stage = stage or start_from_stage
+        if requested_stage not in WorkflowOrchestrator.STAGES_ORDER:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unknown pipeline stage: {requested_stage}",
+            )
 
     # Enforce tenancy verification
     project = await project_service.get_user_project(
@@ -139,20 +182,29 @@ async def trigger_run(
             project_id=project.id,
             correlation_id=correlation_id,
             target_stage=stage,
+            start_from_stage=start_from_stage,
         )
     except Exception as e:
         logger.error(f"Failed to enqueue compilation job: {e}", exc_info=e)
         if settings.ENVIRONMENT == "development":
             job_id = f"local:{session.id}"
             logger.warning("Running the compilation directly in the development API process because Redis/ARQ is unavailable.")
-            from backend.worker.tasks import run_compilation_pipeline
-            asyncio.create_task(
-                run_compilation_pipeline(
-                    {},
-                    str(project.id),
-                    correlation_id,
-                    stage,
-                )
+            session.stage_cache_map = {
+                **(session.stage_cache_map or {}),
+                "_local_execution": {
+                    "target_stage": stage,
+                    "start_from_stage": start_from_stage,
+                    "recovery_attempts": 0,
+                },
+            }
+            await db.commit()
+            from backend.worker.tasks import schedule_local_pipeline
+
+            schedule_local_pipeline(
+                str(project.id),
+                correlation_id,
+                stage,
+                start_from_stage,
             )
         else:
             session.status = "ENQUEUE_FAILED"

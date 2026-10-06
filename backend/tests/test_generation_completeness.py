@@ -138,6 +138,41 @@ def test_financial_intelligence_normalizes_model_month_labels_and_text_sections(
     assert output.valuation["summary"].startswith("Pre-money estimate")
 
 
+def test_financial_intelligence_estimates_unit_economics_from_customer_profile() -> None:
+    economics, assumptions = FinancialIntelligenceModule._estimate_unit_economics({
+        "dna": {"customer_type": "B2B", "business_model": "marketplace"},
+        "industry": "industrial software",
+    })
+
+    assert economics.cac == 750
+    assert economics.gross_margin_percent == 60
+    assert economics.ltv == 10_000
+    assert economics.ltv_cac_ratio == pytest.approx(13.33, rel=1e-3)
+    assert economics.payback_period_months == 3
+    assert any("illustrative planning estimates" in assumption.lower() for assumption in assumptions)
+
+
+def test_financial_intelligence_completes_missing_metrics_without_overwriting_model_values() -> None:
+    output = FinancialIntelligenceModule()._fallback_output([], 12_000)
+    output.unit_economics.cac = 1_250
+    output.metrics.cac = 1_250
+    output.unit_economics.ltv = 0
+    output.metrics.ltv = 0
+    output.unit_economics.assumptions = []
+    output.metrics.assumptions = []
+
+    result = FinancialIntelligenceModule._complete_unit_economics(
+        output,
+        {"dna": {"customer_type": "B2C"}},
+        12_000,
+    )
+
+    assert result.unit_economics.cac == result.metrics.cac == 1_250
+    assert result.unit_economics.ltv == result.metrics.ltv > 0
+    assert result.unit_economics.assumptions
+    assert result.metrics.assumptions
+
+
 def test_financial_metrics_normalizes_unspecified_break_even_to_unknown() -> None:
     metrics = FinancialMetrics(
         arr=0,
@@ -414,6 +449,63 @@ async def test_cost_generation_does_not_require_noncritical_swot(monkeypatch: py
     assert result["mvp_cost_estimate"] > 0
 
 
+@pytest.mark.asyncio
+async def test_cost_generation_uses_input_derived_baseline_for_invalid_model_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class StubDatabase:
+        async def execute(self, _statement: object) -> SimpleNamespace:
+            return SimpleNamespace(scalars=lambda: SimpleNamespace(first=lambda: None))
+
+        def add(self, _record: object) -> None:
+            pass
+
+        async def commit(self) -> None:
+            pass
+
+        async def refresh(self, _record: object) -> None:
+            pass
+
+    monkeypatch.setattr(
+        CostModule,
+        "_fetch_realtime_data",
+        AsyncMock(return_value=("cost data unavailable", "funding data unavailable")),
+    )
+    monkeypatch.setattr(
+        "backend.modules.cost.module.ollama_adapter.generate",
+        AsyncMock(side_effect=BaseBusinessException(
+            "Expecting ',' delimiter: line 171 column 30",
+            code="OLLAMA_VALIDATION_ERROR",
+            status_code=422,
+        )),
+    )
+    project = SimpleNamespace(
+        id=uuid.uuid4(),
+        title="Industrial maintenance platform",
+        description="Predictive maintenance for manufacturers",
+        industry="industrial software",
+    )
+    context = {
+        "dna": {"category": "industrial software"},
+        "features": {
+            "features": [
+                {"id": "prediction", "name": "Failure prediction", "priority": "MUST_HAVE"},
+            ],
+        },
+        "roadmap": {"phases": [{"phase_id": "mvp", "name": "MVP", "duration_months": 3, "tasks": []}]},
+        "team": {"org_chart": [{"title": "Engineer", "estimated_salary_usd": 120_000}]},
+    }
+
+    result = await CostModule().run(StubDatabase(), project, context)  # type: ignore[arg-type]
+    validated = CostOutput.model_validate(result)
+
+    assert validated.total_monthly_payroll_usd == 10_000
+    assert validated.mvp_cost_estimate > 0
+    assert len(validated.budget_scenarios) == 3
+    assert "invalid JSON" in validated.key_cost_risks[0]
+    assert "validate" in validated.funding_requirements.funding_suitability.lower()
+
+
 def test_financial_fallback_does_not_invent_revenue_or_valuation() -> None:
     result = FinancialIntelligenceModule()._fallback_output([], 12_000)
 
@@ -462,11 +554,23 @@ async def test_financial_intelligence_uses_safe_baseline_for_schema_validation_f
     module = FinancialIntelligenceModule()
 
     result = await module._generate_financials(
-        {"cost": {"monthly_burn_usd": 12_000}},
+        {
+            "cost": {"monthly_burn_usd": 12_000},
+            "dna": {"customer_type": "B2B", "business_model": "Subscription SaaS"},
+            "industry": "industrial software",
+        },
         [],
     )
 
     assert result.metrics.arr == result.metrics.mrr == 0
+    assert result.metrics.cac > 0
+    assert result.metrics.ltv > result.metrics.cac
+    assert result.metrics.ltv_cac_ratio > 0
+    assert result.unit_economics.payback_period_months > 0
+    assert result.unit_economics.gross_margin_percent > 0
+    assert result.unit_economics.contribution_margin_percent > 0
+    assert result.unit_economics.churn_rate_percent > 0
+    assert result.unit_economics.assumptions
     assert result.projections[0].revenue == 0
     assert result.projections[0].costs == 12_000
     assert result.scenarios[0].year1_revenue == 0
@@ -489,6 +593,8 @@ def test_investment_committee_fallback_never_claims_a_real_offer() -> None:
         ("competition", "COMPETITIVE"),
         ("tech", "TECHNOLOGICAL"),
         ("market", "MARKET"),
+        ("customer", "MARKET"),
+        ("management", "OPERATIONAL"),
     ],
 )
 def test_stress_test_normalizes_model_category_synonyms(
